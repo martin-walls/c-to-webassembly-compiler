@@ -33,7 +33,7 @@ To transform from abstract syntax tree to the intermediate representation, this 
 
 
 
-To transform from the intermediate representation to WebAssembly, I will need to convert the three-address code representation into a stack-based format, since WebAssembly is stack-based. This stack-based format will have a direct correspondence to WebAssembly instructions, so the final step of the compiler will be writing out the list of program instructions to a WebAssembly binary file. 
+To transform from the intermediate representation to WebAssembly, I will need to convert the three-address code representation into a stack-based format, since WebAssembly is stack-based. This stack-based format will have a direct correspondence to WebAssembly instructions, so the final step of the compiler will be writing out the list of program instructions to a WebAssembly binary file.
 
 
 
@@ -71,6 +71,8 @@ These optimisations will be run in several passes, because doing one optimisatio
 
 The stack-based peephole optimisations (such as removing pushes directly followed by a pop) will be done once the three-address code representation has been transformed into the stack-based format in the final stage.
 
+I will also implement tail-call optimisation, which removes unnecessary stack frames when a function call is the last statement of a function.
+
 \subsection*{Extensions}
 
 Extensions to this project will be further optimisations.
@@ -92,9 +94,9 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 
 \item \textbf{14th - 28th Oct}
 
-  Preparatory research, set up project environment, including toolchain for running compiled WebAssembly.
+  Preparatory research, set up project environment, including toolchain for running compiled WebAssembly. I will research the WebAssembly instruction set.
 
-  \textbf{Milestone deliverable:} Test program written in C that calculates and outputs the first ten Fibonacci numbers; This will be the target for the compiler to be able to compile. The test program will deliberately include inefficient/redundant code to allow optimisations to be demonstrated. A handwritten WebAssembly implementation of that program.
+  \textbf{Milestone deliverable:} Test program written in C that calculates and outputs the first ten Fibonacci numbers, and a handwritten WebAssembly implementation of that program. I will write a short LaTeX document explaining the WebAssembly instruction set, from the research I do.
 
 \item\textbf{28th Oct - 11th Nov}
 
@@ -120,7 +122,7 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 
 \item\textbf{9th - 23rd Dec}
 
-  Implementation of peephole optimisations, as described above.
+  Implementation of peephole optimisations and tail-call optimisation, as described above.
 
   \textbf{Milestone deliverable}: The generated target code of the test program with optimisations applied. Evidence to show the impact of the optimisations.
 
@@ -142,9 +144,9 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 
 \item\textbf{10th - 24th Feb}
 
-  Evaluate the compiled WebAssembly, including correctness and impact of optimisations.
+  Evaluate the compiled WebAssembly, including correctness and impact of optimisations. Write these evaluations into a draft evaluation chapter.
 
-  \textbf{Milestone deliverable}: Evaluation chapter.
+  \textbf{Milestone deliverable}: Draft evaluation chapter.
 
 \item\textbf{24th Feb - 10th Mar}
 
@@ -166,9 +168,9 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 
 \item\textbf{7th - 21st Apr}
 
-  Write conclusions chapter.
+  Write conclusions chapter and finish evaluations chapter.
 
-  \textbf{Milestone deliverable}: Conclusions chapter.
+  \textbf{Milestone deliverable}: Evaluations and conclusions chapter.
 
 \item\textbf{21st Apr - 5th May}
 
@@ -179,6 +181,8 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 \item \textbf{5th - 12th May}
 
   Slack time in week up to formal deadline, to make any final changes.
+
+  \textbf{Milestone deliverable}: Final dissertation submitted.
 
 \end{enumerate}
 

@@ -2,7 +2,7 @@ Subject: Phase 1 - Walls: C to WebAssembly Compiler
 
 Phase 1 Project Selection Status Report
 
-Name: Martin Walls              
+Name: Martin Walls
 
 College: Churchill
 
