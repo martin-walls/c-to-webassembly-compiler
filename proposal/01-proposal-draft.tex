@@ -5,13 +5,15 @@
 \fancyhead[R]{Martin Walls}
 \fancyfoot[C]{\thepage\ / \pageref{LastPage}}
 
+\title{Part II Project Proposal: C to WebAssembly Compiler}
+\author{Martin Walls}
+\date{October 2022}
+
 \begin{document}
 
-\section*{Proposal Draft Martin Walls}
+\maketitle
 
-Project title: C to WebAssembly Compiler
-
-\subsection*{Overview}
+\section*{Overview}
 
 With the web playing an ever-increasing role in how we interact with computers, applications are often expected to run in a web browser in the same way as a traditional native application. WebAssembly is a binary code format that runs in a stack-based virtual machine, supported by all major browsers. It aims to bring near-native performance to web applications, with applications for situations where JavaScript isn't performant enough, and for running programs originally written in languages other than JavaScript in a web browser.
 
@@ -42,7 +44,7 @@ To transform from the intermediate representation to WebAssembly, I will need to
 
 
 
-\subsection*{Starting point}
+\section*{Starting point}
 
 I don't have any experience in writing compilers beyond the Part IB Compiler Construction course. I haven't previously used any lexer or parser generator libraries. I have knowledge of C++ from the Part IB course but haven't written a larger program in C++ outside the course.
 
@@ -50,7 +52,7 @@ I have briefly looked up the instruction set for WebAssembly and have written a 
 
 I have briefly researched lexer and parser generators such as Flex and Bison to see what's out there and to help decide on which language to write my compiler in, but I haven't used them before.
 
-\subsection*{Success criteria}
+\section*{Success criteria}
 
 The project will be a success if:
 
@@ -62,7 +64,7 @@ The project will be a success if:
 \end{itemize}
 
 
-\subsection*{Optimisations}
+\section*{Optimisations}
 
 At first, I will implement peephole optimisations, which are optimisations that look at short sections of code and match them against patterns we know can be optimised, then replacing them with the optimised version.
 For example, redundant operations can be removed, such as writing to the same variable twice in a row (ignoring the first value written), or a stack push followed immediately by a pop.
@@ -76,7 +78,7 @@ The stack-based peephole optimisations (such as removing pushes directly followe
 
 I will also implement tail-call optimisation, which removes unnecessary stack frames when a function call is the last statement of a function.
 
-\subsection*{Extensions}
+\section*{Extensions}
 
 Extensions to this project will be further optimisations.
 
@@ -85,7 +87,7 @@ One optimisation would be dead-code elimination, which looks through the code fo
 Another optimisation would be unreachable-code elimination, where we perform analysis to find blocks of code that can never be executed, and removing them. This will involve control flow analysis to determine the possible routes the program can take.
 
 
-\subsection*{Evaluation}
+\section*{Evaluation}
 
 The main evidence to show the compiler working will be the generated target code that it outputs, when given the test program as input. I will show that the generated code is correct with respect to the source code. I will also run the generated program as well as the original program, and verify that the output is the same.
 
@@ -93,7 +95,7 @@ Additionally, I will evaluate the compiler optimisations by running the compiler
 
 As time allows, I will create more test programs other than Fibonacci and also benchmark these. This will help give more representative results.
 
-\subsection*{Work Plan}
+\section*{Work Plan}
 
 \begin{enumerate}
 
@@ -191,7 +193,7 @@ As time allows, I will create more test programs other than Fibonacci and also b
 
 \end{enumerate}
 
-\subsection*{Resources}
+\section*{Resources}
 
 I will primarily use my own laptop for development. I accept full responsibility for this machine and I have made contingency plans to protect myself against hardware and/or software failure.
 
