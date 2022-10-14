@@ -1,6 +1,6 @@
 \documentclass[10pt,a4paper]{article}
 
-\usepackage{mrw}
+\usepackage[bigmarginright]{mrw}
 
 \pagestyle{fancy}
 \setlength{\headheight}{22.59pt}
@@ -17,13 +17,14 @@
 
 \begin{document}
 
+
 The byte values for each instruction in the binary format are listed at \url{https://webassembly.github.io/spec/core/binary/instructions.html}.
 
 \section*{Values}
 
 WebAssembly has the following types of values:
 
-\begin{tabularx}{\textwidth}{l>{\ttfamily}llX}
+\begin{tabularx}{\textwidth}{l>{\sffamily}llX}
 \toprule
 \textbf{Type} & \normalfont\textbf{Constructor} & \textbf{Bit width} & \textbf{Notes} \\
 \midrule
@@ -32,13 +33,13 @@ Integer & i32 & 32-bit & Also used to store booleans and memory addresses. \\
 Float\footnote{Specified by IEEE 754-2019 (\url{https://ieeexplore.ieee.org/document/8766229})} & f32 & 32-bit \\
 & f64 & 64-bit \\
 Vector & v128 & 128-bit & Can store floats (4 32-bit, or 2 64-bit) or integers (2 64-bit, 4 32-bit, 8 16-bit, or 16 8-bit). \\
-References & & Opaque & Pointers to various types of entities \\
+References & funcref & Opaque & Pointers to functions, of any type \\
+& externref & & Pointers to other types of objects that can be passed into WebAssembly \\
 \bottomrule
 \end{tabularx}
 
 Integers are interpreted as signed or unsigned numbers, depending on the operations applied to them.
-
-But the spec also says there are (1) unsigned, (2) signed, and (3) uninterpreted integers? (structure>values)
+\marginpar{\raggedright But the spec also says there are (1) unsigned, (2) signed, and (3) uninterpreted integers? (docs>structure>values)}
 
 \subsubsection*{Integer encoding}
 
@@ -140,6 +141,8 @@ global.set $x$ & Same as \textsf{local.set} for a global variable \\
 
 Here, `$\ldots$' represents any sequence of instructions. Labels can also be omitted, in which case blocks/loops are implicitly labelled by their nesting depth.
 
+\marginpar{labels vs implicitly referencing by depth?}
+
 \begin{xltabular}{\textwidth}{>{\sffamily}lX}
 \toprule
 block \normalfont\textit{\$label} $\ldots$ end & Creates a block that can be branched out of using a \textsf{br} instruction. The label is used to identify which block to branch out of. This treats \textsf{br} like a \texttt{break} statement in C. \\
@@ -194,5 +197,7 @@ Data segments can either be passive or active. Passive data segments are loaded 
 A table is an array of function pointers, that can be used to indirectly call functions. Tables live outside of WebAssembly's memory, so they can't be seen from the program itself. This keeps the memory addresses of functions hidden. To call a function referenced in a table, the \textsf{call\_indirect} instruction is used.
 
 \section*{Modules}
+
+A module is a compilation and loading unit for a WebAssembly program.
 
 \end{document}
