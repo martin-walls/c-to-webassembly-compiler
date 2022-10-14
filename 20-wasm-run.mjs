@@ -1,3 +1,6 @@
+//
+// node 20-wasm-run.mjs <wasm_filename> [args...]
+//
 import { readFileSync } from "fs";
 
 const run = async (filename, args) => {
