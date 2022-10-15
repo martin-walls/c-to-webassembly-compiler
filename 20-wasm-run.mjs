@@ -6,17 +6,34 @@ import { readFileSync } from "fs";
 const run = async (filename, args) => {
   const buffer = readFileSync(filename);
 
+  let memory;
+
+  // print a null-terminated string from memory to console
+  const printf = (offset) => {
+    let str = "";
+    const mem = new Uint8Array(memory.buffer);
+    let b = mem[offset];
+    while (b !== 0) {
+      str += String.fromCharCode(b);
+      offset++;
+      b = mem[offset];
+    }
+    console.log(str);
+  }
+
   // functions that will be passed in to wasm
   const imports = {
     console: {
       log: (arg) => console.log(arg),
+      printf,
     },
   };
 
   const module = await WebAssembly.instantiate(buffer, imports);
 
   // run 'main' function with command line arguments
-  const { main, memory } = module.instance.exports;
+  const { main } = module.instance.exports;
+  memory = module.instance.exports.memory;
   const argc = args.length;
   const argv = 0;
   // put the arguments into wasm memory
