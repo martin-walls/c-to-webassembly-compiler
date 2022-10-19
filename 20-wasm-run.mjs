@@ -9,22 +9,42 @@ const run = async (filename, args) => {
   let memory;
 
   // print a null-terminated string from memory to console
-  const printf = (offset) => {
+  const printf = (offset, ...formatargs) => {
     let str = "";
     const mem = new Uint8Array(memory.buffer);
     let b = mem[offset];
+    let c;
+    let argcounter = 0;
     while (b !== 0) {
-      str += String.fromCharCode(b);
+      c = String.fromCharCode(b);
+      // handle format args
+      if (c === "%") {
+        offset++;
+        b = mem[offset];
+        c = String.fromCharCode(b);
+        if (c !== "%" && argcounter < formatargs.length) {
+          str += `${formatargs[argcounter]}`
+          argcounter++;
+          offset++;
+          b = mem[offset];
+          continue;
+        }
+      }
+      str += c
       offset++;
       b = mem[offset];
     }
-    console.log(str);
-  }
+
+    process.stdout.write(str); // only works in node.js, use console.log otherwise, but that prints newline
+  };
 
   // functions that will be passed in to wasm
   const imports = {
     console: {
-      log: (arg) => console.log(arg),
+      log: (arg) => {
+        console.log(arg);
+        return arg;
+      },
       printf,
     },
   };
