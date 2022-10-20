@@ -1,6 +1,5 @@
 (module
   (import "console" "printf" (func $printf_i32_i32 (param i32) (param i32) (param i32)))
-  (import "console" "log" (func $log (param i32)))
   (func $fib (param i32) (result i32)
     (local i32) ;; return value
     (block
