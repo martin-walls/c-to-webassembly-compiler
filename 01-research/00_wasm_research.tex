@@ -42,11 +42,35 @@ References & funcref & Opaque & Pointers to functions, of any type \\
 \end{tabularx}
 
 Integers are interpreted as signed or unsigned numbers, depending on the operations applied to them.
-\marginpar{\raggedright But the spec also says there are (1) unsigned, (2) signed, and (3) uninterpreted integers? (docs>structure>values)}
 
-\subsubsection*{Integer encoding}
+\subsection*{Integer encoding}
 
-Integers $n$ are encoded in the binary format using a variable-length integer encoding.
+Integers are encoded in the binary format using a variable-length integer encoding (LEB128\footnote{\url{https://en.wikipedia.org/wiki/LEB128}}).
+
+Process:
+\begin{itemize}
+\item Zero-extend the number to a multiple of 7 bits
+\item Split into groups of 7 bits
+\item Add a 0 bit to the front of the most significant group, and add a 1 to the front of each other group
+\item Store in little-endian order (LSB first, MSB last)
+\end{itemize}
+
+If the number is negative, convert it to two's complement representation after zero-extending it, then do the rest of the process the same.
+
+The decoder needs to know whether the number was stored as a signed or unsigned number, because they need to know whether to decode it as a two's complement number or not. That's why some arithmetic operations have signed and unsigned versions, which will tell WebAssembly how to decode the number.
+
+Because it's stored in little-endian order, the decoder knows which byte is the last byte of the number: the byte whose highest bit is a zero.
+
+Encoding the number 65000:
+
+\begin{lstlisting}[style=code]
+MSB ------------------ LSB
+       1111 1101 1110 1000    Binary of 65000
+ 00000 1111 1101 1110 1000    Extending to a multiple of 7 bits
+ 0000011  1111011  1101000    Split into groups of 7 bits
+00000011 11111011 11101000    Add a zero to front of the MSB and 1s to the rest
+11101000 11111011 00000011    Store in little-endian order
+\end{lstlisting}
 
 
 \section*{Numeric Instructions}
