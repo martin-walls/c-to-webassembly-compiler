@@ -1,0 +1,281 @@
+use crate::ast;
+
+grammar;
+
+pub Keyword: ast::Keyword = {
+  "auto" => ast::Keyword::Auto,
+  "break" => ast::Keyword::Break,
+  "case" => ast::Keyword::Case,
+  "char" => ast::Keyword::Char,
+  "const" => ast::Keyword::Const,
+  "continue" => ast::Keyword::Continue,
+  "default" => ast::Keyword::Default,
+  "do" => ast::Keyword::Do,
+  "double" => ast::Keyword::Double,
+  "else" => ast::Keyword::Else,
+  "enum" => ast::Keyword::Enum,
+  "extern" => ast::Keyword::Extern,
+  "float" => ast::Keyword::Float,
+  "for" => ast::Keyword::For,
+  "goto" => ast::Keyword::Goto,
+  "if" => ast::Keyword::If,
+  "inline" => ast::Keyword::Inline,
+  "int" => ast::Keyword::Int,
+  "long" => ast::Keyword::Long,
+  "register" => ast::Keyword::Register,
+  "restrict" => ast::Keyword::Restrict,
+  "return" => ast::Keyword::Return,
+  "short" => ast::Keyword::Short,
+  "signed" => ast::Keyword::Signed,
+  "sizeof" => ast::Keyword::Sizeof,
+  "static" => ast::Keyword::Static,
+  "struct" => ast::Keyword::Struct,
+  "switch" => ast::Keyword::Switch,
+  "typedef" => ast::Keyword::Typedef,
+  "union" => ast::Keyword::Union,
+  "unsigned" => ast::Keyword::Unsigned,
+  "void" => ast::Keyword::Void,
+  "volatile" => ast::Keyword::Volatile,
+  "while" => ast::Keyword::While,
+};
+
+pub Identifier: ast::Identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
+  => ast::Identifier(<>.to_owned());
+
+pub Constant: ast::Constant = {
+  IntegerConstant => ast::Constant::IntegerConstant(<>),
+  DecimalFloatingConstant => ast::Constant::FloatingConstant(<>),
+};
+
+pub IntegerConstant: u128 = {
+  DecimalConstant,
+  BinaryConstant,
+  OctalConstant,
+  HexadecimalConstant,
+}
+
+DecimalConstant: u128 = r"[1-9][0-9]*"
+  => u128::from_str_radix(&<>, 10).unwrap();
+
+BinaryConstant: u128 = r"0(b|B)[0-1]+"
+  => u128::from_str_radix(&<>[2..], 2).unwrap();
+
+OctalConstant: u128 = r"0[0-7]+"
+  => u128::from_str_radix(&<>, 8).unwrap();
+
+HexadecimalConstant: u128 = r"0(x|X)[0-9A-Fa-f]+"
+  => u128::from_str_radix(&<>[2..], 16).unwrap();
+
+pub DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
+
+pub StringLiteral: String = r#"".*""# => <>.to_owned();
+
+
+
+
+pub PrimaryExpression = {
+  Identifier,
+  Constant,
+  StringLiteral,
+  "(" <Expression> ")",
+};
+
+pub PostfixExpression = {
+  PrimaryExpression,
+  PostfixExpression "[" Expression "]",
+  PostfixExpression "()",
+  PostfixExpression "(" ArgumentExpressionList ")",
+  PostfixExpression "." Identifier,
+  PostfixExpression "->" Identifier,
+  PostfixExpression "++",
+  PostfixExpression "--",
+};
+
+ArgumentExpressionList = {
+  AssignmentExpression,
+  ArgumentExpressionList "," AssignmentExpression,
+};
+
+UnaryExpression = {
+  PostfixExpression,
+  "++" UnaryExpression,
+  "--" UnaryExpression,
+  UnaryOperator CastExpression
+  "sizeof" UnaryExpression,
+};
+
+UnaryOperator = {
+  "&",
+  "*",
+  "+",
+  "-",
+  "~",
+  "!",
+};
+
+CastExpression = {
+  UnaryExpression,
+  "(" TypeName ")" CastExpression
+};
+
+MultiplicativeExpression = {
+  CastExpression,
+  MultiplicativeExpression "*" CastExpression,
+  MultiplicativeExpression "/" CastExpression,
+  MultiplicativeExpression "%" CastExpression,
+};
+
+AdditiveExpression = {
+  MultiplicativeExpression,
+  AdditiveExpression "+" MultiplicativeExpression,
+  AdditiveExpression "-" MultiplicativeExpression,
+};
+
+ShiftExpression = {
+  AdditiveExpression,
+  ShiftExpression "<<" AdditiveExpression,
+  ShiftExpression ">>" AdditiveExpression,
+};
+
+RelationalExpression = {
+  ShiftExpression,
+  RelationalExpression "<" ShiftExpression,
+  RelationalExpression ">" ShiftExpression,
+  RelationalExpression "<=" ShiftExpression,
+  RelationalExpression ">=" ShiftExpression,
+};
+
+EqualityExpression = {
+  RelationalExpression,
+  EqualityExpression "==" RelationalExpression,
+  EqualityExpression "!=" RelationalExpression,
+};
+
+AndExpression = {
+  EqualityExpression,
+  AndExpression "&" EqualityExpression,
+};
+
+ExclusiveOrExpression = {
+  AndExpression,
+  ExclusiveOrExpression "^" AndExpression,
+};
+
+InclusiveOrExpression = {
+  ExclusiveOrExpression,
+  InclusiveOrExpression "|" ExclusiveOrExpression,
+};
+
+LogicalAndExpression = {
+  InclusiveOrExpression,
+  LogicalAndExpression "&&" InclusiveOrExpression,
+};
+
+LogicalOrExpression = {
+  LogicalAndExpression,
+  LogicalOrExpression "||" LogicalAndExpression,
+};
+
+ConditionalExpression = {
+  LogicalOrExpression,
+  LogicalOrExpression ? Expression : ConditionalExpression,
+};
+
+AssignmentExpression = {
+  ConditionalExpression,
+  UnaryExpression "=" AssignmentExpression,
+  UnaryExpression "*=" AssignmentExpression,
+  UnaryExpression "/=" AssignmentExpression,
+  UnaryExpression "%=" AssignmentExpression,
+  UnaryExpression "+=" AssignmentExpression,
+  UnaryExpression "-=" AssignmentExpression,
+  UnaryExpression "<<=" AssignmentExpression,
+  UnaryExpression ">>=" AssignmentExpression,
+  UnaryExpression "&=" AssignmentExpression,
+  UnaryExpression "^=" AssignmentExpression,
+  UnaryExpression "|=" AssignmentExpression,
+};
+
+Expression = {
+  AssignmentExpression,
+  Expression "," AssignmentExpression,
+};
+
+ConstantExpression = {
+  ConditionalExpression,
+};
+
+Declaration = {
+  TypeSpecifier InitDeclaratorList ";",
+};
+
+InitDeclaratorList = {
+  InitDeclarator,
+  InitDeclaratorList "," InitDeclarator,
+};
+
+InitDeclarator = {
+  Declarator,
+  Declarator "=" Initializer,
+};
+
+TypeSpecifier = {
+  "void",
+  "char",
+  "short",
+  "int",
+  "long",
+  "float",
+  "double",
+  "signed",
+  "unsigned",
+  StructOrUnionSpecifier,
+  EnumSpecifier,
+  TypedefName,
+}
+
+StructOrUnionSpecifier = {
+  "struct" Identifier,
+  "union" Identifier,
+  "struct" Identifier "{" StructDeclaratorList "}",
+  "union" Identifier "{" StructDeclaratorList "}",
+  "struct" "{" StructDeclarationList "}",
+  "union" "{" StructDeclarationList "}",
+};
+
+StructDeclaratorList = {
+  StructDeclarator,
+  StructDeclaratorList "," StructDeclarator,
+};
+
+StructDeclarator = {
+  Declarator,
+  Declarator ":" ConstantExpression,
+  ":" ConstantExpression,
+}
+
+EnumSpecifier = {
+  "enum" Identifier,
+  "enum" Identifier "{" EnumeratorList "}",
+  "enum" Identifier "{" EnumeratorList "," "}",
+  "enum" "{" EnumeratorList "}",
+  "enum" "{" EnumeratorList "," "}",
+};
+
+EnumeratorList = {
+  Enumerator,
+  EnumeratorList "," Enumerator,
+};
+
+Enumerator = {
+  Identifier,
+  Identifier "=" ConstantExpression,
+};
+
+Declarator = {
+  Identifier
+};
+
+TypedefName = {
+  Identifier
+};

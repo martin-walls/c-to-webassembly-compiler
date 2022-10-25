@@ -7,3 +7,5 @@ Useful wat reference on MDN https://developer.mozilla.org/en-US/docs/WebAssembly
 Passing arrays to wasm https://rob-blackbourn.github.io/blog/webassembly/wasm/array/arrays/javascript/c/2020/06/07/wasm-arrays.html
 
 LALRPOP tutorial https://lalrpop.github.io/lalrpop/tutorial/index.html
+
+C lexical grammar https://learn.microsoft.com/en-us/cpp/c-language/lexical-grammar?view=msvc-170
