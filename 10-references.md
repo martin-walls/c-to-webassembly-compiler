@@ -9,3 +9,6 @@ Passing arrays to wasm https://rob-blackbourn.github.io/blog/webassembly/wasm/ar
 LALRPOP tutorial https://lalrpop.github.io/lalrpop/tutorial/index.html
 
 C lexical grammar https://learn.microsoft.com/en-us/cpp/c-language/lexical-grammar?view=msvc-170
+
+https://en.wikipedia.org/wiki/Dangling_else#C
+https://en.wikipedia.org/wiki/C_data_types

@@ -1,3 +1,5 @@
+use std::fs;
+
 pub mod ast;
 
 #[macro_use] extern crate lalrpop_util;
@@ -5,7 +7,11 @@ pub mod ast;
 lalrpop_mod!(pub c);
 
 fn main() {
-    println!("Hello, world!");
+    let source = fs::read_to_string("test.c").unwrap();
+
+    println!("{source}");
+
+    println!("{:?}", c::StatementParser::new().parse(&source));
 }
 
 #[test]
