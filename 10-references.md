@@ -12,3 +12,8 @@ C lexical grammar https://learn.microsoft.com/en-us/cpp/c-language/lexical-gramm
 
 https://en.wikipedia.org/wiki/Dangling_else#C
 https://en.wikipedia.org/wiki/C_data_types
+
+## Rust
+
+Modules https://betterprogramming.pub/explaining-rusts-modules-420d38eed6c5
+Unit testing https://betterprogramming.pub/how-to-structure-unit-tests-in-rust-cc4945536a32
