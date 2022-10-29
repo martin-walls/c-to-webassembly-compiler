@@ -3,6 +3,8 @@ use crate::parser::ast;
 grammar;
 
 
+// CONSTANTS -------------------------
+
 pub Identifier: ast::Identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
   => ast::Identifier(<>.to_owned());
 
@@ -37,7 +39,7 @@ pub StringLiteral: String = r#"".*""# => <>[1..(<>.len()-1)].to_owned();
 
 
 
-
+// STATEMENTS -------------------------------
 
 pub Statement: Box<ast::Statement> = {
   OpenStatement,
@@ -85,6 +87,165 @@ pub StatementList: Vec<Box<ast::Statement>> = {
   },
 };
 
+
+// DECLARATIONS -----------------------------
+
+pub TypeSpecifier: ast::TypeSpecifier = {
+  <ArithmeticType> => ast::TypeSpecifier::ArithmeticType(<>),
+  "void" => ast::TypeSpecifier::Void,
+  <StructDeclaration> => ast::TypeSpecifier::Struct(<>),
+  <UnionDeclaration> => ast::TypeSpecifier::Union(<>),
+  <EnumDeclaration>,
+};
+
+ArithmeticType: ast::ArithmeticType = {
+  <CharType>,
+  <IntType> => match <> {
+    // bitfield: signed unsigned long int short
+    0b00001 | 0b00011 | 0b10001 | 0b10011 => ast::ArithmeticType::I16,
+    0b01001 | 0b01011 => ast::ArithmeticType::U16,
+    0b00010 | 0b10000 | 0b10010 => ast::ArithmeticType::I32,
+    0b01000 | 0b01010 => ast::ArithmeticType::U32,
+    0b00100 | 0b00110 | 0b10100 | 0b10110 => ast::ArithmeticType::I64,
+    0b01100 | 0b01110 => ast::ArithmeticType::U64,
+    _ => panic!("Invalid type specifier"),
+  },
+  "float" => ast::ArithmeticType::F32,
+  "double" => ast::ArithmeticType::F64,
+};
+
+CharType: ast::ArithmeticType = {
+  "signed" "char" => ast::ArithmeticType::I8,
+  "unsigned" "char" => ast::ArithmeticType::U8,
+  // implementation defined, make char signed by default, same as gcc
+  "char" => ast::ArithmeticType::I8,
+};
+
+// bitfield: signed unsigned long int short
+IntType: u8 = {
+  <IntType?> "short" => match <> {
+    Some(n) => n + 1,
+    None => 1,
+  },
+  <IntType?> "int" => match <> {
+    Some(n) => n + 2,
+    None => 2,
+  },
+  <IntType?> "long" => match <> {
+    Some(n) => n + 4,
+    None => 4,
+  },
+  <IntType?> "unsigned" => match <> {
+    Some(n) => n + 8,
+    None => 8,
+  },
+  <IntType?> "signed" => match <> {
+    Some(n) => n + 16,
+    None => 16,
+  },
+};
+
+StructDeclaration: ast::StructType = {
+  "struct" <Identifier> => ast::StructType::Declaration(<>),
+};
+
+UnionDeclaration: ast::UnionType = {
+  "union" <Identifier> => ast::UnionType::Declaration(<>),
+};
+
+EnumDeclaration: ast::TypeSpecifier = {
+  "enum" <Identifier?> "{" <EnumeratorList> ","? "}" => ast::TypeSpecifier::Enum(<>),
+};
+
+EnumeratorList: Vec<ast::Enumerator> = {
+  <Enumerator> => vec![<>],
+  <v:EnumeratorList> "," <e:Enumerator> => {
+    let mut newv = v.to_vec();
+    newv.push(e);
+    newv
+  },
+};
+
+Enumerator: ast::Enumerator = {
+  <Identifier> => ast::Enumerator::Simple(<>),
+  <Identifier> "=" <ConstantExpression> => ast::Enumerator::WithValue(<>),
+};
+
+// pub Declaration = {
+//   DeclarationSpecifiers InitDeclaratorList ";"
+// }
+
+// DeclarationSpecifiers = {
+//   <StorageClassSpecifier> <DeclarationSpecifiers?>,
+//   <TypeSpecifier> <DeclarationSpecifiers?>,
+// }
+
+// StorageClassSpecifier = {
+//   "auto",
+//   "extern",
+//   "register",
+//   "static",
+//   "typedef",
+// }
+
+TypeName: ast::TypeSpecifier = <ArithmeticType> => ast::TypeSpecifier::ArithmeticType(<>);
+
+
+
+
+// TypeSpecifier: ast::TypeSpecifier = {
+//   CharType,
+//   ShortType,
+//   IntType,
+//   LongType,
+//   "void" => ast::TypeSpecifier::Void,  
+//   "float" => ast::TypeSpecifier::F32,
+//   "double" => ast::TypeSpecifier::F64,
+//   "_Bool" => ast::TypeSpecifier::Bool,
+//   <StructType> => ast::TypeSpecifier::Struct(<>),
+//   <UnionType> => ast::TypeSpecifier::Union(<>),
+//   "enum" <Identifier> => ast::TypeSpecifier::Enum(<>),
+// }
+
+// StructType = {
+//   "struct" <Identifier>,
+//   "struct" <Identifier?> "{" <StructDeclarationList> "}",
+// }
+
+// UnionType = {
+//   "union" <Identifier>,
+//   "union" <Identifier?> "{" <StructDeclarationList> "}",
+// }
+
+// StructDeclarationList = {
+//   <StructDeclaration>,
+//   <StructDeclarationList> <StructDeclaration>,
+// }
+
+// StructDeclaration = {
+//   <SpecifierQualifierList> <DeclaratorList?> ";",
+// }
+
+// SpecifierQualifierList = {
+//   <TypeSpecifier> <SpecifierQualifierList?>,
+//   <TypeQualifier> <SpecifierQualifierList?>,
+// }
+
+// TypeQualifier = {
+//   "const"
+// }
+
+// DeclaratorList = {
+//   <Declarator>,
+//   <DeclaratorList> "," <Declarator>
+// }
+
+
+
+
+// EXPRESSIONS ------------------------------
+
+ConstantExpression = ConditionalExpression;
 
 pub Expression: Box<ast::Expression> = {
   AssignmentExpression,
@@ -201,59 +362,8 @@ MultiplicativeExpression: Box<ast::Expression> = {
 
 CastExpression: Box<ast::Expression> = {
   UnaryExpression,
-  "(" <TypeSpecifier> ")" <CastExpression> => Box::new(ast::Expression::Cast(<>)),
+  "(" <TypeName> ")" <CastExpression> => Box::new(ast::Expression::Cast(<>)),
 };
-
-
-
-TypeSpecifier: ast::TypeSpecifier = {
-  CharType,
-  ShortType,
-  IntType,
-  LongType,
-  "void" => ast::TypeSpecifier::Void,  
-  "float" => ast::TypeSpecifier::F32,
-  "double" => ast::TypeSpecifier::F64,
-  "_Bool" => ast::TypeSpecifier::Bool,
-  "struct" <Identifier> => ast::TypeSpecifier::Struct(<>),
-  "union" <Identifier> => ast::TypeSpecifier::Union(<>),
-  "enum" <Identifier> => ast::TypeSpecifier::Enum(<>),
-}
-
-CharType: ast::TypeSpecifier = {
-  // implementation defined, make char signed by default, same as gcc
-  "char" => ast::TypeSpecifier::I8,
-  "signed" "char" => ast::TypeSpecifier::I8,
-  "unsigned" "char" => ast::TypeSpecifier::U8,
-};
-
-ShortType: ast::TypeSpecifier = {
-  "short" => ast::TypeSpecifier::I16,
-  "short" "int" => ast::TypeSpecifier::I16,
-  "signed" "short" => ast::TypeSpecifier::I16,
-  "signed" "short" "int" => ast::TypeSpecifier::I16,
-  "unsigned" "short" => ast::TypeSpecifier::U16,
-  "unsigned" "short" "int" => ast::TypeSpecifier::U16,
-}
-
-IntType: ast::TypeSpecifier = {
-  "int" => ast::TypeSpecifier::I32,
-  "signed" => ast::TypeSpecifier::I32,
-  "signed" "int" => ast::TypeSpecifier::I32,
-  "unsigned" "int" => ast::TypeSpecifier::U32,
-  "unsigned" => ast::TypeSpecifier::U32,
-}
-
-LongType: ast::TypeSpecifier = {
-  "long" => ast::TypeSpecifier::I64,
-  "long" "int" => ast::TypeSpecifier::I64,
-  "signed" "long" => ast::TypeSpecifier::I64,
-  "signed" "long" "int" => ast::TypeSpecifier::I64,
-  "unsigned" "long" => ast::TypeSpecifier::U64,
-  "unsigned" "long" "int" => ast::TypeSpecifier::U64,
-};
-
-
 
 UnaryExpression = {
   PostfixExpression,
@@ -261,7 +371,7 @@ UnaryExpression = {
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
   "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-  "sizeof" "(" <TypeSpecifier> ")" => Box::new(ast::Expression::SizeOfType(<>)),
+  "sizeof" "(" <TypeName> ")" => Box::new(ast::Expression::SizeOfType(<>)),
 };
 
 UnaryOperator: ast::UnaryOperator = {

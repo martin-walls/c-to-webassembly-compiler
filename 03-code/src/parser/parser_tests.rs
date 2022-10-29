@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
-    use super::super::ast::{Constant, Expression};
+    use super::super::ast::*;
 
     #[test]
     fn identifier_parser() {
@@ -91,6 +91,59 @@ mod parser_tests {
         for stmt in valid_stmts {
             println!("{stmt}");
             assert!(c_parser::StatementParser::new().parse(stmt).is_ok());
+        }
+    }
+
+    #[test]
+    fn type_specifier_parser() {
+        assert!(c_parser::TypeSpecifierParser::new().parse("void").unwrap() == TypeSpecifier::Void);
+        assert!(c_parser::TypeSpecifierParser::new().parse("unsigned short int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::U16));
+        assert!(c_parser::TypeSpecifierParser::new().parse("long int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I64));
+        assert!(c_parser::TypeSpecifierParser::new().parse("char").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I8));
+        assert!(c_parser::TypeSpecifierParser::new().parse("unsigned").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::U32));
+        assert!(c_parser::TypeSpecifierParser::new().parse("signed int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I32));
+    }
+
+    #[test]
+    fn struct_parser() {
+        let valid = [
+            "struct s",
+            "struct s {int n; double d;}",
+            "struct {int a; int b;}",
+            "struct s {int n; union u {char c; short i;};}",
+        ];
+
+        for s in valid {
+            println!("{s}");
+            assert!(c_parser::TypeSpecifierParser::new().parse(s).is_ok());
+        }
+    }
+
+    #[test]
+    fn union_parser() {
+        let valid = [
+            "union s",
+            "union s {int n; double d;}",
+            "union {char c; int n;}",
+        ];
+
+        for s in valid {
+            println!("{s}");
+            assert!(c_parser::TypeSpecifierParser::new().parse(s).is_ok());
+        }
+    }
+
+    #[test]
+    fn enum_parser() {
+        let valid = [
+            "enum Color {Red, Green, Blue}",
+            "enum COLOR {Red}",
+            "enum {R, G, B,}"
+        ];
+
+        for s in valid {
+            println!("{s}");
+            assert!(c_parser::TypeSpecifierParser::new().parse(s).is_ok());
         }
     }
 }

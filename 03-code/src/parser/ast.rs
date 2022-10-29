@@ -92,6 +92,15 @@ pub enum BinaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeSpecifier {
+  ArithmeticType(ArithmeticType),
+  Void,
+  Struct(StructType),
+  Union(UnionType),
+  Enum(Option<Identifier>, Vec<Enumerator>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ArithmeticType {
   I8,  // signed char
   U8,  // unsigned char
   I16, // signed short
@@ -102,9 +111,22 @@ pub enum TypeSpecifier {
   U64, // unsigned long
   F32, // float
   F64, // double
-  Void,
-  Bool,
-  Struct(Identifier),
-  Union(Identifier),
-  Enum(Identifier),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StructType {
+  Declaration(Identifier),
+  Definition(Option<Identifier>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnionType {
+  Declaration(Identifier),
+  Definition(Option<Identifier>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Enumerator {
+  Simple(Identifier),
+  WithValue(Identifier, Box<Expression>),
 }
