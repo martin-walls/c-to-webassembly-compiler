@@ -1,13 +1,13 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Identifier(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Constant {
-  IntegerConstant(u128),
-  FloatingConstant(f64),
+  Int(u128),
+  Float(f64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
   Block(Vec<Box<Statement>>),
   Goto(Identifier),
@@ -24,7 +24,7 @@ pub enum Statement {
   Expr(Box<Expression>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LabelledStatement {
   Case,
   Default,
@@ -34,7 +34,7 @@ pub enum LabelledStatement {
 #[derive(Debug)]
 pub struct StatementList(pub Vec<Statement>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
   Identifier(Identifier),
   Constant(Constant),
@@ -48,13 +48,16 @@ pub enum Expression {
   PrefixIncrement(Box<Expression>),
   PrefixDecrement(Box<Expression>),
   UnaryOp(UnaryOperator, Box<Expression>),
+  SizeOfExpr(Box<Expression>),
+  SizeOfType(TypeSpecifier),
   BinaryOp(BinaryOperator, Box<Expression>, Box<Expression>),
   Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
   Assignment(Box<Expression>, Box<Expression>, Option<BinaryOperator>),
   Cast(TypeSpecifier, Box<Expression>),
+  ExpressionList(Box<Expression>, Box<Expression>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
   AddressOf,
   Dereference,
@@ -65,7 +68,7 @@ pub enum UnaryOperator {
   SizeOf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
   Mult,
   Div,
@@ -87,7 +90,7 @@ pub enum BinaryOperator {
   LogicalOr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypeSpecifier {
   I8,  // signed char
   U8,  // unsigned char
@@ -103,4 +106,5 @@ pub enum TypeSpecifier {
   Bool,
   Struct(Identifier),
   Union(Identifier),
+  Enum(Identifier),
 }

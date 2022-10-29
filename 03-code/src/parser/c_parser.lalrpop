@@ -1,4 +1,4 @@
-use crate::ast;
+use crate::parser::ast;
 
 grammar;
 
@@ -7,11 +7,11 @@ pub Identifier: ast::Identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
   => ast::Identifier(<>.to_owned());
 
 pub Constant: ast::Constant = {
-  IntegerConstant => ast::Constant::IntegerConstant(<>),
-  DecimalFloatingConstant => ast::Constant::FloatingConstant(<>),
+  IntegerConstant => ast::Constant::Int(<>),
+  DecimalFloatingConstant => ast::Constant::Float(<>),
 };
 
-pub IntegerConstant: u128 = {
+IntegerConstant: u128 = {
   DecimalConstant,
   BinaryConstant,
   OctalConstant,
@@ -30,7 +30,7 @@ OctalConstant: u128 = r"0[0-7]*"
 HexadecimalConstant: u128 = r"0(x|X)[0-9A-Fa-f]+"
   => u128::from_str_radix(&<>[2..], 16).unwrap();
 
-pub DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
+DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
 
 // remove leading and trailing double quote using slice
 pub StringLiteral: String = r#"".*""# => <>[1..(<>.len()-1)].to_owned();
@@ -65,10 +65,13 @@ ClosedStatement: Box<ast::Statement> = {
   <Expression> ";" => Box::new(ast::Statement::Expr(<>)),
 }
 
-Block: Box<ast::Statement> = "{" <StatementList> "}" => Box::new(ast::Statement::Block(<>));
+Block: Box<ast::Statement> = {
+  "{" <StatementList> "}" => Box::new(ast::Statement::Block(<>)),
+  "{" "}" => Box::new(ast::Statement::Block(vec![])),
+};
 
 LabelledStatement: Box<ast::Statement> = {
-  "case" ConstantExpression ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case)),
+  "case" ConditionalExpression ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case)),
   "default" ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default)),
   <Identifier> ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
 }
@@ -83,10 +86,9 @@ pub StatementList: Vec<Box<ast::Statement>> = {
 };
 
 
-ConstantExpression = "";
-
 pub Expression: Box<ast::Expression> = {
   AssignmentExpression,
+  <Expression> "," <AssignmentExpression> => Box::new(ast::Expression::ExpressionList(<>))
 };
 
 AssignmentExpression: Box<ast::Expression> = {
@@ -215,6 +217,7 @@ TypeSpecifier: ast::TypeSpecifier = {
   "_Bool" => ast::TypeSpecifier::Bool,
   "struct" <Identifier> => ast::TypeSpecifier::Struct(<>),
   "union" <Identifier> => ast::TypeSpecifier::Union(<>),
+  "enum" <Identifier> => ast::TypeSpecifier::Enum(<>),
 }
 
 CharType: ast::TypeSpecifier = {
@@ -257,6 +260,8 @@ UnaryExpression = {
   "++" <UnaryExpression> => Box::new(ast::Expression::PrefixIncrement(<>)),
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
+  "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
+  "sizeof" "(" <TypeSpecifier> ")" => Box::new(ast::Expression::SizeOfType(<>)),
 };
 
 UnaryOperator: ast::UnaryOperator = {
@@ -266,7 +271,6 @@ UnaryOperator: ast::UnaryOperator = {
   "-" => ast::UnaryOperator::Minus,
   "~" => ast::UnaryOperator::BitwiseNot,
   "!" => ast::UnaryOperator::LogicalNot,
-  "sizeof" => ast::UnaryOperator::SizeOf,
 };
 
 PostfixExpression: Box<ast::Expression> = {
