@@ -1,22 +1,22 @@
 #![allow(dead_code)]
 
-mod parser;
 
-use std::fs;
-use parser::parser::parse;
+use std::env;
+use std::process;
+use c_to_wasm_compiler::Config;
 
-#[macro_use] extern crate lalrpop_util;
+
 
 fn main() {
-    let source = fs::read_to_string("test.c").unwrap();
-    parse(source);
+    let args: Vec<String> = env::args().collect();
+
+    let config = Config::build(&args).unwrap_or_else(|err| {
+        println!("Error parsing arguments: {err}");
+        process::exit(1);
+    });
+
+    if let Err(e) = c_to_wasm_compiler::run(config) {
+        println!("Program error: {e}");
+        process::exit(2);
+    }
 }
-
-// #[test]
-// fn parser() {
-    
-    
-    
-
-//     // assert!(parser::StringLiteralParser::new().parse("\"hello\"").unwrap() == "\"hello\"");
-// }
