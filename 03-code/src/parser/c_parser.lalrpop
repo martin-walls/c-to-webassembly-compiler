@@ -2,6 +2,26 @@ use crate::parser::ast;
 
 grammar;
 
+// LALRPOP MACROS
+
+CommaSepList<T>: Vec<T> = {
+  <mut v:(<T> ",")*> <e:T> => {
+    v.push(e);
+    v
+  }
+};
+
+CommaSepListAllowTrailing<T>: Vec<T> = {
+  <mut v:(<T> ",")*> <e:T?> => match e {
+    None => v,
+    Some(e) => {
+      v.push(e);
+      v
+    }
+  }
+}
+
+
 
 // CONSTANTS -------------------------
 
@@ -68,7 +88,7 @@ ClosedStatement: Box<ast::Statement> = {
 }
 
 Block: Box<ast::Statement> = {
-  "{" <StatementList> "}" => Box::new(ast::Statement::Block(<>)),
+  "{" <Statement+> "}" => Box::new(ast::Statement::Block(<>)),
   "{" "}" => Box::new(ast::Statement::Block(vec![])),
 };
 
@@ -77,16 +97,6 @@ LabelledStatement: Box<ast::Statement> = {
   "default" ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default)),
   <Identifier> ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
 }
-
-pub StatementList: Vec<Box<ast::Statement>> = {
-  <Statement> => vec![<>],
-  <v:StatementList> <s:Statement> => {
-    let mut newv = v.to_vec();
-    newv.push(s);
-    newv
-  },
-};
-
 
 // DECLARATIONS -----------------------------
 
@@ -154,17 +164,10 @@ UnionDeclaration: ast::UnionType = {
 };
 
 EnumDeclaration: ast::TypeSpecifier = {
-  "enum" <Identifier?> "{" <EnumeratorList> ","? "}" => ast::TypeSpecifier::Enum(<>),
+  "enum" <Identifier?> "{" <EnumeratorList> "}" => ast::TypeSpecifier::Enum(<>),
 };
 
-EnumeratorList: Vec<ast::Enumerator> = {
-  <Enumerator> => vec![<>],
-  <v:EnumeratorList> "," <e:Enumerator> => {
-    let mut newv = v.to_vec();
-    newv.push(e);
-    newv
-  },
-};
+EnumeratorList = CommaSepListAllowTrailing<Enumerator>;
 
 Enumerator: ast::Enumerator = {
   <Identifier> => ast::Enumerator::Simple(<>),
@@ -393,14 +396,7 @@ PostfixExpression: Box<ast::Expression> = {
   <PostfixExpression> "--" => Box::new(ast::Expression::PostfixDecrement(<>)),
 };
 
-ArgumentExpressionList: Vec<Box<ast::Expression>> = {
-  <AssignmentExpression> => vec![<>],
-  <v:ArgumentExpressionList> "," <e:AssignmentExpression> => {
-    let mut newv = v.to_vec();
-    newv.push(e);
-    newv
-  },
-};
+ArgumentExpressionList = CommaSepList<AssignmentExpression>;
 
 PrimaryExpression: Box<ast::Expression> = {
   <Identifier> => Box::new(ast::Expression::Identifier(<>)),
