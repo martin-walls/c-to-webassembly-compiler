@@ -97,15 +97,18 @@ mod parser_tests {
     #[test]
     fn struct_parser() {
         let valid = [
-            "struct s",
-            "struct s {int n; double d;}",
-            "struct {int a; int b;}",
-            "struct s {int n; union u {char c; short i;};}",
+            "struct s;",
+            "struct s {int n; double d;};",
+            "struct {int a; int b;};",
+            "struct s {int n; union u {char c; short i;};};",
+            "struct s x;",
+            "struct s x = {1, 2}",
+            "struct s x = {1, 2,}",
         ];
 
         for s in valid {
             println!("{s}");
-            assert!(c_parser::TypeSpecifierParser::new().parse(s).is_ok());
+            assert!(c_parser::DeclarationParser::new().parse(s).is_ok());
         }
     }
 
