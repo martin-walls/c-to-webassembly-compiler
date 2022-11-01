@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
 
 use std::process;
 use c_to_wasm_compiler::CliConfig;
@@ -7,12 +9,15 @@ use clap::Parser;
 
 
 fn main() {
+    pretty_env_logger::init();
+
     // parse cli args using clap
     let args = CliConfig::parse();
+    debug!("Cli arguments: {:?}", args);
 
     // run program and handle error
     if let Err(e) = c_to_wasm_compiler::run(args) {
-        println!("Program error: {e}");
+        error!("Program error: {e}");
         process::exit(1);
     }
 }

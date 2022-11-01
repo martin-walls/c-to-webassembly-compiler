@@ -2,21 +2,21 @@ use std::fs;
 use std::error::Error;
 use std::io;
 use std::io::{BufRead, Write};
+use log::info;
 use regex::Regex;
 use lazy_static::lazy_static;
 use std::process::{Command, Stdio};
 
 pub fn preprocess(filepath: &String) -> Result<String, Box<dyn Error>> {
-  println!("\n-- Running preprocessor --");
+  info!("Running preprocessor");
 
   let (file_contents, includes) = remove_include_directives(&filepath)?;
 
   let processed_source = run_c_preprocessor(file_contents)?;
 
-  println!("Preprocessor output:");
-  println!("{processed_source}");
+  info!("Preprocessor output:\n{processed_source}");
 
-  println!("Includes: {:?}", includes);
+  info!("Includes: {:?}", includes);
 
   Ok(processed_source)
 }

@@ -1,8 +1,11 @@
+use log::info;
+
 lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
 
 pub fn parse(source: String) {
-  println!("{source}");
+  info!("Running parser");
 
-  let result = c_parser::TypeSpecifierParser::new().parse(&source);
-  println!("{:?}", result);
+  let result = c_parser::ProgramParser::new().parse(&source);
+
+  info!("Parser output:\n{:#?}", result);
 }
