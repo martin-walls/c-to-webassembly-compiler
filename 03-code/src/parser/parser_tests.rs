@@ -95,16 +95,6 @@ mod parser_tests {
     }
 
     #[test]
-    fn type_specifier_parser() {
-        assert!(c_parser::TypeSpecifierParser::new().parse("void").unwrap() == TypeSpecifier::Void);
-        assert!(c_parser::TypeSpecifierParser::new().parse("unsigned short int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::U16));
-        assert!(c_parser::TypeSpecifierParser::new().parse("long int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I64));
-        assert!(c_parser::TypeSpecifierParser::new().parse("char").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I8));
-        assert!(c_parser::TypeSpecifierParser::new().parse("unsigned").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::U32));
-        assert!(c_parser::TypeSpecifierParser::new().parse("signed int").unwrap() == TypeSpecifier::ArithmeticType(ArithmeticType::I32));
-    }
-
-    #[test]
     fn struct_parser() {
         let valid = [
             "struct s",
