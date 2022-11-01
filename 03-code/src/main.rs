@@ -1,22 +1,19 @@
 #![allow(dead_code)]
 
 
-use std::env;
 use std::process;
-use c_to_wasm_compiler::Config;
-
+use c_to_wasm_compiler::CliConfig;
+use clap::Parser;
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    // parse cli args using clap
+    let args = CliConfig::parse();
 
-    let config = Config::build(&args).unwrap_or_else(|err| {
-        println!("Error parsing arguments: {err}");
-        process::exit(1);
-    });
-
-    if let Err(e) = c_to_wasm_compiler::run(config) {
+    // run program and handle error
+    if let Err(e) = c_to_wasm_compiler::run(args) {
         println!("Program error: {e}");
-        process::exit(2);
+        process::exit(1);
     }
 }
+
