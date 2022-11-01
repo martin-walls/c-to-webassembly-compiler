@@ -19,7 +19,7 @@ CommaSepListAllowTrailing<T>: Vec<T> = {
       v
     }
   }
-}
+};
 
 
 
@@ -38,7 +38,7 @@ IntegerConstant: u128 = {
   BinaryConstant,
   OctalConstant,
   HexadecimalConstant,
-}
+};
 
 DecimalConstant: u128 = r"[1-9][0-9]*"
   => u128::from_str_radix(&<>, 10).unwrap();
@@ -60,6 +60,8 @@ pub StringLiteral: String = r#"".*""# => <>[1..(<>.len()-1)].to_owned();
 
 
 // STATEMENTS -------------------------------
+
+pub Program: ast::StatementList = <Statement+> => ast::StatementList(<>);
 
 pub Statement: Box<ast::Statement> = {
   OpenStatement,
@@ -85,7 +87,8 @@ ClosedStatement: Box<ast::Statement> = {
   "switch" "(" <Expression> ")" <ClosedStatement> => Box::new(ast::Statement::Switch(<>)),
   Block,
   <Expression> ";" => Box::new(ast::Statement::Expr(<>)),
-}
+  <Declaration>,
+};
 
 Block: Box<ast::Statement> = {
   "{" <Statement+> "}" => Box::new(ast::Statement::Block(<>)),
@@ -96,67 +99,59 @@ LabelledStatement: Box<ast::Statement> = {
   "case" ConditionalExpression ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case)),
   "default" ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default)),
   <Identifier> ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
-}
+};
 
 // DECLARATIONS -----------------------------
 
+pub Declaration: Box<ast::Statement> = {
+  <SpecifierQualifier+> <DeclaratorInitialiserList> ";" => Box::new(ast::Statement::Declaration(<>)),
+  <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>))
+};
+
+pub SpecifierQualifier: ast::SpecifierQualifier = {
+  <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
+  <StorageClassSpecifier> => ast::SpecifierQualifier::StorageClassSpecifier(<>),
+  <TypeQualifier> => ast::SpecifierQualifier::TypeQualifier(<>),
+};
+
 pub TypeSpecifier: ast::TypeSpecifier = {
-  <ArithmeticType> => ast::TypeSpecifier::ArithmeticType(<>),
+  <ArithmeticTypeSpecifier> => ast::TypeSpecifier::ArithmeticType(<>),
   "void" => ast::TypeSpecifier::Void,
   <StructDeclaration> => ast::TypeSpecifier::Struct(<>),
   <UnionDeclaration> => ast::TypeSpecifier::Union(<>),
   <EnumDeclaration>,
 };
 
-ArithmeticType: ast::ArithmeticType = {
-  <CharType>,
-  <IntType> => match <> {
-    // bitfield: signed unsigned long int short
-    0b00001 | 0b00011 | 0b10001 | 0b10011 => ast::ArithmeticType::I16,
-    0b01001 | 0b01011 => ast::ArithmeticType::U16,
-    0b00010 | 0b10000 | 0b10010 => ast::ArithmeticType::I32,
-    0b01000 | 0b01010 => ast::ArithmeticType::U32,
-    0b00100 | 0b00110 | 0b10100 | 0b10110 => ast::ArithmeticType::I64,
-    0b01100 | 0b01110 => ast::ArithmeticType::U64,
-    _ => panic!("Invalid type specifier"),
-  },
-  "float" => ast::ArithmeticType::F32,
-  "double" => ast::ArithmeticType::F64,
+StorageClassSpecifier: ast::StorageClassSpecifier = {
+  "auto" => ast::StorageClassSpecifier::Auto,
+  "extern" => ast::StorageClassSpecifier::Extern,
+  "register" => ast::StorageClassSpecifier::Register,
+  "static" => ast::StorageClassSpecifier::Static,
+  "typedef" => ast::StorageClassSpecifier::Typedef,
 };
 
-CharType: ast::ArithmeticType = {
-  "signed" "char" => ast::ArithmeticType::I8,
-  "unsigned" "char" => ast::ArithmeticType::U8,
-  // implementation defined, make char signed by default, same as gcc
-  "char" => ast::ArithmeticType::I8,
+TypeQualifier: ast::TypeQualifier = {
+  "const" => ast::TypeQualifier::Const,
 };
 
-// bitfield: signed unsigned long int short
-IntType: u8 = {
-  <IntType?> "short" => match <> {
-    Some(n) => n + 1,
-    None => 1,
-  },
-  <IntType?> "int" => match <> {
-    Some(n) => n + 2,
-    None => 2,
-  },
-  <IntType?> "long" => match <> {
-    Some(n) => n + 4,
-    None => 4,
-  },
-  <IntType?> "unsigned" => match <> {
-    Some(n) => n + 8,
-    None => 8,
-  },
-  <IntType?> "signed" => match <> {
-    Some(n) => n + 16,
-    None => 16,
-  },
+ArithmeticTypeSpecifier: ast::ArithmeticTypeSpecifier = {
+  "char" => ast::ArithmeticTypeSpecifier::Char,
+  "short" => ast::ArithmeticTypeSpecifier::Short,
+  "int" => ast::ArithmeticTypeSpecifier::Int,
+  "long" => ast::ArithmeticTypeSpecifier::Long,
+  "signed" => ast::ArithmeticTypeSpecifier::Signed,
+  "unsigned" => ast::ArithmeticTypeSpecifier::Unsigned,
+  "float" => ast::ArithmeticTypeSpecifier::Float,
+  "double" => ast::ArithmeticTypeSpecifier::Double,
 };
 
 StructDeclaration: ast::StructType = {
   "struct" <Identifier> => ast::StructType::Declaration(<>),
+  "struct" <Identifier?> "{" <StructMemberDeclaration+> "}" => ast::StructType::Definition(<>),
+};
+
+StructMemberDeclaration: ast::StructMemberDeclaration = {
+  <SpecifierQualifier+> <DeclaratorList> ";" => ast::StructMemberDeclaration(<>),
 };
 
 UnionDeclaration: ast::UnionType = {
@@ -174,74 +169,66 @@ Enumerator: ast::Enumerator = {
   <Identifier> "=" <ConstantExpression> => ast::Enumerator::WithValue(<>),
 };
 
-// pub Declaration = {
-//   DeclarationSpecifiers InitDeclaratorList ";"
-// }
+DeclaratorList = CommaSepList<Declarator>;
 
-// DeclarationSpecifiers = {
-//   <StorageClassSpecifier> <DeclarationSpecifiers?>,
-//   <TypeSpecifier> <DeclarationSpecifiers?>,
-// }
+Declarator: Box<ast::Declarator> = {
+  <PtrDeclarator>,
+  <NoPtrDeclarator>,
+};
 
-// StorageClassSpecifier = {
-//   "auto",
-//   "extern",
-//   "register",
-//   "static",
-//   "typedef",
-// }
+PtrDeclarator: Box<ast::Declarator> = {
+  "*" <Declarator?> => match <> {
+    None => Box::new(ast::Declarator::AbstractPointerDeclarator),
+    Some(d) => Box::new(ast::Declarator::PointerDeclarator(d)),
+  }
+};
 
-TypeName: ast::TypeSpecifier = <ArithmeticType> => ast::TypeSpecifier::ArithmeticType(<>);
+NoPtrDeclarator: Box<ast::Declarator> = {
+  <Identifier> => Box::new(ast::Declarator::Identifier(<>)),
+  "(" <Declarator> ")",
+  // Array declarator
+  <NoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
+  // Function declarator
+  <NoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
+};
+
+// AbstractDeclarator: Box<ast::Declarator> = {
+//   "*" => Box::new(ast::Declarator::AbstractPointerDeclarator),
+//   <AbstractNoPtrDeclarator>,
+// };
+
+// AbstractNoPtrDeclarator: Box<ast::Declarator> = {
+//   "(" <AbstractDeclarator> ")",
+//   <AbstractNoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
+//   <AbstractNoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
+// };
+
+ParameterTypeList: ast::ParameterTypeList = {
+  <ParameterList> => ast::ParameterTypeList::Normal(<>),
+  // variadic functions
+  //<ParameterList> "," "..." => ast::ParameterTypeList::Variadic(<>),
+};
+
+ParameterList = CommaSepList<ParameterDeclaration>;
+
+ParameterDeclaration: ast::ParameterDeclaration = {
+  <SpecifierQualifier+> <Declarator> => ast::ParameterDeclaration::Named(<>),
+  // <SpecifierQualifier+> <AbstractDeclarator?> => ast::ParameterDeclaration::Abstract(<>),
+};
+
+DeclaratorInitialiserList = CommaSepList<DeclaratorInitialiser>;
+
+DeclaratorInitialiser: ast::DeclaratorInitialiser = {
+  <Declarator> => ast::DeclaratorInitialiser::NoInit(<>),
+  <Declarator> "=" <AssignmentExpression> => ast::DeclaratorInitialiser::Init(<>),
+};
 
 
+// TypeName: ast::TypeName = {
+//   // <SpecifierQualifier+> <AbstractDeclarator?>,
+//   <SpecifierQualifier+> <Declarator?> => ast::TypeName(<>),
+// };
 
-
-// TypeSpecifier: ast::TypeSpecifier = {
-//   CharType,
-//   ShortType,
-//   IntType,
-//   LongType,
-//   "void" => ast::TypeSpecifier::Void,  
-//   "float" => ast::TypeSpecifier::F32,
-//   "double" => ast::TypeSpecifier::F64,
-//   "_Bool" => ast::TypeSpecifier::Bool,
-//   <StructType> => ast::TypeSpecifier::Struct(<>),
-//   <UnionType> => ast::TypeSpecifier::Union(<>),
-//   "enum" <Identifier> => ast::TypeSpecifier::Enum(<>),
-// }
-
-// StructType = {
-//   "struct" <Identifier>,
-//   "struct" <Identifier?> "{" <StructDeclarationList> "}",
-// }
-
-// UnionType = {
-//   "union" <Identifier>,
-//   "union" <Identifier?> "{" <StructDeclarationList> "}",
-// }
-
-// StructDeclarationList = {
-//   <StructDeclaration>,
-//   <StructDeclarationList> <StructDeclaration>,
-// }
-
-// StructDeclaration = {
-//   <SpecifierQualifierList> <DeclaratorList?> ";",
-// }
-
-// SpecifierQualifierList = {
-//   <TypeSpecifier> <SpecifierQualifierList?>,
-//   <TypeQualifier> <SpecifierQualifierList?>,
-// }
-
-// TypeQualifier = {
-//   "const"
-// }
-
-// DeclaratorList = {
-//   <Declarator>,
-//   <DeclaratorList> "," <Declarator>
-// }
 
 
 
@@ -257,27 +244,27 @@ pub Expression: Box<ast::Expression> = {
 
 AssignmentExpression: Box<ast::Expression> = {
   ConditionalExpression,
-  <UnaryExpression> "=" <AssignmentExpression>
+  <ConditionalExpression> "=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, None)),
-  <UnaryExpression> "*=" <AssignmentExpression>
+  <ConditionalExpression> "*=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::Mult))),
-  <UnaryExpression> "/=" <AssignmentExpression>
+  <ConditionalExpression> "/=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::Div))),
-  <UnaryExpression> "%=" <AssignmentExpression>
+  <ConditionalExpression> "%=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::Mod))),
-  <UnaryExpression> "+=" <AssignmentExpression>
+  <ConditionalExpression> "+=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::Add))),
-  <UnaryExpression> "-=" <AssignmentExpression>
+  <ConditionalExpression> "-=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::Sub))),
-  <UnaryExpression> "<<=" <AssignmentExpression>
+  <ConditionalExpression> "<<=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::LeftShift))),
-  <UnaryExpression> ">>=" <AssignmentExpression>
+  <ConditionalExpression> ">>=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::RightShift))),
-  <UnaryExpression> "&=" <AssignmentExpression>
+  <ConditionalExpression> "&=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::BitwiseAnd))),
-  <UnaryExpression> "^=" <AssignmentExpression>
+  <ConditionalExpression> "^=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::BitwiseXor))),
-  <UnaryExpression> "|=" <AssignmentExpression>
+  <ConditionalExpression> "|=" <AssignmentExpression>
     => Box::new(ast::Expression::Assignment(<>, Some(ast::BinaryOperator::BitwiseOr))),
 }
 
@@ -365,7 +352,7 @@ MultiplicativeExpression: Box<ast::Expression> = {
 
 CastExpression: Box<ast::Expression> = {
   UnaryExpression,
-  "(" <TypeName> ")" <CastExpression> => Box::new(ast::Expression::Cast(<>)),
+  // "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(s, d), e)),
 };
 
 UnaryExpression = {
@@ -374,7 +361,7 @@ UnaryExpression = {
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
   "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-  "sizeof" "(" <TypeName> ")" => Box::new(ast::Expression::SizeOfType(<>)),
+  // "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(<>))),
 };
 
 UnaryOperator: ast::UnaryOperator = {
