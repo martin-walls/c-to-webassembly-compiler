@@ -1,4 +1,5 @@
-use log::info;
+use log::{info,error};
+use super::ast::AstNode;
 
 lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
 
@@ -7,5 +8,8 @@ pub fn parse(source: String) {
 
     let result = c_parser::ProgramParser::new().parse(&source);
 
-    info!("Parser output:\n{:#?}", result);
+    match result {
+        Ok(ast) => info!("Parser output:\n{}", ast.reconstruct_source()),
+        Err(e) => error!("Parser failed: {}", e),
+    }
 }
