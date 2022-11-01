@@ -9,7 +9,9 @@ mod parser_tests {
         assert!(c_parser::IdentifierParser::new().parse("foo_bar").is_ok());
         assert!(c_parser::IdentifierParser::new().parse("FOO_BAR").is_ok());
         assert!(c_parser::IdentifierParser::new().parse("FooBar123").is_ok());
-        assert!(c_parser::IdentifierParser::new().parse("Foo__Bar_123").is_ok());
+        assert!(c_parser::IdentifierParser::new()
+            .parse("Foo__Bar_123")
+            .is_ok());
         assert!(c_parser::IdentifierParser::new().parse("_foo").is_ok());
         assert!(c_parser::IdentifierParser::new().parse("12FooBar").is_err());
     }
@@ -30,7 +32,12 @@ mod parser_tests {
 
     #[test]
     fn string_literal_parser() {
-        assert!(*c_parser::ExpressionParser::new().parse("\"hello world\"").unwrap() == Expression::StringLiteral("hello world".to_owned()));
+        assert!(
+            *c_parser::ExpressionParser::new()
+                .parse("\"hello world\"")
+                .unwrap()
+                == Expression::StringLiteral("hello world".to_owned())
+        );
     }
 
     #[test]
@@ -131,7 +138,7 @@ mod parser_tests {
         let valid = [
             "enum Color {Red, Green, Blue}",
             "enum COLOR {Red}",
-            "enum {R, G, B,}"
+            "enum {R, G, B,}",
         ];
 
         for s in valid {

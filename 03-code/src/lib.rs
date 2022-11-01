@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-mod preprocessor;
 mod parser;
+mod preprocessor;
 
+use clap::Parser as ClapParser;
 use parser::parser::parse;
 use std::error::Error;
-use clap::Parser as ClapParser;
 
-
-#[macro_use] extern crate lalrpop_util;
+#[macro_use]
+extern crate lalrpop_util;
 
 #[derive(ClapParser, Debug)]
 pub struct CliConfig {
@@ -17,8 +17,7 @@ pub struct CliConfig {
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
-  let source = preprocessor::preprocess(&config.filepath)?;
-  parse(source);
-  Ok(())
+    let source = preprocessor::preprocess(&config.filepath)?;
+    parse(source);
+    Ok(())
 }
-

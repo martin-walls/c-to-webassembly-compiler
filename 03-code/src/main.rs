@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
 extern crate pretty_env_logger;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
-use std::process;
 use c_to_wasm_compiler::CliConfig;
 use clap::Parser;
-
+use std::process;
 
 fn main() {
     pretty_env_logger::init();
@@ -21,4 +21,3 @@ fn main() {
         process::exit(1);
     }
 }
-
