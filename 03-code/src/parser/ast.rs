@@ -23,6 +23,7 @@ pub enum Statement {
   Labelled(LabelledStatement),
   Expr(Box<Expression>),
   Declaration(Vec<SpecifierQualifier>, Vec<DeclaratorInitialiser>),
+  EmptyDeclaration(Vec<SpecifierQualifier>),
   FunctionDeclaration(Vec<SpecifierQualifier>, Box<Declarator>, Box<Statement>),
 }
 
@@ -105,7 +106,7 @@ pub enum TypeSpecifier {
   Void,
   Struct(StructType),
   Union(UnionType),
-  Enum(Option<Identifier>, Vec<Enumerator>),
+  Enum(EnumType),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,7 +147,13 @@ pub struct StructMemberDeclaration(pub Vec<SpecifierQualifier>, pub Vec<Box<Decl
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnionType {
   Declaration(Identifier),
-  Definition(Option<Identifier>),
+  Definition(Option<Identifier>, Vec<StructMemberDeclaration>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnumType {
+  Declaration(Identifier),
+  Definition(Option<Identifier>, Vec<Enumerator>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -202,6 +209,7 @@ pub enum DeclaratorInitialiser {
   NoInit(Box<Declarator>),
   Init(Box<Declarator>, Box<Expression>),
   Function(Box<Declarator>, Box<Statement>),
+  StructOrUnion(Box<Declarator>, Vec<Box<Expression>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

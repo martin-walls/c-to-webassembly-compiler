@@ -105,7 +105,9 @@ LabelledStatement: Box<ast::Statement> = {
 
 pub Declaration: Box<ast::Statement> = {
   <SpecifierQualifier+> <DeclaratorInitialiserList> ";" => Box::new(ast::Statement::Declaration(<>)),
-  <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>))
+  <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>)),
+  // for structs, unions, enums
+  <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(<>)),
 };
 
 pub SpecifierQualifier: ast::SpecifierQualifier = {
@@ -119,7 +121,7 @@ pub TypeSpecifier: ast::TypeSpecifier = {
   "void" => ast::TypeSpecifier::Void,
   <StructDeclaration> => ast::TypeSpecifier::Struct(<>),
   <UnionDeclaration> => ast::TypeSpecifier::Union(<>),
-  <EnumDeclaration>,
+  <EnumDeclaration> => ast::TypeSpecifier::Enum(<>),
 };
 
 StorageClassSpecifier: ast::StorageClassSpecifier = {
@@ -156,10 +158,12 @@ StructMemberDeclaration: ast::StructMemberDeclaration = {
 
 UnionDeclaration: ast::UnionType = {
   "union" <Identifier> => ast::UnionType::Declaration(<>),
+  "union" <Identifier?> "{" <StructMemberDeclaration+> "}" => ast::UnionType::Definition(<>),
 };
 
-EnumDeclaration: ast::TypeSpecifier = {
-  "enum" <Identifier?> "{" <EnumeratorList> "}" => ast::TypeSpecifier::Enum(<>),
+EnumDeclaration: ast::EnumType = {
+  "enum" <Identifier> => ast::EnumType::Declaration(<>),
+  "enum" <Identifier?> "{" <EnumeratorList> "}" => ast::EnumType::Definition(<>),
 };
 
 EnumeratorList = CommaSepListAllowTrailing<Enumerator>;
@@ -220,7 +224,8 @@ DeclaratorInitialiserList = CommaSepList<DeclaratorInitialiser>;
 
 DeclaratorInitialiser: ast::DeclaratorInitialiser = {
   <Declarator> => ast::DeclaratorInitialiser::NoInit(<>),
-  <Declarator> "=" <AssignmentExpression> => ast::DeclaratorInitialiser::Init(<>),
+  <Declarator> "=" <ConstantExpression> => ast::DeclaratorInitialiser::Init(<>),
+  <Declarator> "=" "{" <CommaSepListAllowTrailing<ConstantExpression>> "}" => ast::DeclaratorInitialiser::StructOrUnion(<>),
 };
 
 
