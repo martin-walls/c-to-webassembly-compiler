@@ -17,6 +17,7 @@ impl AstNode for Identifier {
 pub enum Constant {
     Int(u128),
     Float(f64),
+    Char(char),
 }
 
 impl AstNode for Constant {
@@ -24,6 +25,7 @@ impl AstNode for Constant {
         match self {
             Constant::Int(i) => format!("{i}"),
             Constant::Float(f) => format!("{f}"),
+            Constant::Char(c) => format!("'{c}'"),
         }
     }
 }
