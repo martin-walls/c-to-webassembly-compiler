@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "interpret_string_tests.rs"]
+mod interpret_string_tests;
+
 use std::{iter::Peekable, str::Chars};
 
 pub fn interpret_string(s: &str) -> Result<String, Error> {
@@ -98,7 +102,7 @@ impl Iterator for InterpretString<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     InvalidEscapeChar(char),
     InvalidCharCode(String),
