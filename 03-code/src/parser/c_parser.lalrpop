@@ -1,4 +1,5 @@
 use crate::parser::ast;
+use crate::parser::interpret_string::interpret_string;
 
 grammar;
 
@@ -56,9 +57,24 @@ HexadecimalConstant: u128 = r"0(x|X)[0-9A-Fa-f]+"
 DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
 
 // remove leading and trailing double quote using slice
-pub StringLiteral: String = r#"".*""# => <>[1..(<>.len()-1)].to_owned();
+pub StringLiteral: String = r#"".*""# => interpret_string(&<>[1..(<>.len()-1)]).unwrap();
 
-CharConstant: char = r"'.'" => <>.chars().nth(1).unwrap();
+CharConstant: char = {
+  "'" <SpecialChar> "'",
+  r"'[^'\\]'" => <>.chars().nth(1).unwrap(),
+};
+
+SpecialChar: char = {
+  r"\\'" => '\'',
+  r#"\\""# => '"',
+  r"\\?" => '?',
+  r"\\\\" => '\\',
+  r"\\n" => '\n',
+  r"\\r" => '\r',
+  r"\\t" => '\t',
+  r"\\x[0-9A-Fa-f]+" => char::from_u32(u32::from_str_radix(&<>[2..], 16).unwrap()).unwrap(),
+  r"\\[0-7]+" => char::from_u32(u32::from_str_radix(&<>[1..], 8).unwrap()).unwrap(),
+};
 
 
 // STATEMENTS -------------------------------
