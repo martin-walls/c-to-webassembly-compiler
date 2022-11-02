@@ -66,19 +66,19 @@ impl AstNode for Statement {
                 s
             }
             Statement::Goto(i) => {
-                format!("goto {};\n", i.reconstruct_source())
+                format!("goto {};", i.reconstruct_source())
             },
-            Statement::Continue => format!("continue;\n"),
-            Statement::Break => format!("break;\n"),
+            Statement::Continue => format!("continue;"),
+            Statement::Break => format!("break;"),
             Statement::Return(e) => match e {
-                Some(e) => format!("return {};\n", e.reconstruct_source()),
-                None => format!("return;\n"),
+                Some(e) => format!("return {};", e.reconstruct_source()),
+                None => format!("return;"),
             },
             Statement::While(e, s) => {
-                format!("while ({}) {}\n", e.reconstruct_source(), s.reconstruct_source())
+                format!("while ({}) {}", e.reconstruct_source(), s.reconstruct_source())
             },
             Statement::DoWhile(s, e) => {
-                format!("do {} while ({})\n", s.reconstruct_source(), e.reconstruct_source())
+                format!("do {} while ({})", s.reconstruct_source(), e.reconstruct_source())
             },
             Statement::For(e1, e2, e3, stmt) => {
                 let mut s = String::new();
@@ -98,23 +98,23 @@ impl AstNode for Statement {
                 s
             },
             Statement::If(e, s) => {
-                format!("if ({}) {}\n", e.reconstruct_source(), s.reconstruct_source())
+                format!("if ({}) {}", e.reconstruct_source(), s.reconstruct_source())
             },
             Statement::IfElse(e, s1, s2) => {
-                format!("if ({}) {} else {}\n", e.reconstruct_source(), s1.reconstruct_source(), s2.reconstruct_source())
+                format!("if ({}) {} else {}", e.reconstruct_source(), s1.reconstruct_source(), s2.reconstruct_source())
             },
             Statement::Switch(e, s) => {
-                format!("switch ({}) {}\n", e.reconstruct_source(), s.reconstruct_source())
+                format!("switch ({}) {}", e.reconstruct_source(), s.reconstruct_source())
             },
             Statement::Labelled(s) => s.reconstruct_source(),
-            Statement::Expr(e) => e.reconstruct_source(),
+            Statement::Expr(e) => format!("{};", e.reconstruct_source()),
             Statement::Declaration(s, d) => {
                 let mut st = String::new();
                 for declarator in d {
                     for specifier in s {
                         write!(&mut st, "{} ", specifier.reconstruct_source()).unwrap();
                     }
-                    write!(&mut st, "{};\n", declarator.reconstruct_source()).unwrap();
+                    write!(&mut st, "{};", declarator.reconstruct_source()).unwrap();
                 }
                 st
             },
@@ -123,7 +123,7 @@ impl AstNode for Statement {
                 for specifier in s {
                     write!(&mut st, "{} ", specifier.reconstruct_source()).unwrap();
                 }
-                write!(&mut st, ";\n").unwrap();
+                write!(&mut st, ";").unwrap();
                 st
             },
             Statement::FunctionDeclaration(s, d, b) => {
@@ -131,7 +131,7 @@ impl AstNode for Statement {
                 for specifier in s {
                     write!(&mut st, "{} ", specifier.reconstruct_source()).unwrap();
                 }
-                write!(&mut st, "{} {};\n", d.reconstruct_source(), b.reconstruct_source()).unwrap();
+                write!(&mut st, "{} {}", d.reconstruct_source(), b.reconstruct_source()).unwrap();
                 st
             },
         }
@@ -148,9 +148,9 @@ pub enum LabelledStatement {
 impl AstNode for LabelledStatement {
     fn reconstruct_source(&self) -> String {
         match self {
-            LabelledStatement::Case => "case \n".to_owned(),
-            LabelledStatement::Default => "default: \n".to_owned(),
-            LabelledStatement::Named(i) => format!("{}: \n", i.reconstruct_source()),
+            LabelledStatement::Case => "case :".to_owned(),
+            LabelledStatement::Default => "default: ".to_owned(),
+            LabelledStatement::Named(i) => format!("{}: ", i.reconstruct_source()),
         }
     }
 }
@@ -196,17 +196,18 @@ impl AstNode for Expression {
         match self {
             Expression::Identifier(i) => i.reconstruct_source(),
             Expression::Constant(c) => c.reconstruct_source(),
-            Expression::StringLiteral(s) => s.to_owned(),
+            Expression::StringLiteral(s) => format!("\"{}\"", s.to_owned()),
             Expression::Index(e1, e2) => format!("{}[{}]", e1.reconstruct_source(), e2.reconstruct_source()),
             Expression::FunctionCall(e1, e2) => {
                 match e2 {
                     Some(e2) => {
                         let mut s = String::new();
                         write!(&mut s, "{}(", e1.reconstruct_source()).unwrap();
-                        for e in e2 {
+                        for e in &e2[..e2.len() - 1] {
                             write!(&mut s, "{}, ", e.reconstruct_source()).unwrap();
                         }
-                        write!(&mut s, "(").unwrap();
+                        write!(&mut s, "{}", &e2[e2.len() - 1].reconstruct_source()).unwrap();
+                        write!(&mut s, ")").unwrap();
                         s
                     },
                     None => format!("{}()", e1.reconstruct_source()),
@@ -484,9 +485,9 @@ impl AstNode for EnumType {
                     None => write!(&mut s, "enum {{\n").unwrap()
                 }
                 for enumerator in es {
-                    write!(&mut s, "{}", enumerator.reconstruct_source()).unwrap();
+                    write!(&mut s, "{}\n", enumerator.reconstruct_source()).unwrap();
                 }
-                write!(&mut s, "\n}}").unwrap();
+                write!(&mut s, "}}").unwrap();
                 s
             },
         }
@@ -587,16 +588,18 @@ impl AstNode for ParameterTypeList {
         match self {
             ParameterTypeList::Normal(ps) => {
                 let mut s = String::new();
-                for parameter in ps {
+                for parameter in &ps[..ps.len() - 1] {
                     write!(&mut s, "{}, ", parameter.reconstruct_source()).unwrap();
                 }
+                write!(&mut s, "{}", &ps[ps.len() - 1].reconstruct_source()).unwrap();
                 s
             },
             ParameterTypeList::Variadic(ps) => {
                 let mut s = String::new();
-                for parameter in ps {
+                for parameter in &ps[..ps.len() - 1] {
                     write!(&mut s, "{}, ", parameter.reconstruct_source()).unwrap();
                 }
+                write!(&mut s, "{}", &ps[ps.len() - 1].reconstruct_source()).unwrap();
                 write!(&mut s, "...").unwrap();
                 s
             },
@@ -618,7 +621,7 @@ impl AstNode for ParameterDeclaration {
                 for specifier in s {
                     write!(&mut st, "{} ", specifier.reconstruct_source()).unwrap();
                 }
-                write!(&mut st, "{};\n", d.reconstruct_source()).unwrap();
+                write!(&mut st, "{}", d.reconstruct_source()).unwrap();
                 st
             }
         }
@@ -645,6 +648,7 @@ impl AstNode for DeclaratorInitialiser {
                 for e in es {
                     write!(&mut s, "{},\n", e.reconstruct_source()).unwrap();
                 }
+                write!(&mut s, "}}").unwrap();
                 s
             },
         }
