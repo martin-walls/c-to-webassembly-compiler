@@ -90,7 +90,7 @@ OpenStatement: Box<ast::Statement> = {
   "if" "(" <Expression> ")" <Statement> => Box::new(ast::Statement::If(<>)),
   "if" "(" <Expression> ")" <ClosedStatement> "else" <OpenStatement> => Box::new(ast::Statement::IfElse(<>)),
   "while" "(" <Expression> ")" <OpenStatement> => Box::new(ast::Statement::While(<>)),
-  "for" "(" <Expression?> ";" <Expression?> ";" <Expression?> ")" <OpenStatement> => Box::new(ast::Statement::For(<>)),
+  "for" "(" <ExpressionOrDeclaration?> ";" <Expression?> ";" <Expression?> ")" <OpenStatement> => Box::new(ast::Statement::For(<>)),
 };
 
 ClosedStatement: Box<ast::Statement> = {
@@ -101,7 +101,7 @@ ClosedStatement: Box<ast::Statement> = {
   "return" <Expression?> ";" => Box::new(ast::Statement::Return(<>)),
   "while" "(" <Expression> ")" <ClosedStatement> => Box::new(ast::Statement::While(<>)),
   "do" <Statement> "while" "(" <Expression> ")" ";" => Box::new(ast::Statement::DoWhile(<>)),
-  "for" "(" <Expression?> ";" <Expression?> ";" <Expression?> ")" <ClosedStatement> => Box::new(ast::Statement::For(<>)),
+  "for" "(" <ExpressionOrDeclaration?> ";" <Expression?> ";" <Expression?> ")" <ClosedStatement> => Box::new(ast::Statement::For(<>)),
   "switch" "(" <Expression> ")" <ClosedStatement> => Box::new(ast::Statement::Switch(<>)),
   Block,
   <Expression> ";" => Box::new(ast::Statement::Expr(<>)),
@@ -117,6 +117,14 @@ LabelledStatement: Box<ast::Statement> = {
   "case" ConditionalExpression ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case)),
   "default" ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default)),
   <Identifier> ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
+};
+
+// for for statements, where the first expression can be either an expression
+// or a declaration
+#[inline]
+ExpressionOrDeclaration: ast::ExpressionOrDeclaration = {
+  <Expression> => ast::ExpressionOrDeclaration::Expression(<>),
+  <SpecifierQualifier+> <DeclaratorInitialiserList> => ast::ExpressionOrDeclaration::Declaration(Box::new(ast::Statement::Declaration(<>))),
 };
 
 // DECLARATIONS -----------------------------

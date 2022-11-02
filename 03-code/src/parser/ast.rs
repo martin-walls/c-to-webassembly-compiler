@@ -40,7 +40,7 @@ pub enum Statement {
     While(Box<Expression>, Box<Statement>),
     DoWhile(Box<Statement>, Box<Expression>),
     For(
-        Option<Box<Expression>>,
+        Option<ExpressionOrDeclaration>,
         Option<Box<Expression>>,
         Option<Box<Expression>>,
         Box<Statement>,
@@ -136,6 +136,23 @@ impl AstNode for Statement {
                 write!(&mut st, "{} {}", d.reconstruct_source(), b.reconstruct_source()).unwrap();
                 st
             },
+        }
+    }
+}
+
+// for for statements, where the first expression can be either an expression
+// or a declaration
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExpressionOrDeclaration {
+    Expression(Box<Expression>),
+    Declaration(Box<Statement>), // the Statement should be value statement::Declarator
+}
+
+impl AstNode for ExpressionOrDeclaration {
+    fn reconstruct_source(&self) -> String {
+        match self {
+            ExpressionOrDeclaration::Expression(e) => e.reconstruct_source(),
+            ExpressionOrDeclaration::Declaration(d) => d.reconstruct_source(),
         }
     }
 }
