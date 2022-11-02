@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
-    use super::super::ast::*;
+    use super::super::super::ast::*;
 
     #[test]
     fn identifier_parser() {
