@@ -145,7 +145,7 @@ impl AstNode for Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionOrDeclaration {
     Expression(Box<Expression>),
-    Declaration(Box<Statement>), // the Statement should be value statement::Declarator
+    Declaration(Box<Statement>), // the Statement should be of value statement::Declarator
 }
 
 impl AstNode for ExpressionOrDeclaration {
@@ -159,17 +159,17 @@ impl AstNode for ExpressionOrDeclaration {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LabelledStatement {
-    Case,
-    Default,
-    Named(Identifier),
+    Case(Box<Expression>, Box<Statement>),
+    Default(Box<Statement>),
+    Named(Identifier, Box<Statement>),
 }
 
 impl AstNode for LabelledStatement {
     fn reconstruct_source(&self) -> String {
         match self {
-            LabelledStatement::Case => "case :".to_owned(),
-            LabelledStatement::Default => "default: ".to_owned(),
-            LabelledStatement::Named(i) => format!("{}: ", i.reconstruct_source()),
+            LabelledStatement::Case(e, s) => format!("case {}: {}", e.reconstruct_source(), s.reconstruct_source()),
+            LabelledStatement::Default(s) => format!("default: {}", s.reconstruct_source()),
+            LabelledStatement::Named(i, s) => format!("{}: {}", i.reconstruct_source(), s.reconstruct_source()),
         }
     }
 }

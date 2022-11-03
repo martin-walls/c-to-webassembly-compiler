@@ -91,6 +91,10 @@ OpenStatement: Box<ast::Statement> = {
   "if" "(" <Expression> ")" <ClosedStatement> "else" <OpenStatement> => Box::new(ast::Statement::IfElse(<>)),
   "while" "(" <Expression> ")" <OpenStatement> => Box::new(ast::Statement::While(<>)),
   "for" "(" <ExpressionOrDeclaration?> ";" <Expression?> ";" <Expression?> ")" <OpenStatement> => Box::new(ast::Statement::For(<>)),
+  "switch" "(" <Expression> ")" <OpenStatement> => Box::new(ast::Statement::Switch(<>)),
+  "case" <ConditionalExpression> ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case(<>))),
+  "default" ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default(<>))),
+  <Identifier> ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
 };
 
 ClosedStatement: Box<ast::Statement> = {
@@ -106,17 +110,14 @@ ClosedStatement: Box<ast::Statement> = {
   Block,
   <Expression> ";" => Box::new(ast::Statement::Expr(<>)),
   <Declaration>,
+  "case" <ConditionalExpression> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case(<>))),
+  "default" ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default(<>))),
+  <Identifier> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
 };
 
 Block: Box<ast::Statement> = {
   "{" <Statement+> "}" => Box::new(ast::Statement::Block(<>)),
   "{" "}" => Box::new(ast::Statement::Block(vec![])),
-};
-
-LabelledStatement: Box<ast::Statement> = {
-  "case" ConditionalExpression ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case)),
-  "default" ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default)),
-  <Identifier> ":" Statement => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
 };
 
 // for for statements, where the first expression can be either an expression
@@ -300,7 +301,7 @@ AssignmentExpression: Box<ast::Expression> = {
 }
 
 ConditionalExpression: Box<ast::Expression> = {
-  LogicalOrExpression,
+  <LogicalOrExpression>,
   <LogicalOrExpression> "?" <Expression> ":" <ConditionalExpression>
     => Box::new(ast::Expression::Ternary(<>)),
 };
@@ -383,7 +384,7 @@ MultiplicativeExpression: Box<ast::Expression> = {
 
 CastExpression: Box<ast::Expression> = {
   UnaryExpression,
-  // "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(s, d), e)),
+  "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(s, d), e)),
 };
 
 UnaryExpression = {
