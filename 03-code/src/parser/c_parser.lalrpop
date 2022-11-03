@@ -57,7 +57,7 @@ HexadecimalConstant: u128 = r"0(x|X)[0-9A-Fa-f]+"
 DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
 
 // remove leading and trailing double quote using slice
-pub StringLiteral: String = r#"".*""# => interpret_string(&<>[1..(<>.len()-1)]).unwrap();
+pub StringLiteral: String = r#""([^"\\]|\\"|\\)*""# => interpret_string(&<>[1..(<>.len()-1)]).unwrap();
 
 CharConstant: char = {
   "'" <SpecialChar> "'",
