@@ -5,6 +5,7 @@ mod preprocessor;
 
 use clap::Parser as ClapParser;
 use parser::parser::parse;
+use preprocessor::preprocess;
 use std::error::Error;
 
 #[macro_use]
@@ -17,7 +18,7 @@ pub struct CliConfig {
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
-    let source = preprocessor::preprocess(&config.filepath)?;
+    let source = preprocess(&config.filepath)?;
     parse(source);
     Ok(())
 }

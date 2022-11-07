@@ -69,7 +69,7 @@ impl AstNode for Statement {
             }
             Statement::Goto(i) => {
                 format!("goto {};", i.reconstruct_source())
-            },
+            }
             Statement::Continue => format!("continue;"),
             Statement::Break => format!("break;"),
             Statement::Return(e) => match e {
@@ -77,11 +77,19 @@ impl AstNode for Statement {
                 None => format!("return;"),
             },
             Statement::While(e, s) => {
-                format!("while ({}) {}", e.reconstruct_source(), s.reconstruct_source())
-            },
+                format!(
+                    "while ({}) {}",
+                    e.reconstruct_source(),
+                    s.reconstruct_source()
+                )
+            }
             Statement::DoWhile(s, e) => {
-                format!("do {} while ({})", s.reconstruct_source(), e.reconstruct_source())
-            },
+                format!(
+                    "do {} while ({})",
+                    s.reconstruct_source(),
+                    e.reconstruct_source()
+                )
+            }
             Statement::For(e1, e2, e3, stmt) => {
                 let mut s = String::new();
                 write!(&mut s, "for (").unwrap();
@@ -98,16 +106,25 @@ impl AstNode for Statement {
                 }
                 write!(&mut s, ") {}", stmt.reconstruct_source()).unwrap();
                 s
-            },
+            }
             Statement::If(e, s) => {
                 format!("if ({}) {}", e.reconstruct_source(), s.reconstruct_source())
-            },
+            }
             Statement::IfElse(e, s1, s2) => {
-                format!("if ({}) {} else {}", e.reconstruct_source(), s1.reconstruct_source(), s2.reconstruct_source())
-            },
+                format!(
+                    "if ({}) {} else {}",
+                    e.reconstruct_source(),
+                    s1.reconstruct_source(),
+                    s2.reconstruct_source()
+                )
+            }
             Statement::Switch(e, s) => {
-                format!("switch ({}) {}", e.reconstruct_source(), s.reconstruct_source())
-            },
+                format!(
+                    "switch ({}) {}",
+                    e.reconstruct_source(),
+                    s.reconstruct_source()
+                )
+            }
             Statement::Labelled(s) => s.reconstruct_source(),
             Statement::Expr(e) => format!("{};", e.reconstruct_source()),
             Statement::Declaration(s, d) => {
@@ -119,7 +136,7 @@ impl AstNode for Statement {
                     write!(&mut st, "{};", declarator.reconstruct_source()).unwrap();
                 }
                 st
-            },
+            }
             Statement::EmptyDeclaration(s) => {
                 let mut st = String::new();
                 for specifier in s {
@@ -127,15 +144,21 @@ impl AstNode for Statement {
                 }
                 write!(&mut st, ";").unwrap();
                 st
-            },
+            }
             Statement::FunctionDeclaration(s, d, b) => {
                 let mut st = String::new();
                 for specifier in s {
                     write!(&mut st, "{} ", specifier.reconstruct_source()).unwrap();
                 }
-                write!(&mut st, "{} {}", d.reconstruct_source(), b.reconstruct_source()).unwrap();
+                write!(
+                    &mut st,
+                    "{} {}",
+                    d.reconstruct_source(),
+                    b.reconstruct_source()
+                )
+                .unwrap();
                 st
-            },
+            }
         }
     }
 }
@@ -167,9 +190,15 @@ pub enum LabelledStatement {
 impl AstNode for LabelledStatement {
     fn reconstruct_source(&self) -> String {
         match self {
-            LabelledStatement::Case(e, s) => format!("case {}: {}", e.reconstruct_source(), s.reconstruct_source()),
+            LabelledStatement::Case(e, s) => format!(
+                "case {}: {}",
+                e.reconstruct_source(),
+                s.reconstruct_source()
+            ),
             LabelledStatement::Default(s) => format!("default: {}", s.reconstruct_source()),
-            LabelledStatement::Named(i, s) => format!("{}: {}", i.reconstruct_source(), s.reconstruct_source()),
+            LabelledStatement::Named(i, s) => {
+                format!("{}: {}", i.reconstruct_source(), s.reconstruct_source())
+            }
         }
     }
 }
@@ -216,39 +245,64 @@ impl AstNode for Expression {
             Expression::Identifier(i) => i.reconstruct_source(),
             Expression::Constant(c) => c.reconstruct_source(),
             Expression::StringLiteral(s) => format!("\"{}\"", s.to_owned()),
-            Expression::Index(e1, e2) => format!("{}[{}]", e1.reconstruct_source(), e2.reconstruct_source()),
-            Expression::FunctionCall(e1, e2) => {
-                match e2 {
-                    Some(e2) => {
-                        let mut s = String::new();
-                        write!(&mut s, "{}(", e1.reconstruct_source()).unwrap();
-                        for e in &e2[..e2.len() - 1] {
-                            write!(&mut s, "{}, ", e.reconstruct_source()).unwrap();
-                        }
-                        write!(&mut s, "{}", &e2[e2.len() - 1].reconstruct_source()).unwrap();
-                        write!(&mut s, ")").unwrap();
-                        s
-                    },
-                    None => format!("{}()", e1.reconstruct_source()),
+            Expression::Index(e1, e2) => {
+                format!("{}[{}]", e1.reconstruct_source(), e2.reconstruct_source())
+            }
+            Expression::FunctionCall(e1, e2) => match e2 {
+                Some(e2) => {
+                    let mut s = String::new();
+                    write!(&mut s, "{}(", e1.reconstruct_source()).unwrap();
+                    for e in &e2[..e2.len() - 1] {
+                        write!(&mut s, "{}, ", e.reconstruct_source()).unwrap();
+                    }
+                    write!(&mut s, "{}", &e2[e2.len() - 1].reconstruct_source()).unwrap();
+                    write!(&mut s, ")").unwrap();
+                    s
                 }
+                None => format!("{}()", e1.reconstruct_source()),
             },
-            Expression::DirectMemberSelection(e, i) => format!("{}.{}", e.reconstruct_source(), i.reconstruct_source()),
-            Expression::IndirectMemberSelection(e, i) => format!("{}->{}", e.reconstruct_source(), i.reconstruct_source()),
+            Expression::DirectMemberSelection(e, i) => {
+                format!("{}.{}", e.reconstruct_source(), i.reconstruct_source())
+            }
+            Expression::IndirectMemberSelection(e, i) => {
+                format!("{}->{}", e.reconstruct_source(), i.reconstruct_source())
+            }
             Expression::PostfixIncrement(e) => format!("{}++", e.reconstruct_source()),
             Expression::PostfixDecrement(e) => format!("{}--", e.reconstruct_source()),
             Expression::PrefixIncrement(e) => format!("++{}", e.reconstruct_source()),
             Expression::PrefixDecrement(e) => format!("--{}", e.reconstruct_source()),
-            Expression::UnaryOp(op, e) => format!("{}({})", op.reconstruct_source(), e.reconstruct_source()),
+            Expression::UnaryOp(op, e) => {
+                format!("{}({})", op.reconstruct_source(), e.reconstruct_source())
+            }
             Expression::SizeOfExpr(e) => format!("sizeof {}", e.reconstruct_source()),
             Expression::SizeOfType(t) => format!("sizeof ({})", t.reconstruct_source()),
-            Expression::BinaryOp(op, l, r) => format!("({}) {} ({})", l.reconstruct_source(), op.reconstruct_source(), r.reconstruct_source()),
-            Expression::Ternary(c, t, f) => format!("{} ? {} : {}", c.reconstruct_source(), t.reconstruct_source(), f.reconstruct_source()),
+            Expression::BinaryOp(op, l, r) => format!(
+                "({}) {} ({})",
+                l.reconstruct_source(),
+                op.reconstruct_source(),
+                r.reconstruct_source()
+            ),
+            Expression::Ternary(c, t, f) => format!(
+                "{} ? {} : {}",
+                c.reconstruct_source(),
+                t.reconstruct_source(),
+                f.reconstruct_source()
+            ),
             Expression::Assignment(l, r, op) => match op {
                 None => format!("{} = {}", l.reconstruct_source(), r.reconstruct_source()),
-                Some(op) => format!("{} {}= {}", l.reconstruct_source(), op.reconstruct_source(), r.reconstruct_source()),
+                Some(op) => format!(
+                    "{} {}= {}",
+                    l.reconstruct_source(),
+                    op.reconstruct_source(),
+                    r.reconstruct_source()
+                ),
             },
-            Expression::Cast(t, e) => format!("({}) {}", t.reconstruct_source(), e.reconstruct_source()),
-            Expression::ExpressionList(e1, e2) => format!("{}, {}", e1.reconstruct_source(), e2.reconstruct_source()),
+            Expression::Cast(t, e) => {
+                format!("({}) {}", t.reconstruct_source(), e.reconstruct_source())
+            }
+            Expression::ExpressionList(e1, e2) => {
+                format!("{}, {}", e1.reconstruct_source(), e2.reconstruct_source())
+            }
         }
     }
 }
@@ -347,6 +401,7 @@ pub enum TypeSpecifier {
     Struct(StructType),
     Union(UnionType),
     Enum(EnumType),
+    // CustomType(Identifier),
 }
 
 impl AstNode for TypeSpecifier {
@@ -433,14 +488,14 @@ impl AstNode for StructType {
                 let mut s = String::new();
                 match i {
                     Some(i) => write!(&mut s, "struct {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "struct {{\n").unwrap()
+                    None => write!(&mut s, "struct {{\n").unwrap(),
                 }
                 for member in ms {
                     write!(&mut s, "{}", member.reconstruct_source()).unwrap();
                 }
                 write!(&mut s, "}}\n").unwrap();
                 s
-            },
+            }
         }
     }
 }
@@ -475,14 +530,14 @@ impl AstNode for UnionType {
                 let mut s = String::new();
                 match i {
                     Some(i) => write!(&mut s, "union {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "union {{\n").unwrap()
+                    None => write!(&mut s, "union {{\n").unwrap(),
                 }
                 for member in ms {
                     write!(&mut s, "{}", member.reconstruct_source()).unwrap();
                 }
                 write!(&mut s, "}}\n").unwrap();
                 s
-            },
+            }
         }
     }
 }
@@ -501,14 +556,14 @@ impl AstNode for EnumType {
                 let mut s = String::new();
                 match i {
                     Some(i) => write!(&mut s, "enum {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "enum {{\n").unwrap()
+                    None => write!(&mut s, "enum {{\n").unwrap(),
                 }
                 for enumerator in es {
                     write!(&mut s, "{}\n", enumerator.reconstruct_source()).unwrap();
                 }
                 write!(&mut s, "}}").unwrap();
                 s
-            },
+            }
         }
     }
 }
@@ -523,7 +578,9 @@ impl AstNode for Enumerator {
     fn reconstruct_source(&self) -> String {
         match self {
             Enumerator::Simple(i) => format!("{}, ", i.reconstruct_source()),
-            Enumerator::WithValue(i, e) => format!("{} = {}, ", i.reconstruct_source(), e.reconstruct_source()),
+            Enumerator::WithValue(i, e) => {
+                format!("{} = {}, ", i.reconstruct_source(), e.reconstruct_source())
+            }
         }
     }
 }
@@ -571,6 +628,18 @@ pub enum Declarator {
     FunctionDeclarator(Box<Declarator>, Option<ParameterTypeList>),
 }
 
+impl Declarator {
+    pub fn get_identifier_name(&self) -> Option<String> {
+        match self {
+            Declarator::Identifier(Identifier(i)) => Some(i.to_owned()),
+            Declarator::PointerDeclarator(decl)
+            | Declarator::ArrayDeclarator(decl, _)
+            | Declarator::FunctionDeclarator(decl, _) => decl.get_identifier_name(),
+            Declarator::AbstractPointerDeclarator => None,
+        }
+    }
+}
+
 impl AstNode for Declarator {
     fn reconstruct_source(&self) -> String {
         match self {
@@ -612,7 +681,7 @@ impl AstNode for ParameterTypeList {
                 }
                 write!(&mut s, "{}", &ps[ps.len() - 1].reconstruct_source()).unwrap();
                 s
-            },
+            }
             ParameterTypeList::Variadic(ps) => {
                 let mut s = String::new();
                 for parameter in &ps[..ps.len() - 1] {
@@ -621,7 +690,7 @@ impl AstNode for ParameterTypeList {
                 write!(&mut s, "{}", &ps[ps.len() - 1].reconstruct_source()).unwrap();
                 write!(&mut s, "...").unwrap();
                 s
-            },
+            }
         }
     }
 }
@@ -655,12 +724,27 @@ pub enum DeclaratorInitialiser {
     StructOrUnion(Box<Declarator>, Vec<Box<Expression>>),
 }
 
+impl DeclaratorInitialiser {
+    pub fn get_identifier_name(&self) -> Option<String> {
+        match self {
+            DeclaratorInitialiser::NoInit(d)
+            | DeclaratorInitialiser::Init(d, _)
+            | DeclaratorInitialiser::Function(d, _)
+            | DeclaratorInitialiser::StructOrUnion(d, _) => d.get_identifier_name(),
+        }
+    }
+}
+
 impl AstNode for DeclaratorInitialiser {
     fn reconstruct_source(&self) -> String {
         match self {
             DeclaratorInitialiser::NoInit(d) => d.reconstruct_source(),
-            DeclaratorInitialiser::Init(d, e) => format!("{} = {}", d.reconstruct_source(), e.reconstruct_source()),
-            DeclaratorInitialiser::Function(d, s) => format!("{} {}", d.reconstruct_source(), s.reconstruct_source()),
+            DeclaratorInitialiser::Init(d, e) => {
+                format!("{} = {}", d.reconstruct_source(), e.reconstruct_source())
+            }
+            DeclaratorInitialiser::Function(d, s) => {
+                format!("{} {}", d.reconstruct_source(), s.reconstruct_source())
+            }
             DeclaratorInitialiser::StructOrUnion(d, es) => {
                 let mut s = String::new();
                 write!(&mut s, "{} = {{\n", d.reconstruct_source()).unwrap();
@@ -669,7 +753,7 @@ impl AstNode for DeclaratorInitialiser {
                 }
                 write!(&mut s, "}}").unwrap();
                 s
-            },
+            }
         }
     }
 }
@@ -686,7 +770,7 @@ impl AstNode for TypeName {
         match &self.1 {
             Some(d) => write!(&mut s, "{};\n", d.reconstruct_source()).unwrap(),
             None => (),
-        }        
+        }
         s
     }
 }
