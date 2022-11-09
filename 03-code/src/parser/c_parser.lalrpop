@@ -1,7 +1,111 @@
 use crate::parser::ast;
+use crate::parser::lexer;
 use crate::parser::interpret_string::interpret_string;
 
 grammar;
+
+extern {
+    type Location = usize;
+    type Error = lexer::LexError;
+
+    enum lexer::Token {
+        "!" => lexer::Token::Bang,
+        "%" => lexer::Token::Percent,
+        "^" => lexer::Token::Caret,
+        "&" => lexer::Token::Ampersand,
+        "*" => lexer::Token::Asterisk,
+        "-" => lexer::Token::Minus,
+        "+" => lexer::Token::Plus,
+        "=" => lexer::Token::Eq,
+        "~" => lexer::Token::Tilde,
+        "|" => lexer::Token::Bar,
+        "." => lexer::Token::Dot,
+        "<" => lexer::Token::LessThan,
+        ">" => lexer::Token::GreaterThan,
+        "/" => lexer::Token::Slash,
+        "?" => lexer::Token::Question,
+
+        "+=" => lexer::Token::PlusEq,
+        "-=" => lexer::Token::MinusEq,
+        "*=" => lexer::Token::AsteriskEq,
+        "/=" => lexer::Token::SlashEq,
+        "%=" => lexer::Token::PercentEq,
+        "<<=" => lexer::Token::LeftShiftEq,
+        ">>=" => lexer::Token::RightShiftEq,
+        "&=" => lexer::Token::AmpersandEq,
+        "^=" => lexer::Token::CaretEq,
+        "|=" => lexer::Token::BarEq,
+
+        "->" => lexer::Token::Arrow,
+        "++" => lexer::Token::DoublePlus,
+        "--" => lexer::Token::DoubleMinus,
+        "<<" => lexer::Token::LeftShift,
+        ">>" => lexer::Token::RightShift,
+        "<=" => lexer::Token::LessThanEq,
+        ">=" => lexer::Token::GreaterThanEq,
+        "==" => lexer::Token::DoubleEq,
+        "!=" => lexer::Token::BangEq,
+        "&&" => lexer::Token::DoubleAmpersand,
+        "||" => lexer::Token::DoubleBar,
+
+        "(" => lexer::Token::LeftParen,
+        ")" => lexer::Token::RightParen,
+        "[" => lexer::Token::LeftSquare,
+        "]" => lexer::Token::RightSquare,
+        "{" => lexer::Token::LeftCurly,
+        "}" => lexer::Token::RightCurly,
+        "," => lexer::Token::Comma,
+        ";" => lexer::Token::Semicolon,
+        ":" => lexer::Token::Colon,
+
+        "'" => lexer::Token::SingleQuote,
+        "\"" => lexer::Token::DoubleQuote,
+
+        "DecimalConstant" => lexer::Token::DecimalConstant(<String>),
+        "BinaryConstant" => lexer::Token::BinaryConstant(<String>),
+        "OctalConstant" => lexer::Token::OctalConstant(<String>),
+        "HexConstant" => lexer::Token::HexConstant(<String>),
+        "FloatingConstant" => lexer::Token::FloatingConstant(<String>),
+        "StringLiteral" => lexer::Token::StringLiteral(<String>),
+        "CharConstant" => lexer::Token::CharConstant(<String>),
+
+        "Identifier" => lexer::Token::Identifier(<String>),
+        "TypedefName" => lexer::Token::TypedefName(<String>),
+
+        "auto" => lexer::Token::Auto,
+        "break" => lexer::Token::Break,
+        "case" => lexer::Token::Case,
+        "char" => lexer::Token::Char,
+        "const" => lexer::Token::Const,
+        "continue" => lexer::Token::Continue,
+        "default" => lexer::Token::Default,
+        "do" => lexer::Token::Do,
+        "double" => lexer::Token::Double,
+        "else" => lexer::Token::Else,
+        "enum" => lexer::Token::Enum,
+        "extern" => lexer::Token::Extern,
+        "float" => lexer::Token::Float,
+        "for" => lexer::Token::For,
+        "goto" => lexer::Token::Goto,
+        "if" => lexer::Token::If,
+        "int" => lexer::Token::Int,
+        "long" => lexer::Token::Long,
+        "register" => lexer::Token::Register,
+        "return" => lexer::Token::Return,
+        "short" => lexer::Token::Short,
+        "signed" => lexer::Token::Signed,
+        "sizeof" => lexer::Token::Sizeof,
+        "static" => lexer::Token::Static,
+        "struct" => lexer::Token::Struct,
+        "switch" => lexer::Token::Switch,
+        "typedef" => lexer::Token::Typedef,
+        "union" => lexer::Token::Union,
+        "unsigned" => lexer::Token::Unsigned,
+        "void" => lexer::Token::Void,
+        "volatile" => lexer::Token::Volatile,
+        "while" => lexer::Token::While,
+    }
+}
 
 // LALRPOP MACROS
 
@@ -26,8 +130,7 @@ CommaSepListAllowTrailing<T>: Vec<T> = {
 
 // CONSTANTS -------------------------
 
-pub Identifier: ast::Identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
-  => ast::Identifier(<>.to_owned());
+pub Identifier: ast::Identifier = "Identifier" => ast::Identifier(<>.to_owned());
 
 pub Constant: ast::Constant = {
   IntegerConstant => ast::Constant::Int(<>),
@@ -39,43 +142,23 @@ IntegerConstant: u128 = {
   DecimalConstant,
   BinaryConstant,
   OctalConstant,
-  HexadecimalConstant,
+  HexConstant,
 };
 
-DecimalConstant: u128 = r"[1-9][0-9]*"
-  => u128::from_str_radix(&<>, 10).unwrap();
+DecimalConstant: u128 = "DecimalConstant" => u128::from_str_radix(&<>, 10).unwrap();
 
-BinaryConstant: u128 = r"0(b|B)[0-1]+"
-  => u128::from_str_radix(&<>[2..], 2).unwrap();
+BinaryConstant: u128 = "BinaryConstant" => u128::from_str_radix(&<>[2..], 2).unwrap();
 
-OctalConstant: u128 = r"0[0-7]*"
-  => u128::from_str_radix(&<>, 8).unwrap();
+OctalConstant: u128 = "OctalConstant" => u128::from_str_radix(&<>, 8).unwrap();
 
-HexadecimalConstant: u128 = r"0(x|X)[0-9A-Fa-f]+"
-  => u128::from_str_radix(&<>[2..], 16).unwrap();
+HexConstant: u128 = "HexConstant" => u128::from_str_radix(&<>[2..], 16).unwrap();
 
-DecimalFloatingConstant: f64 = r"((([0-9]*\.[0-9]+)|([0-9]+\.))((e|E)(\+|-)?[0-9]+)?)|([0-9]+(e|E)(\+|-)?[0-9]+)" => <>.parse::<f64>().unwrap();
+DecimalFloatingConstant: f64 = "FloatingConstant" => <>.parse::<f64>().unwrap();
 
 // remove leading and trailing double quote using slice
-pub StringLiteral: String = r#""([^"\\]|\\"|\\)*""# => interpret_string(&<>[1..(<>.len()-1)]).unwrap();
+pub StringLiteral: String = "StringLiteral" => interpret_string(&<>).unwrap();
 
-CharConstant: char = {
-  "'" <SpecialChar> "'",
-  r"'[^'\\]'" => <>.chars().nth(1).unwrap(),
-};
-
-SpecialChar: char = {
-  r"\\'" => '\'',
-  r#"\\""# => '"',
-  r"\\?" => '?',
-  r"\\\\" => '\\',
-  r"\\n" => '\n',
-  r"\\r" => '\r',
-  r"\\t" => '\t',
-  r"\\x[0-9A-Fa-f]+" => char::from_u32(u32::from_str_radix(&<>[2..], 16).unwrap()).unwrap(),
-  r"\\[0-7]+" => char::from_u32(u32::from_str_radix(&<>[1..], 8).unwrap()).unwrap(),
-};
-
+CharConstant: char = "CharConstant" => interpret_string(&<>).unwrap().chars().nth(0).unwrap();
 
 // STATEMENTS -------------------------------
 
@@ -116,8 +199,7 @@ ClosedStatement: Box<ast::Statement> = {
 };
 
 Block: Box<ast::Statement> = {
-  "{" <Statement+> "}" => Box::new(ast::Statement::Block(<>)),
-  "{" "}" => Box::new(ast::Statement::Block(vec![])),
+  "{" <Statement*> "}" => Box::new(ast::Statement::Block(<>)),
 };
 
 // for for statements, where the first expression can be either an expression
@@ -135,7 +217,36 @@ pub Declaration: Box<ast::Statement> = {
   <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>)),
   // for structs, unions, enums
   <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(<>)),
+//  <TypedefDeclaration>,
 };
+
+//pub TypedefDeclaration: Box<ast::Statement> = {
+//    <TypedefSpecifierQualifier+>
+//}
+//
+//TypedefSpecifierQualifier: ast::SpecifierQualifier = {
+////    <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
+//    "typedef" => ast::SpecifierQualifier::StorageClassSpecifier(ast::StorageClassSpecifier::Typedef),
+//    <TypeQualifier> => ast::SpecifierQualifier::TypeQualifier(<>),
+//}
+//
+//TypedefDeclarator: Box<ast::Declarator> = {
+//    <TypedefPtrDeclarator>,
+//    <TypedefNoPtrDeclarator>,
+//}
+//
+//TypedefPtrDeclarator: Box<ast::Declarator> = {
+//    "*" <TypedefDeclarator> => Box::new(ast::Declarator::PointerDeclarator(<>)),
+//};
+//
+//TypedefNoPtrDeclarator: Box<ast::Declarator> = {
+//    <TypeName> => Box::new(ast::Declarator::Identifier(<>)),
+//    "(" <TypedefDeclarator> ")",
+//    // Array declarator
+//    <TypedefNoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
+//    // Function declarator
+//    <TypedefNoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
+//}
 
 pub SpecifierQualifier: ast::SpecifierQualifier = {
   <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
@@ -149,14 +260,16 @@ pub TypeSpecifier: ast::TypeSpecifier = {
   <StructDeclaration> => ast::TypeSpecifier::Struct(<>),
   <UnionDeclaration> => ast::TypeSpecifier::Union(<>),
   <EnumDeclaration> => ast::TypeSpecifier::Enum(<>),
+  <TypeName> => ast::TypeSpecifier::CustomType(<>),
 };
+
+TypeName: ast::Identifier = "TypedefName" => ast::Identifier(<>.to_owned());
 
 StorageClassSpecifier: ast::StorageClassSpecifier = {
   "auto" => ast::StorageClassSpecifier::Auto,
   "extern" => ast::StorageClassSpecifier::Extern,
   "register" => ast::StorageClassSpecifier::Register,
   "static" => ast::StorageClassSpecifier::Static,
-  "typedef" => ast::StorageClassSpecifier::Typedef,
 };
 
 TypeQualifier: ast::TypeQualifier = {

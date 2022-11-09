@@ -66,6 +66,10 @@ fn read_lines(filepath: &String) -> io::Result<io::Lines<io::BufReader<fs::File>
     Ok(io::BufReader::new(file).lines())
 }
 
+fn load_header_file(filename: &String) -> Result<String, io::Error> {
+    fs::read_to_string(format!("headers/{}", filename))
+}
+
 /// Runs the C preprocessor over the given source.
 fn run_c_preprocessor(source: String) -> Result<String, Box<dyn Error>> {
     let mut cpp_child = Command::new("cpp")
