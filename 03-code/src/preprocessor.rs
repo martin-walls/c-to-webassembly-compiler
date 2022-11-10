@@ -49,7 +49,12 @@ fn remove_include_directives(filepath: &Path) -> Result<(String, Vec<String>), P
             }
             Ok((output, includes))
         }
-        Err(e) => Err(PreprocessorError::IoError(e)),
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => Err(PreprocessorError::FileNotFound(
+                filepath.to_str().unwrap().to_owned(),
+            )),
+            _ => Err(PreprocessorError::IoError(e)),
+        },
     }
 }
 
@@ -78,40 +83,53 @@ fn read_lines(filepath: &Path) -> io::Result<io::Lines<io::BufReader<fs::File>>>
 
 fn include_headers(
     mut source: String,
-    includes: Vec<String>,
+    mut includes: Vec<String>,
     filepath: &Path,
 ) -> Result<String, PreprocessorError> {
-    for include_name in includes {
+    loop {
+        if includes.is_empty() {
+            break;
+        }
+        let include_name = includes.pop().unwrap();
+        let header;
         if include_name == format!("{}.h", filepath.file_stem().unwrap().to_str().unwrap()) {
-            match load_program_header(&filepath, &include_name) {
+            header = match load_program_header(&filepath, &include_name) {
                 Err(e) => {
-                    return match e.kind() {
-                        ErrorKind::NotFound => {
-                            Err(PreprocessorError::UnsupportedHeaderInclude(include_name))
+                    return match e {
+                        PreprocessorError::FileNotFound(f) => {
+                            Err(PreprocessorError::UnsupportedHeaderInclude(f))
                         }
-                        _ => Err(PreprocessorError::IoError(e)),
+                        _ => Err(e),
                     }
                 }
-                Ok(s) => source.insert_str(0, s.as_str()),
+                Ok(s) => s,
             }
         } else {
-            match load_header_file(&include_name) {
+            header = match load_header_file(&include_name) {
                 Err(e) => {
-                    return match e.kind() {
-                        ErrorKind::NotFound => {
-                            Err(PreprocessorError::UnsupportedHeaderInclude(include_name))
+                    return match e {
+                        PreprocessorError::FileNotFound(f) => {
+                            Err(PreprocessorError::UnsupportedHeaderInclude(f))
                         }
-                        _ => Err(PreprocessorError::IoError(e)),
+                        _ => Err(e),
                     }
                 }
-                Ok(s) => source.insert_str(0, s.as_str()),
+                Ok(s) => s,
             }
         }
+        let (header_source, mut new_includes) = header;
+        info!("New includes: {:?}", new_includes);
+        includes.append(&mut new_includes);
+        source.insert(0, '\n');
+        source.insert_str(0, header_source.as_str())
     }
     Ok(source)
 }
 
-fn load_program_header(source_filepath: &Path, header_name: &String) -> Result<String, io::Error> {
+fn load_program_header(
+    source_filepath: &Path,
+    header_name: &String,
+) -> Result<(String, Vec<String>), PreprocessorError> {
     let path = match source_filepath.parent() {
         Some(p) => {
             let mut path = PathBuf::from(p);
@@ -120,13 +138,13 @@ fn load_program_header(source_filepath: &Path, header_name: &String) -> Result<S
         }
         None => PathBuf::from(&header_name),
     };
-    fs::read_to_string(path)
+    remove_include_directives(path.as_path())
 }
 
-fn load_header_file(header_name: &String) -> Result<String, io::Error> {
+fn load_header_file(header_name: &String) -> Result<(String, Vec<String>), PreprocessorError> {
     let mut path = PathBuf::from("headers");
     path.push(header_name);
-    fs::read_to_string(path)
+    remove_include_directives(path.as_path())
 }
 
 /// Runs the C preprocessor over the given source.
@@ -163,6 +181,7 @@ fn run_c_preprocessor(source: String) -> Result<String, Box<dyn Error>> {
 
 #[derive(Debug)]
 pub enum PreprocessorError {
+    FileNotFound(String),
     UnsupportedHeaderInclude(String),
     IoError(io::Error),
     CppError(Box<dyn Error>),
@@ -179,6 +198,9 @@ impl fmt::Display for PreprocessorError {
             }
             PreprocessorError::CppError(e) => {
                 write!(f, "Error occurred running C preprocessor: {}", e)
+            }
+            PreprocessorError::FileNotFound(n) => {
+                write!(f, "File not found: {}", n)
             }
         }
     }
