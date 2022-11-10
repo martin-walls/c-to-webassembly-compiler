@@ -17,7 +17,7 @@ fn main() {
 
     // run program and handle error
     if let Err(e) = c_to_wasm_compiler::run(args) {
-        error!("Program error: {e}");
+        error!("Compile error: {e}");
         process::exit(1);
     }
 }

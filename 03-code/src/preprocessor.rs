@@ -2,45 +2,55 @@ use lazy_static::lazy_static;
 use log::info;
 use regex::Regex;
 use std::error::Error;
-use std::fs;
 use std::io;
-use std::io::{BufRead, Write};
+use std::io::{BufRead, ErrorKind, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::{fmt, fs};
 
-pub fn preprocess(filepath: &String) -> Result<String, Box<dyn Error>> {
+pub fn preprocess(filepath: &Path) -> Result<String, PreprocessorError> {
     info!("Running preprocessor");
 
-    let (file_contents, includes) = remove_include_directives(&filepath)?;
-
-    let processed_source = run_c_preprocessor(file_contents)?;
-
-    info!("Preprocessor output:\n{processed_source}");
+    let (mut file_contents, includes) = remove_include_directives(&filepath)?;
 
     info!("Includes: {:?}", includes);
+
+    file_contents = include_headers(file_contents, includes, filepath)?;
+
+    info!("Included headers:\n{file_contents}");
+
+    let processed_source = match run_c_preprocessor(file_contents) {
+        Ok(s) => s,
+        Err(e) => return Err(PreprocessorError::CppError(e)),
+    };
+
+    info!("Preprocessor output:\n{processed_source}");
 
     Ok(processed_source)
 }
 
-fn remove_include_directives(filepath: &String) -> Result<(String, Vec<String>), Box<dyn Error>> {
+fn remove_include_directives(filepath: &Path) -> Result<(String, Vec<String>), PreprocessorError> {
     // store the includes we remove from the file
     let mut includes: Vec<String> = Vec::new();
     let mut output = String::new();
 
-    if let Ok(lines) = read_lines(&filepath) {
-        for line in lines {
-            if let Ok(l) = line {
-                // check if line is a #include directive
-                if let Some(include) = check_for_include(&l) {
-                    includes.push(include);
-                    continue;
+    match read_lines(&filepath) {
+        Ok(lines) => {
+            for line in lines {
+                if let Ok(l) = line {
+                    // check if line is a #include directive
+                    if let Some(include) = check_for_include(&l) {
+                        includes.push(include);
+                        continue;
+                    }
+                    output.push_str(&l);
+                    output.push('\n');
                 }
-                output.push_str(&l);
-                output.push('\n');
             }
+            Ok((output, includes))
         }
+        Err(e) => Err(PreprocessorError::IoError(e)),
     }
-
-    Ok((output, includes))
 }
 
 /// Checks if the given line is a #include directive.
@@ -61,13 +71,62 @@ fn check_for_include(line: &String) -> Option<String> {
 }
 
 /// Returns an iterator over the lines of the file
-fn read_lines(filepath: &String) -> io::Result<io::Lines<io::BufReader<fs::File>>> {
+fn read_lines(filepath: &Path) -> io::Result<io::Lines<io::BufReader<fs::File>>> {
     let file = fs::File::open(filepath)?;
     Ok(io::BufReader::new(file).lines())
 }
 
-fn load_header_file(filename: &String) -> Result<String, io::Error> {
-    fs::read_to_string(format!("headers/{}", filename))
+fn include_headers(
+    mut source: String,
+    includes: Vec<String>,
+    filepath: &Path,
+) -> Result<String, PreprocessorError> {
+    for include_name in includes {
+        if include_name == format!("{}.h", filepath.file_stem().unwrap().to_str().unwrap()) {
+            match load_program_header(&filepath, &include_name) {
+                Err(e) => {
+                    return match e.kind() {
+                        ErrorKind::NotFound => {
+                            Err(PreprocessorError::UnsupportedHeaderInclude(include_name))
+                        }
+                        _ => Err(PreprocessorError::IoError(e)),
+                    }
+                }
+                Ok(s) => source.insert_str(0, s.as_str()),
+            }
+        } else {
+            match load_header_file(&include_name) {
+                Err(e) => {
+                    return match e.kind() {
+                        ErrorKind::NotFound => {
+                            Err(PreprocessorError::UnsupportedHeaderInclude(include_name))
+                        }
+                        _ => Err(PreprocessorError::IoError(e)),
+                    }
+                }
+                Ok(s) => source.insert_str(0, s.as_str()),
+            }
+        }
+    }
+    Ok(source)
+}
+
+fn load_program_header(source_filepath: &Path, header_name: &String) -> Result<String, io::Error> {
+    let path = match source_filepath.parent() {
+        Some(p) => {
+            let mut path = PathBuf::from(p);
+            path.push(&header_name);
+            path
+        }
+        None => PathBuf::from(&header_name),
+    };
+    fs::read_to_string(path)
+}
+
+fn load_header_file(header_name: &String) -> Result<String, io::Error> {
+    let mut path = PathBuf::from("headers");
+    path.push(header_name);
+    fs::read_to_string(path)
 }
 
 /// Runs the C preprocessor over the given source.
@@ -101,3 +160,28 @@ fn run_c_preprocessor(source: String) -> Result<String, Box<dyn Error>> {
         panic!("C preprocessor failed:\n{}", err);
     }
 }
+
+#[derive(Debug)]
+pub enum PreprocessorError {
+    UnsupportedHeaderInclude(String),
+    IoError(io::Error),
+    CppError(Box<dyn Error>),
+}
+
+impl fmt::Display for PreprocessorError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PreprocessorError::UnsupportedHeaderInclude(h) => {
+                write!(f, "Header \"{}\" not supported", h)
+            }
+            PreprocessorError::IoError(e) => {
+                write!(f, "IO Error occurred during preprocessor: {}", e)
+            }
+            PreprocessorError::CppError(e) => {
+                write!(f, "Error occurred running C preprocessor: {}", e)
+            }
+        }
+    }
+}
+
+impl Error for PreprocessorError {}

@@ -7,6 +7,7 @@ use clap::Parser as ClapParser;
 use parser::parser::parse;
 use preprocessor::preprocess;
 use std::error::Error;
+use std::path::Path;
 
 #[macro_use]
 extern crate lalrpop_util;
@@ -18,7 +19,7 @@ pub struct CliConfig {
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
-    let source = preprocess(&config.filepath)?;
+    let source = preprocess(Path::new(&config.filepath))?;
     parse(source);
     Ok(())
 }
