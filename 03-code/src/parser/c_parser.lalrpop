@@ -217,36 +217,7 @@ pub Declaration: Box<ast::Statement> = {
   <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>)),
   // for structs, unions, enums
   <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(<>)),
-//  <TypedefDeclaration>,
 };
-
-//pub TypedefDeclaration: Box<ast::Statement> = {
-//    <TypedefSpecifierQualifier+>
-//}
-//
-//TypedefSpecifierQualifier: ast::SpecifierQualifier = {
-////    <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
-//    "typedef" => ast::SpecifierQualifier::StorageClassSpecifier(ast::StorageClassSpecifier::Typedef),
-//    <TypeQualifier> => ast::SpecifierQualifier::TypeQualifier(<>),
-//}
-//
-//TypedefDeclarator: Box<ast::Declarator> = {
-//    <TypedefPtrDeclarator>,
-//    <TypedefNoPtrDeclarator>,
-//}
-//
-//TypedefPtrDeclarator: Box<ast::Declarator> = {
-//    "*" <TypedefDeclarator> => Box::new(ast::Declarator::PointerDeclarator(<>)),
-//};
-//
-//TypedefNoPtrDeclarator: Box<ast::Declarator> = {
-//    <TypeName> => Box::new(ast::Declarator::Identifier(<>)),
-//    "(" <TypedefDeclarator> ")",
-//    // Array declarator
-//    <TypedefNoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
-//    // Function declarator
-//    <TypedefNoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
-//}
 
 pub SpecifierQualifier: ast::SpecifierQualifier = {
   <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
@@ -270,6 +241,7 @@ StorageClassSpecifier: ast::StorageClassSpecifier = {
   "extern" => ast::StorageClassSpecifier::Extern,
   "register" => ast::StorageClassSpecifier::Register,
   "static" => ast::StorageClassSpecifier::Static,
+  "typedef" => ast::StorageClassSpecifier::Typedef,
 };
 
 TypeQualifier: ast::TypeQualifier = {

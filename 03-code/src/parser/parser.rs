@@ -4,33 +4,14 @@ mod parser_tests;
 
 use super::ast::AstNode;
 use super::lexer::Lexer;
-use super::preparser::process_typedefs as preparse_typedefs;
 use log::{error, info, trace};
 
 lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
 
 pub fn parse(source: String) {
-    info!("Running parser");
+    info!("Running lexer and parser");
 
-    let typedef_names = preparse_typedefs(&source);
-
-    info!("Typedef names: {:?}", typedef_names);
-
-    let lexer = Lexer::new(source.as_str(), &typedef_names);
-
-    // loop {
-    //     match lexer.next() {
-    //         Some(Ok(t)) => info!("{:?}", t),
-    //         Some(Err(e)) => {
-    //             info!("{:?}", e);
-    //             break;
-    //         }
-    //         None => {
-    //             info!("EOF");
-    //             break;
-    //         }
-    //     }
-    // }
+    let lexer = Lexer::new(source.as_str());
 
     let result = c_parser::ProgramParser::new().parse(lexer);
 

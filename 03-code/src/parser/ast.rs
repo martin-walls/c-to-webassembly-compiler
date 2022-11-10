@@ -384,16 +384,6 @@ pub enum SpecifierQualifier {
     TypeQualifier(TypeQualifier),
 }
 
-impl SpecifierQualifier {
-    fn count_identifiers(&self) -> u32 {
-        match self {
-            SpecifierQualifier::TypeSpecifier(t) => t.count_identifiers(),
-            SpecifierQualifier::StorageClassSpecifier(_) => 0,
-            SpecifierQualifier::TypeQualifier(_) => 0,
-        }
-    }
-}
-
 impl AstNode for SpecifierQualifier {
     fn reconstruct_source(&self) -> String {
         match self {
@@ -414,19 +404,6 @@ pub enum TypeSpecifier {
     CustomType(Identifier),
 }
 
-impl TypeSpecifier {
-    fn count_identifiers(&self) -> u32 {
-        match self {
-            TypeSpecifier::ArithmeticType(_) => 0,
-            TypeSpecifier::Void => 0,
-            TypeSpecifier::Struct(s) => s.count_identifiers(),
-            TypeSpecifier::Union(u) => u.count_identifiers(),
-            TypeSpecifier::Enum(e) => e.count_identifiers(),
-            TypeSpecifier::CustomType(_) => 1,
-        }
-    }
-}
-
 impl AstNode for TypeSpecifier {
     fn reconstruct_source(&self) -> String {
         match self {
@@ -435,7 +412,7 @@ impl AstNode for TypeSpecifier {
             TypeSpecifier::Struct(t) => t.reconstruct_source(),
             TypeSpecifier::Union(t) => t.reconstruct_source(),
             TypeSpecifier::Enum(t) => t.reconstruct_source(),
-            TypeSpecifier::CustomType(i) => i.reconstruct_source(),
+            TypeSpecifier::CustomType(i) => format!("<TypedefName {}>", i.reconstruct_source()),
         }
     }
 }
@@ -504,25 +481,6 @@ pub enum StructType {
     Definition(Option<Identifier>, Vec<StructMemberDeclaration>),
 }
 
-impl StructType {
-    fn count_identifiers(&self) -> u32 {
-        match self {
-            StructType::Declaration(_) => 1,
-            StructType::Definition(i, ms) => {
-                member_count = ms
-                    .iter()
-                    .map(|md| md.count_identifiers())
-                    .reduce(|acc, x| acc + x)
-                    .unwrap();
-                match i {
-                    Some(_) => 1 + member_count,
-                    None => member_count,
-                }
-            }
-        }
-    }
-}
-
 impl AstNode for StructType {
     fn reconstruct_source(&self) -> String {
         match self {
@@ -545,22 +503,6 @@ impl AstNode for StructType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructMemberDeclaration(pub Vec<SpecifierQualifier>, pub Vec<Box<Declarator>>);
-
-impl StructMemberDeclaration {
-    fn count_identifiers(&self) -> u32 {
-        self.0
-            .iter()
-            .map(|sq| sq.count_identifiers())
-            .reduce(|acc, x| acc + x)
-            .unwrap()
-            + self
-                .1
-                .iter()
-                .map(|d| d.count_identifiers())
-                .reduce(|acc, x| acc + x)
-                .unwrap()
-    }
-}
 
 impl AstNode for StructMemberDeclaration {
     fn reconstruct_source(&self) -> String {
@@ -695,16 +637,6 @@ impl Declarator {
             | Declarator::ArrayDeclarator(decl, _)
             | Declarator::FunctionDeclarator(decl, _) => decl.get_identifier_name(),
             Declarator::AbstractPointerDeclarator => None,
-        }
-    }
-
-    fn count_identifiers(&self) -> u32 {
-        match self {
-            Declarator::Identifier(_) => 1,
-            Declarator::PointerDeclarator(d) => d.count_identifiers(),
-            Declarator::AbstractPointerDeclarator => 0,
-            Declarator::ArrayDeclarator(d, e) => d.count_identifiers() + e.count_identifiers(),
-            Declarator::FunctionDeclarator(d, ps) => d.count_identifiers() + ps.count_identifiers(),
         }
     }
 }

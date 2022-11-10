@@ -1,7 +1,11 @@
+use super::ast;
+use crate::parser::lexer::LexError::InvalidTypedefDeclaration;
 use log::trace;
 use std::{iter::Peekable, str::CharIndices};
 
-#[derive(Debug, Clone)]
+lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Bang,
     Percent,
@@ -100,24 +104,24 @@ pub enum Token {
     While,
 }
 
-// #[derive(Debug, Clone)]
-// pub enum Keyword {
-//
-// }
-
 type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
+
+type TypedefName = String;
 
 pub struct Lexer<'input> {
     chars: Peekable<CharIndices<'input>>,
-    typedef_names: &'input Vec<String>,
+    typedef_names: Vec<TypedefName>,
+    inside_typedef_stmt: bool,
+    typedef_stmt_buffer: Vec<Spanned<Token, usize, LexError>>,
 }
 
 impl<'input> Lexer<'input> {
-    pub fn new(input: &'input str, typedef_names: &'input Vec<String>) -> Self {
-        trace!("lexer input: {}", input);
+    pub fn new(input: &'input str) -> Self {
         Lexer {
             chars: input.char_indices().peekable(),
-            typedef_names,
+            typedef_names: vec![],
+            inside_typedef_stmt: false,
+            typedef_stmt_buffer: vec![],
         }
     }
 }
@@ -134,16 +138,14 @@ impl<'input> Iterator for Lexer<'input> {
                 Some((i, c)) => (i, c),
                 // end of file
                 None => {
-                    match fsm.state {
+                    return match fsm.state {
                         // EOF
-                        State::Start => return None,
-                        _ => {
-                            return match fsm.token {
-                                Some(t) => Some(Ok((start.unwrap(), t, end.unwrap() + 1))),
-                                None => Some(Err(LexError::InvalidEOF)),
-                            }
-                        }
-                    }
+                        State::Start => None,
+                        _ => match fsm.token {
+                            Some(t) => Some(Ok((start.unwrap(), t, end.unwrap() + 1))),
+                            None => Some(Err(LexError::InvalidEOF)),
+                        },
+                    };
                 }
             };
 
@@ -164,9 +166,36 @@ impl<'input> Iterator for Lexer<'input> {
                 }
                 // no next state, so take the token we got to
                 None => {
-                    trace!("{:?}", current_token);
                     return match current_token {
-                        Some(t) => Some(Ok((start.unwrap(), t, end.unwrap()))),
+                        Some(t @ Token::Typedef) => {
+                            trace!("Lexed token: {:?}", t);
+                            self.inside_typedef_stmt = true;
+                            self.typedef_stmt_buffer.push(Ok((
+                                start.unwrap(),
+                                t.to_owned(),
+                                end.unwrap(),
+                            )));
+                            Some(Ok((start.unwrap(), t, end.unwrap())))
+                        }
+                        Some(t) => {
+                            trace!("Lexed token: {:?}", t);
+                            if self.inside_typedef_stmt {
+                                self.typedef_stmt_buffer.push(Ok((
+                                    start.unwrap(),
+                                    t.to_owned(),
+                                    end.unwrap(),
+                                )));
+                                if t == Token::Semicolon {
+                                    match self.parse_typedef_name() {
+                                        Err(e) => return Some(Err(e)),
+                                        Ok(_) => (),
+                                    }
+                                    // reset from typedef statement
+                                    self.inside_typedef_stmt = false;
+                                }
+                            }
+                            Some(Ok((start.unwrap(), t, end.unwrap())))
+                        }
                         None => Some(Err(LexError::InvalidToken(start.unwrap(), i.to_owned()))),
                     };
                 }
@@ -175,10 +204,32 @@ impl<'input> Iterator for Lexer<'input> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+impl Lexer<'_> {
+    fn parse_typedef_name(&mut self) -> Result<(), LexError> {
+        let result =
+            c_parser::DeclarationParser::new().parse(self.typedef_stmt_buffer.to_vec().into_iter());
+        if let Ok(stmt) = result {
+            if let ast::Statement::Declaration(_, ds) = *stmt {
+                if ds.len() == 1 {
+                    if let Some(name) = ds[0].get_identifier_name().to_owned() {
+                        trace!("Found typedef identifier: {:?}", name);
+                        self.typedef_names.push(name);
+                        trace!("Typedef names so far: {:?}", self.typedef_names);
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        self.typedef_stmt_buffer = vec![];
+        Err(InvalidTypedefDeclaration)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
     InvalidToken(usize, usize),
     InvalidEOF,
+    InvalidTypedefDeclaration,
 }
 
 #[derive(Debug)]
@@ -263,7 +314,6 @@ enum State {
 struct Fsm {
     state: State,
     token: Option<Token>,
-    inside_typedef_stmt: bool,
 }
 
 impl Fsm {
@@ -271,7 +321,6 @@ impl Fsm {
         Fsm {
             state: State::Start,
             token: None,
-            inside_typedef_stmt: false,
         }
     }
 
@@ -960,7 +1009,7 @@ impl Fsm {
     }
 }
 
-fn lex_identifier(name: String, typedef_names: &Vec<String>, inside_typedef_stmt: bool) -> Fsm {
+fn lex_identifier(name: String, typedef_names: &Vec<String>) -> Fsm {
     // check if identifier name matches a keyword
     if let Some(keyword) = parse_keyword(&name) {
         return Fsm {
@@ -969,7 +1018,7 @@ fn lex_identifier(name: String, typedef_names: &Vec<String>, inside_typedef_stmt
         };
     }
     // check if identifier name matches a typedef name
-    if typedef_names.iter().any(|n| n == &name) && !inside_typedef_stmt {
+    if typedef_names.iter().any(|n| n == &name) {
         return Fsm {
             state: State::TypedefName,
             token: Some(Token::TypedefName(name)),
