@@ -478,7 +478,7 @@ UnaryExpression = {
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
   "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-  // "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(<>))),
+   "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(<>))),
 };
 
 UnaryOperator: ast::UnaryOperator = {
