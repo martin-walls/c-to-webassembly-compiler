@@ -215,6 +215,7 @@ impl Lexer<'_> {
                         trace!("Found typedef identifier: {:?}", name);
                         self.typedef_names.push(name);
                         trace!("Typedef names so far: {:?}", self.typedef_names);
+                        self.typedef_stmt_buffer = vec![];
                         return Ok(());
                     }
                 }
@@ -431,6 +432,7 @@ impl Fsm {
                     state: State::Char1,
                     token: None,
                 }),
+                // identifiers only start with letters or underscore, not number
                 c if c.is_ascii_alphabetic() => Some(Fsm {
                     state: State::Identifier,
                     token: Some(Token::Identifier(c.to_string())),
@@ -606,7 +608,7 @@ impl Fsm {
             State::Semicolon => None,
             State::Colon => None,
             State::Identifier => {
-                if !(input.is_ascii_alphabetic() || input == '_') {
+                if !is_identifier_char(&input) {
                     return None;
                 }
                 if let Some(Token::Identifier(mut name)) = self.token {
@@ -618,14 +620,14 @@ impl Fsm {
                 None
             }
             State::Keyword(mut name) => {
-                if !(input.is_ascii_alphabetic() || input == '_') {
+                if !is_identifier_char(&input) {
                     return None;
                 }
                 name.push(input);
                 Some(lex_identifier(name, typedef_names))
             }
             State::TypedefName => {
-                if !(input.is_ascii_alphabetic() || input == '_') {
+                if !is_identifier_char(&input) {
                     return None;
                 }
                 if let Some(Token::TypedefName(mut name)) = self.token {
@@ -1007,6 +1009,10 @@ impl Fsm {
             State::Char10 => None,
         }
     }
+}
+
+fn is_identifier_char(c: &char) -> bool {
+    c.is_ascii_alphabetic() || c.is_ascii_digit() || c == &'_'
 }
 
 fn lex_identifier(name: String, typedef_names: &Vec<String>) -> Fsm {
