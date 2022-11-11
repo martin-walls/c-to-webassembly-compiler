@@ -201,6 +201,7 @@ ClosedStatement: Box<ast::Statement> = {
   "case" <ConditionalExpression> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case(<>))),
   "default" ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default(<>))),
   <Identifier> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
+  ";" => Box::new(ast::Statement::Empty),
 };
 
 Block: Box<ast::Statement> = {

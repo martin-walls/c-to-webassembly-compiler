@@ -53,6 +53,7 @@ pub enum Statement {
     Declaration(Vec<SpecifierQualifier>, Vec<DeclaratorInitialiser>),
     EmptyDeclaration(Vec<SpecifierQualifier>),
     FunctionDeclaration(Vec<SpecifierQualifier>, Box<Declarator>, Box<Statement>),
+    Empty,
 }
 
 impl AstNode for Statement {
@@ -159,6 +160,7 @@ impl AstNode for Statement {
                 .unwrap();
                 st
             }
+            Statement::Empty => "".to_owned(),
         }
     }
 }
