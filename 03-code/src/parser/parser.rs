@@ -13,12 +13,13 @@ pub fn parse(source: String) {
 
     let lexer = Lexer::new(source.as_str());
 
-    let result = c_parser::ProgramParser::new().parse(lexer);
+    let ast = c_parser::ProgramParser::new().parse(lexer);
 
-    match result {
+    match ast {
         Ok(ast) => {
-            trace!("AST generated:\n{:#?}", ast);
-            info!("Parser output:\n{}", ast.reconstruct_source());
+            let normalised_ast = ast.normalise();
+            trace!("AST generated:\n{:#?}", normalised_ast);
+            info!("Parser output:\n{}", normalised_ast.reconstruct_source());
         }
         Err(e) => error!("Parser failed: {:?}", e),
     }

@@ -485,7 +485,7 @@ MultiplicativeExpression: Box<ast::Expression> = {
 
 CastExpression: Box<ast::Expression> = {
   UnaryExpression,
-  "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(s, d), e)),
+  "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName::Unnormalised(s, d), e)),
 };
 
 UnaryExpression = {
@@ -494,7 +494,7 @@ UnaryExpression = {
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
   "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-   "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(<>))),
+   "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName::Unnormalised(<>))),
 };
 
 UnaryOperator: ast::UnaryOperator = {
@@ -509,7 +509,12 @@ UnaryOperator: ast::UnaryOperator = {
 PostfixExpression: Box<ast::Expression> = {
   <PrimaryExpression>,
   <PostfixExpression> "[" <Expression> "]" => Box::new(ast::Expression::Index(<>)),
-  <PostfixExpression> "(" <ArgumentExpressionList?> ")" => Box::new(ast::Expression::FunctionCall(<>)),
+  <e:PostfixExpression> "(" <args:ArgumentExpressionList?> ")" => {
+    match args {
+        Some(args) => Box::new(ast::Expression::FunctionCall(e, args)),
+        None => Box::new(ast::Expression::FunctionCall(e, vec![])),
+    }
+  },
   <PostfixExpression> "." <Identifier> => Box::new(ast::Expression::DirectMemberSelection(<>)),
   <PostfixExpression> "->" <Identifier> => Box::new(ast::Expression::IndirectMemberSelection(<>)),
   <PostfixExpression> "++" => Box::new(ast::Expression::PostfixIncrement(<>)),
