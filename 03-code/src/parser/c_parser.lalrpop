@@ -90,6 +90,7 @@ extern {
         "for" => lexer::Token::For,
         "goto" => lexer::Token::Goto,
         "if" => lexer::Token::If,
+        "inline" => lexer::Token::Inline,
         "int" => lexer::Token::Int,
         "long" => lexer::Token::Long,
         "register" => lexer::Token::Register,
@@ -227,6 +228,7 @@ pub SpecifierQualifier: ast::SpecifierQualifier = {
   <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
   <StorageClassSpecifier> => ast::SpecifierQualifier::StorageClassSpecifier(<>),
   <TypeQualifier> => ast::SpecifierQualifier::TypeQualifier(<>),
+  <FunctionSpecifier> => ast::SpecifierQualifier::FunctionSpecifier(<>),
 };
 
 pub TypeSpecifier: ast::TypeSpecifier = {
@@ -250,6 +252,10 @@ StorageClassSpecifier: ast::StorageClassSpecifier = {
 
 TypeQualifier: ast::TypeQualifier = {
   "const" => ast::TypeQualifier::Const,
+};
+
+FunctionSpecifier: ast::FunctionSpecifier = {
+    "inline" => ast::FunctionSpecifier::Inline,
 };
 
 ArithmeticTypeSpecifier: ast::ArithmeticTypeSpecifier = {
@@ -340,8 +346,13 @@ DeclaratorInitialiserList = CommaSepList<DeclaratorInitialiser>;
 
 DeclaratorInitialiser: ast::DeclaratorInitialiser = {
   <Declarator> => ast::DeclaratorInitialiser::NoInit(<>),
-  <Declarator> "=" <ConstantExpression> => ast::DeclaratorInitialiser::Init(<>),
-  <Declarator> "=" "{" <CommaSepListAllowTrailing<ConstantExpression>> "}" => ast::DeclaratorInitialiser::StructOrUnion(<>),
+  <Declarator> "=" <Initialiser> => ast::DeclaratorInitialiser::Init(<>),
+//  <Declarator> "=" "{" <CommaSepListAllowTrailing<ConstantExpression>> "}" => ast::DeclaratorInitialiser::StructOrUnion(<>),
+};
+
+Initialiser: Box<ast::Initialiser> = {
+    <AssignmentExpression> => Box::new(ast::Initialiser::Expr(<>)),
+    "{" <CommaSepListAllowTrailing<Initialiser>> "}" => Box::new(ast::Initialiser::List(<>)),
 };
 
 

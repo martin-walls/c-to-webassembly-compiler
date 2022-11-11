@@ -88,6 +88,7 @@ pub enum Token {
     For,
     Goto,
     If,
+    Inline,
     Int,
     Long,
     Register,
@@ -114,6 +115,7 @@ pub struct Lexer<'input> {
     chars: Peekable<CharIndices<'input>>,
     typedef_names: Vec<TypedefName>,
     inside_typedef_stmt: bool,
+    typedef_stmt_nesting_depth: u32,
     typedef_stmt_buffer: Vec<Spanned<Token, usize, LexError>>,
 }
 
@@ -123,6 +125,7 @@ impl<'input> Lexer<'input> {
             chars: input.char_indices().peekable(),
             typedef_names: vec![],
             inside_typedef_stmt: false,
+            typedef_stmt_nesting_depth: 0,
             typedef_stmt_buffer: vec![],
         }
     }
@@ -187,13 +190,17 @@ impl<'input> Iterator for Lexer<'input> {
                                     t.to_owned(),
                                     end.unwrap(),
                                 )));
-                                if t == Token::Semicolon {
+                                if t == Token::Semicolon && self.typedef_stmt_nesting_depth == 0 {
                                     match self.parse_typedef_name() {
                                         Err(e) => return Some(Err(e)),
                                         Ok(_) => (),
                                     }
                                     // reset from typedef statement
                                     self.inside_typedef_stmt = false;
+                                } else if t == Token::LeftCurly {
+                                    self.typedef_stmt_nesting_depth += 1;
+                                } else if t == Token::RightCurly {
+                                    self.typedef_stmt_nesting_depth -= 1;
                                 }
                             }
                             Some(Ok((start.unwrap(), t, end.unwrap())))
@@ -1071,6 +1078,7 @@ fn parse_keyword(name: &String) -> Option<Token> {
         "for" => Some(Token::For),
         "goto" => Some(Token::Goto),
         "if" => Some(Token::If),
+        "inline" => Some(Token::Inline),
         "int" => Some(Token::Int),
         "long" => Some(Token::Long),
         "register" => Some(Token::Register),

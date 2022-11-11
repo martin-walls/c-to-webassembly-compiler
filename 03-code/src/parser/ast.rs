@@ -382,6 +382,7 @@ pub enum SpecifierQualifier {
     TypeSpecifier(TypeSpecifier),
     StorageClassSpecifier(StorageClassSpecifier),
     TypeQualifier(TypeQualifier),
+    FunctionSpecifier(FunctionSpecifier),
 }
 
 impl AstNode for SpecifierQualifier {
@@ -390,6 +391,7 @@ impl AstNode for SpecifierQualifier {
             SpecifierQualifier::TypeSpecifier(t) => t.reconstruct_source(),
             SpecifierQualifier::StorageClassSpecifier(s) => s.reconstruct_source(),
             SpecifierQualifier::TypeQualifier(q) => q.reconstruct_source(),
+            SpecifierQualifier::FunctionSpecifier(f) => f.reconstruct_source(),
         }
     }
 }
@@ -621,6 +623,19 @@ impl AstNode for TypeQualifier {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum FunctionSpecifier {
+    Inline,
+}
+
+impl AstNode for FunctionSpecifier {
+    fn reconstruct_source(&self) -> String {
+        match self {
+            FunctionSpecifier::Inline => "inline".to_owned(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Declarator {
     Identifier(Identifier),
     PointerDeclarator(Box<Declarator>),
@@ -719,7 +734,7 @@ impl AstNode for ParameterDeclaration {
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeclaratorInitialiser {
     NoInit(Box<Declarator>),
-    Init(Box<Declarator>, Box<Expression>),
+    Init(Box<Declarator>, Box<Initialiser>),
     Function(Box<Declarator>, Box<Statement>),
     StructOrUnion(Box<Declarator>, Vec<Box<Expression>>),
 }
@@ -750,6 +765,29 @@ impl AstNode for DeclaratorInitialiser {
                 write!(&mut s, "{} = {{\n", d.reconstruct_source()).unwrap();
                 for e in es {
                     write!(&mut s, "{},\n", e.reconstruct_source()).unwrap();
+                }
+                write!(&mut s, "}}").unwrap();
+                s
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Initialiser {
+    Expr(Box<Expression>),
+    List(Vec<Box<Initialiser>>),
+}
+
+impl AstNode for Initialiser {
+    fn reconstruct_source(&self) -> String {
+        match self {
+            Initialiser::Expr(e) => e.reconstruct_source(),
+            Initialiser::List(is) => {
+                let mut s = String::new();
+                write!(&mut s, "{{").unwrap();
+                for i in is {
+                    write!(&mut s, "{}, ", i.reconstruct_source()).unwrap();
                 }
                 write!(&mut s, "}}").unwrap();
                 s
