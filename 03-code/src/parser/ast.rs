@@ -685,10 +685,9 @@ impl AstNode for ParameterTypeList {
             }
             ParameterTypeList::Variadic(ps) => {
                 let mut s = String::new();
-                for parameter in &ps[..ps.len() - 1] {
+                for parameter in ps {
                     write!(&mut s, "{}, ", parameter.reconstruct_source()).unwrap();
                 }
-                write!(&mut s, "{}", &ps[ps.len() - 1].reconstruct_source()).unwrap();
                 write!(&mut s, "...").unwrap();
                 s
             }

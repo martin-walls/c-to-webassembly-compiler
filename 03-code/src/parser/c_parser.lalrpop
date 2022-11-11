@@ -61,6 +61,8 @@ extern {
         "'" => lexer::Token::SingleQuote,
         "\"" => lexer::Token::DoubleQuote,
 
+        "..." => lexer::Token::Ellipsis,
+
         "DecimalConstant" => lexer::Token::DecimalConstant(<String>),
         "BinaryConstant" => lexer::Token::BinaryConstant(<String>),
         "OctalConstant" => lexer::Token::OctalConstant(<String>),
@@ -126,7 +128,9 @@ CommaSepListAllowTrailing<T>: Vec<T> = {
   }
 };
 
-
+CommaSepListWithTrailing<T>: Vec<T> = {
+  <(<T> ",")+>
+};
 
 // CONSTANTS -------------------------
 
@@ -322,7 +326,7 @@ NoPtrDeclarator: Box<ast::Declarator> = {
 ParameterTypeList: ast::ParameterTypeList = {
   <ParameterList> => ast::ParameterTypeList::Normal(<>),
   // variadic functions
-  //<ParameterList> "," "..." => ast::ParameterTypeList::Variadic(<>),
+  <CommaSepListWithTrailing<ParameterDeclaration>> "..." => ast::ParameterTypeList::Variadic(<>),
 };
 
 ParameterList = CommaSepList<ParameterDeclaration>;

@@ -59,6 +59,8 @@ pub enum Token {
     SingleQuote,
     DoubleQuote,
 
+    Ellipsis,
+
     DecimalConstant(String),
     BinaryConstant(String),
     OctalConstant(String),
@@ -284,7 +286,9 @@ enum State {
     Keyword(String),
     TypedefName,
     Decimal,
-    Dot,
+    Dot1,
+    Dot2,
+    Dot3,
     Float1,
     Float2,
     Float3,
@@ -421,7 +425,7 @@ impl Fsm {
                     token: Some(Token::Colon),
                 }),
                 '.' => Some(Fsm {
-                    state: State::Dot,
+                    state: State::Dot1,
                     token: Some(Token::Dot),
                 }),
                 '"' => Some(Fsm {
@@ -671,7 +675,7 @@ impl Fsm {
                 },
                 _ => None,
             },
-            State::Dot => match input {
+            State::Dot1 => match input {
                 c if c.is_ascii_digit() => {
                     let s = format!(".{}", c);
                     Some(Fsm {
@@ -679,8 +683,20 @@ impl Fsm {
                         token: Some(Token::FloatingConstant(s)),
                     })
                 }
+                '.' => Some(Fsm {
+                    state: State::Dot2,
+                    token: None,
+                }),
                 _ => None,
             },
+            State::Dot2 => match input {
+                '.' => Some(Fsm {
+                    state: State::Dot3,
+                    token: Some(Token::Ellipsis),
+                }),
+                _ => None,
+            },
+            State::Dot3 => None,
             State::Float1 => match input {
                 'e' | 'E' => match self.token {
                     Some(Token::FloatingConstant(mut s)) => {
