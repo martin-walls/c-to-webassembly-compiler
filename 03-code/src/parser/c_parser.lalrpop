@@ -213,32 +213,32 @@ Block: Box<ast::Statement> = {
 #[inline]
 ExpressionOrDeclaration: ast::ExpressionOrDeclaration = {
   <Expression> => ast::ExpressionOrDeclaration::Expression(<>),
-  <SpecifierQualifier+> <DeclaratorInitialiserList> => ast::ExpressionOrDeclaration::Declaration(Box::new(ast::Statement::Declaration(<>))),
+  <sqs:SpecifierQualifier+> <d:DeclaratorInitialiserList> => ast::ExpressionOrDeclaration::Declaration(Box::new(ast::Statement::Declaration(ast::SpecifierQualifier::create(sqs).unwrap(), d))),
 };
 
 // DECLARATIONS -----------------------------
 
 pub Declaration: Box<ast::Statement> = {
-  <SpecifierQualifier+> <DeclaratorInitialiserList> ";" => Box::new(ast::Statement::Declaration(<>)),
-  <SpecifierQualifier+> <Declarator> <Block> => Box::new(ast::Statement::FunctionDeclaration(<>)),
+  <sqs:SpecifierQualifier+> <d:DeclaratorInitialiserList> ";" => Box::new(ast::Statement::Declaration(ast::SpecifierQualifier::create(sqs).unwrap(), d)),
+  <sqs:SpecifierQualifier+> <d:Declarator> <b:Block> => Box::new(ast::Statement::FunctionDeclaration(ast::SpecifierQualifier::create(sqs).unwrap(), d, b)),
   // for structs, unions, enums
-  <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(<>)),
+  <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(ast::SpecifierQualifier::create(<>).unwrap())),
 };
 
-pub SpecifierQualifier: ast::SpecifierQualifier = {
-  <TypeSpecifier> => ast::SpecifierQualifier::TypeSpecifier(<>),
-  <StorageClassSpecifier> => ast::SpecifierQualifier::StorageClassSpecifier(<>),
-  <TypeQualifier> => ast::SpecifierQualifier::TypeQualifier(<>),
-  <FunctionSpecifier> => ast::SpecifierQualifier::FunctionSpecifier(<>),
+pub SpecifierQualifier: ast::SpecifierQualifierToken = {
+  <TypeSpecifier> => ast::SpecifierQualifierToken::TypeSpecifier(<>),
+  <StorageClassSpecifier> => ast::SpecifierQualifierToken::StorageClassSpecifier(<>),
+  <TypeQualifier> => ast::SpecifierQualifierToken::TypeQualifier(<>),
+  <FunctionSpecifier> => ast::SpecifierQualifierToken::FunctionSpecifier(<>),
 };
 
-pub TypeSpecifier: ast::TypeSpecifier = {
-  <ArithmeticTypeSpecifier> => ast::TypeSpecifier::ArithmeticType(<>),
-  "void" => ast::TypeSpecifier::Void,
-  <StructDeclaration> => ast::TypeSpecifier::Struct(<>),
-  <UnionDeclaration> => ast::TypeSpecifier::Union(<>),
-  <EnumDeclaration> => ast::TypeSpecifier::Enum(<>),
-  <TypeName> => ast::TypeSpecifier::CustomType(<>),
+pub TypeSpecifier: ast::TypeSpecifierToken = {
+  <ArithmeticTypeSpecifier> => ast::TypeSpecifierToken::ArithmeticType(<>),
+  "void" => ast::TypeSpecifierToken::Void,
+  <StructDeclaration> => ast::TypeSpecifierToken::Struct(<>),
+  <UnionDeclaration> => ast::TypeSpecifierToken::Union(<>),
+  <EnumDeclaration> => ast::TypeSpecifierToken::Enum(<>),
+  <TypeName> => ast::TypeSpecifierToken::CustomType(<>),
 };
 
 TypeName: ast::Identifier = "TypedefName" => ast::Identifier(<>.to_owned());
@@ -259,15 +259,15 @@ FunctionSpecifier: ast::FunctionSpecifier = {
     "inline" => ast::FunctionSpecifier::Inline,
 };
 
-ArithmeticTypeSpecifier: ast::ArithmeticTypeSpecifier = {
-  "char" => ast::ArithmeticTypeSpecifier::Char,
-  "short" => ast::ArithmeticTypeSpecifier::Short,
-  "int" => ast::ArithmeticTypeSpecifier::Int,
-  "long" => ast::ArithmeticTypeSpecifier::Long,
-  "signed" => ast::ArithmeticTypeSpecifier::Signed,
-  "unsigned" => ast::ArithmeticTypeSpecifier::Unsigned,
-  "float" => ast::ArithmeticTypeSpecifier::Float,
-  "double" => ast::ArithmeticTypeSpecifier::Double,
+ArithmeticTypeSpecifier: ast::ArithmeticTypeSpecifierToken = {
+  "char" => ast::ArithmeticTypeSpecifierToken::Char,
+  "short" => ast::ArithmeticTypeSpecifierToken::Short,
+  "int" => ast::ArithmeticTypeSpecifierToken::Int,
+  "long" => ast::ArithmeticTypeSpecifierToken::Long,
+  "signed" => ast::ArithmeticTypeSpecifierToken::Signed,
+  "unsigned" => ast::ArithmeticTypeSpecifierToken::Unsigned,
+  "float" => ast::ArithmeticTypeSpecifierToken::Float,
+  "double" => ast::ArithmeticTypeSpecifierToken::Double,
 };
 
 StructDeclaration: ast::StructType = {
@@ -276,7 +276,7 @@ StructDeclaration: ast::StructType = {
 };
 
 StructMemberDeclaration: ast::StructMemberDeclaration = {
-  <SpecifierQualifier+> <DeclaratorList> ";" => ast::StructMemberDeclaration(<>),
+  <sqs:SpecifierQualifier+> <d:DeclaratorList> ";" => ast::StructMemberDeclaration(ast::SpecifierQualifier::create(sqs).unwrap(), d),
 };
 
 UnionDeclaration: ast::UnionType = {
@@ -339,7 +339,7 @@ ParameterTypeList: ast::ParameterTypeList = {
 ParameterList = CommaSepList<ParameterDeclaration>;
 
 ParameterDeclaration: ast::ParameterDeclaration = {
-  <SpecifierQualifier+> <Declarator> => ast::ParameterDeclaration::Named(<>),
+  <sqs:SpecifierQualifier+> <d:Declarator> => ast::ParameterDeclaration::Named(ast::SpecifierQualifier::create(sqs).unwrap(), d),
   // <SpecifierQualifier+> <AbstractDeclarator?> => ast::ParameterDeclaration::Abstract(<>),
 };
 
@@ -485,7 +485,7 @@ MultiplicativeExpression: Box<ast::Expression> = {
 
 CastExpression: Box<ast::Expression> = {
   UnaryExpression,
-  "(" <s:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName::Unnormalised(s, d), e)),
+  "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d), e)),
 };
 
 UnaryExpression = {
@@ -494,7 +494,7 @@ UnaryExpression = {
   "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
   <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
   "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-   "sizeof" "(" <SpecifierQualifier+> <Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName::Unnormalised(<>))),
+   "sizeof" "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d))),
 };
 
 UnaryOperator: ast::UnaryOperator = {

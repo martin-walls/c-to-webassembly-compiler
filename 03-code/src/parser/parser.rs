@@ -17,9 +17,8 @@ pub fn parse(source: String) {
 
     match ast {
         Ok(ast) => {
-            let normalised_ast = ast.normalise();
-            trace!("AST generated:\n{:#?}", normalised_ast);
-            info!("Parser output:\n{}", normalised_ast.reconstruct_source());
+            trace!("AST generated:\n{:#?}", ast);
+            info!("Parser output:\n{}", ast.reconstruct_source());
         }
         Err(e) => error!("Parser failed: {:?}", e),
     }
