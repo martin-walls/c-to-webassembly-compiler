@@ -1,7 +1,9 @@
 use super::ast;
 use crate::parser::lexer::LexError::InvalidTypedefDeclaration;
 use log::trace;
-use std::{iter::Peekable, str::CharIndices};
+use std::error::Error;
+use std::fmt::Formatter;
+use std::{fmt, iter::Peekable, str::CharIndices};
 
 lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
 
@@ -105,6 +107,103 @@ pub enum Token {
     Void,
     Volatile,
     While,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::Bang => write!(f, "Token [!]"),
+            Token::Percent => write!(f, "Token [%]"),
+            Token::Caret => write!(f, "Token [^]"),
+            Token::Ampersand => write!(f, "Token [&]"),
+            Token::Asterisk => write!(f, "Token [*]"),
+            Token::Minus => write!(f, "Token [-]"),
+            Token::Plus => write!(f, "Token [+]"),
+            Token::Eq => write!(f, "Token [=]"),
+            Token::Tilde => write!(f, "Token [~]"),
+            Token::Bar => write!(f, "Token [|]"),
+            Token::Dot => write!(f, "Token [.]"),
+            Token::LessThan => write!(f, "Token [<]"),
+            Token::GreaterThan => write!(f, "Token [>]"),
+            Token::Slash => write!(f, "Token [/]"),
+            Token::Question => write!(f, "Token [?]"),
+            Token::PlusEq => write!(f, "Token [+=]"),
+            Token::MinusEq => write!(f, "Token [-=]"),
+            Token::AsteriskEq => write!(f, "Token [*=]"),
+            Token::SlashEq => write!(f, "Token [/=]"),
+            Token::PercentEq => write!(f, "Token [%=]"),
+            Token::LeftShiftEq => write!(f, "Token [<<=]"),
+            Token::RightShiftEq => write!(f, "Token [>>=]"),
+            Token::AmpersandEq => write!(f, "Token [&=]"),
+            Token::CaretEq => write!(f, "Token [^=]"),
+            Token::BarEq => write!(f, "Token [|=]"),
+            Token::Arrow => write!(f, "Token [->]"),
+            Token::DoublePlus => write!(f, "Token [++]"),
+            Token::DoubleMinus => write!(f, "Token [--]"),
+            Token::LeftShift => write!(f, "Token [<<]"),
+            Token::RightShift => write!(f, "Token [>>]"),
+            Token::LessThanEq => write!(f, "Token [<=]"),
+            Token::GreaterThanEq => write!(f, "Token [>=]"),
+            Token::DoubleEq => write!(f, "Token [==]"),
+            Token::BangEq => write!(f, "Token [!=]"),
+            Token::DoubleAmpersand => write!(f, "Token [&&]"),
+            Token::DoubleBar => write!(f, "Token [||]"),
+            Token::LeftParen => write!(f, "Token [(]"),
+            Token::RightParen => write!(f, "Token [)]"),
+            Token::LeftSquare => write!(f, "Token [[]"),
+            Token::RightSquare => write!(f, "Token []]"),
+            Token::LeftCurly => write!(f, "Token [{{]"),
+            Token::RightCurly => write!(f, "Token [}}]"),
+            Token::Comma => write!(f, "Token [,]"),
+            Token::Semicolon => write!(f, "Token [;]"),
+            Token::Colon => write!(f, "Token [:]"),
+            Token::SingleQuote => write!(f, "Token [']"),
+            Token::DoubleQuote => write!(f, "Token [\"]"),
+            Token::Ellipsis => write!(f, "Token [...]"),
+            Token::DecimalConstant(d) => write!(f, "Token [Decimal: {}]", d),
+            Token::BinaryConstant(b) => write!(f, "Token [Binary: {}]", b),
+            Token::OctalConstant(o) => write!(f, "Token [Octal: {}]", o),
+            Token::HexConstant(h) => write!(f, "Token [Hex: {}]", h),
+            Token::FloatingConstant(fc) => write!(f, "Token [Float: {}]", fc),
+            Token::StringLiteral(s) => write!(f, "Token [String: {}]", s),
+            Token::CharConstant(c) => write!(f, "Token [Char: {}]", c),
+            Token::Identifier(i) => write!(f, "Token [Identifier: {}]", i),
+            Token::TypedefName(n) => write!(f, "Token [Typedef name: {}]", n),
+            Token::Auto => write!(f, "Token [auto]"),
+            Token::Break => write!(f, "Token [break]"),
+            Token::Case => write!(f, "Token [case]"),
+            Token::Char => write!(f, "Token [char]"),
+            Token::Const => write!(f, "Token [const]"),
+            Token::Continue => write!(f, "Token [continue]"),
+            Token::Default => write!(f, "Token [default]"),
+            Token::Do => write!(f, "Token [do]"),
+            Token::Double => write!(f, "Token [double]"),
+            Token::Else => write!(f, "Token [else]"),
+            Token::Enum => write!(f, "Token [enum]"),
+            Token::Extern => write!(f, "Token [extern]"),
+            Token::Float => write!(f, "Token [float]"),
+            Token::For => write!(f, "Token [for]"),
+            Token::Goto => write!(f, "Token [goto]"),
+            Token::If => write!(f, "Token [if]"),
+            Token::Inline => write!(f, "Token [inline]"),
+            Token::Int => write!(f, "Token [int]"),
+            Token::Long => write!(f, "Token [long]"),
+            Token::Register => write!(f, "Token [register]"),
+            Token::Return => write!(f, "Token [return]"),
+            Token::Short => write!(f, "Token [short]"),
+            Token::Signed => write!(f, "Token [signed]"),
+            Token::Sizeof => write!(f, "Token [sizeof]"),
+            Token::Static => write!(f, "Token [static]"),
+            Token::Struct => write!(f, "Token [struct]"),
+            Token::Switch => write!(f, "Token [switch]"),
+            Token::Typedef => write!(f, "Token [typedef]"),
+            Token::Union => write!(f, "Token [union]"),
+            Token::Unsigned => write!(f, "Token [unsigned]"),
+            Token::Void => write!(f, "Token [void]"),
+            Token::Volatile => write!(f, "Token [volatile]"),
+            Token::While => write!(f, "Token [while]"),
+        }
+    }
 }
 
 type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
@@ -241,6 +340,24 @@ pub enum LexError {
     InvalidEOF,
     InvalidTypedefDeclaration,
 }
+
+impl fmt::Display for LexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            LexError::InvalidToken(start, end) => {
+                write!(
+                    f,
+                    "Lex error: invalid token at position [{}, {}]",
+                    start, end
+                )
+            }
+            LexError::InvalidEOF => write!(f, "Invalid end of file"),
+            InvalidTypedefDeclaration => write!(f, "Invalid typedef declaration"),
+        }
+    }
+}
+
+impl Error for LexError {}
 
 #[derive(Debug)]
 enum State {

@@ -25,6 +25,8 @@ impl fmt::Display for AstError {
 
 impl Error for AstError {}
 
+pub type Program = StatementList;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier(pub String);
 
