@@ -1,15 +1,21 @@
 use super::ir::Program;
-use crate::middle_end::ir::{Constant, Function, Instruction, Label, Src, Var};
+use crate::middle_end::compile_time_eval::eval_constant_expression;
+use crate::middle_end::ir::{
+    Constant, Fun, Function, Instruction, Label, Src, Type, TypeInfo, Var,
+};
+use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
-    BinaryOperator, Expression, ExpressionOrDeclaration, LabelledStatement, Program as AstProgram,
-    Statement, UnaryOperator,
+    ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
+    ExpressionOrDeclaration, Identifier, LabelledStatement, ParameterTypeList,
+    Program as AstProgram, SpecifierQualifier, Statement, TypeSpecifier, UnaryOperator,
 };
-use core::fmt;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Debug)]
 struct LoopContext {
     start_label: Label,
     end_label: Label,
@@ -42,6 +48,7 @@ impl LoopContext {
     }
 }
 
+#[derive(Debug)]
 struct SwitchContext {
     end_label: Label,
     switch_var: Var,
@@ -68,11 +75,13 @@ impl SwitchContext {
     }
 }
 
+#[derive(Debug)]
 enum LoopOrSwitchContext {
     Loop(LoopContext),
     Switch(SwitchContext),
 }
 
+#[derive(Debug)]
 struct Scope {
     variables: HashMap<String, Var>,
 }
@@ -96,9 +105,11 @@ impl Scope {
     }
 }
 
+#[derive(Debug)]
 struct Context {
     loop_stack: Vec<LoopOrSwitchContext>,
     scope_stack: Vec<Scope>,
+    in_function_name_expr: bool,
 }
 
 impl Context {
@@ -106,6 +117,7 @@ impl Context {
         Context {
             loop_stack: Vec::new(),
             scope_stack: Vec::new(),
+            in_function_name_expr: false,
         }
     }
 
@@ -207,6 +219,11 @@ impl Context {
     }
 
     fn resolve_identifier_to_var(&self, identifier_name: &str) -> Result<Var, MiddleEndError> {
+        if self.scope_stack.is_empty() {
+            return Err(MiddleEndError::UndeclaredIdentifier(
+                identifier_name.to_owned(),
+            ));
+        }
         let mut i = self.scope_stack.len() - 1;
         loop {
             match self.scope_stack.get(i) {
@@ -220,8 +237,17 @@ impl Context {
                     Some(var) => return Ok(var),
                 },
             }
+            if i == 0 {
+                return Err(MiddleEndError::UndeclaredIdentifier(
+                    identifier_name.to_owned(),
+                ));
+            }
             i -= 1;
         }
+    }
+
+    fn resolve_identifier_to_fun(&self, identifier_name: &str) -> Result<Fun, MiddleEndError> {
+        todo!()
     }
 }
 
@@ -232,11 +258,12 @@ pub fn convert_to_ir(ast: AstProgram) {
         let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
         println!("{:?}", instrs);
     }
+    println!("Program: {:?}\nContext: {:?}", program, context);
 }
 
-fn convert_function_to_ir(stmt: Statement) {
-    let mut function = Function { instrs: Vec::new() };
-}
+// fn convert_function_to_ir(stmt: Statement) {
+//     let mut function = Function { instrs: Vec::new() };
+// }
 
 fn convert_statement_to_ir(
     stmt: Box<Statement>,
@@ -447,6 +474,7 @@ fn convert_statement_to_ir(
                     instrs.push(Instruction::SimpleAssignment(temp, Src::Constant(c)));
                     temp
                 }
+                Src::Fun(fun) => unreachable!(),
             };
             context.push_switch(SwitchContext::new(switch_end_label, switch_var));
             // switch body
@@ -496,12 +524,32 @@ fn convert_statement_to_ir(
             }
         }
         Statement::Expr(e) => {
+            println!(
+                "evaluated: {:?}",
+                eval_constant_expression(e.to_owned(), prog)
+            );
             let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
         }
-        Statement::Declaration(_, _) => {}
-        Statement::EmptyDeclaration(_) => {}
-        Statement::FunctionDeclaration(_, _, _) => {}
+        Statement::Declaration(specifier, declarators) => {
+            for declarator in declarators {
+                let type_info = TypeInfo::new();
+                match declarator {
+                    DeclaratorInitialiser::NoInit(d) => {
+                        todo!()
+                    }
+                    DeclaratorInitialiser::Init(d, init_expr) => {
+                        todo!()
+                    }
+                }
+            }
+        }
+        Statement::EmptyDeclaration(_) => {
+            todo!()
+        }
+        Statement::FunctionDeclaration(_, _, _) => {
+            todo!()
+        }
         Statement::Empty => {}
     }
     Ok(instrs)
@@ -517,13 +565,18 @@ fn convert_expression_to_ir(
     let mut instrs: Vec<Instruction> = Vec::new();
     match *expr {
         Expression::Identifier(ast::Identifier(name)) => {
-            let var = context.resolve_identifier_to_var(&name)?;
-            Ok((instrs, Src::Var(var)))
+            if context.in_function_name_expr {
+                let fun = context.resolve_identifier_to_fun(&name)?;
+                Ok((instrs, Src::Fun(fun)))
+            } else {
+                let var = context.resolve_identifier_to_var(&name)?;
+                Ok((instrs, Src::Var(var)))
+            }
         }
         Expression::Constant(c) => match c {
-            ast::Constant::Int(i) => Ok((instrs, Src::Constant(Constant::Int(i)))),
+            ast::Constant::Int(i) => Ok((instrs, Src::Constant(Constant::Int(i as i128)))),
             ast::Constant::Float(f) => Ok((instrs, Src::Constant(Constant::Float(f)))),
-            ast::Constant::Char(ch) => Ok((instrs, Src::Constant(Constant::Int(ch as u128)))),
+            ast::Constant::Char(ch) => Ok((instrs, Src::Constant(Constant::Int(ch as i128)))),
         },
         Expression::StringLiteral(s) => {
             let var = prog.new_string_literal(s);
@@ -542,7 +595,27 @@ fn convert_expression_to_ir(
             Ok((instrs, Src::Var(dest)))
         }
         Expression::FunctionCall(fun, params) => {
-            todo!()
+            context.in_function_name_expr = true;
+            let (mut fun_instrs, fun_var) = convert_expression_to_ir(fun, prog, context)?;
+            instrs.append(&mut fun_instrs);
+            context.in_function_name_expr = false;
+            let fun_identifier = match fun_var {
+                Src::Var(_) | Src::Constant(_) => return Err(MiddleEndError::InvalidFunctionCall),
+                Src::Fun(f) => f,
+            };
+            let mut param_srcs: Vec<Src> = Vec::new();
+            for param in params {
+                let (mut param_instrs, param_var) = convert_expression_to_ir(param, prog, context)?;
+                instrs.append(&mut param_instrs);
+                param_srcs.push(param_var);
+            }
+            let dest = prog.new_var();
+            instrs.push(Instruction::Call(
+                dest,
+                Src::Fun(fun_identifier),
+                param_srcs,
+            ));
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::DirectMemberSelection(_, _) => {
             todo!()
@@ -563,10 +636,9 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(1)),
                     ));
                 }
-                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+                _ => return Err(MiddleEndError::InvalidLValue),
             }
             Ok((instrs, Src::Var(dest)))
-            //todo if var is a pointer move it on by the size of the object it points to
         }
         Expression::PostfixDecrement(_) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
@@ -581,7 +653,7 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(1)),
                     ));
                 }
-                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+                _ => return Err(MiddleEndError::InvalidLValue),
             }
             Ok((instrs, Src::Var(dest)))
         }
@@ -597,7 +669,7 @@ fn convert_expression_to_ir(
                     ));
                     Ok((instrs, Src::Var(var)))
                 }
-                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+                _ => return Err(MiddleEndError::InvalidLValue),
             }
         }
         Expression::PrefixDecrement(_) => {
@@ -612,7 +684,7 @@ fn convert_expression_to_ir(
                     ));
                     Ok((instrs, Src::Var(var)))
                 }
-                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+                _ => return Err(MiddleEndError::InvalidLValue),
             }
         }
         Expression::UnaryOp(op, expr) => {
@@ -732,54 +804,114 @@ fn convert_expression_to_ir(
     }
 }
 
-#[derive(Debug)]
-pub enum MiddleEndError {
-    BreakOutsideLoopOrSwitchContext,
-    ContinueOutsideLoopContext,
-    CaseOutsideSwitchContext,
-    DefaultOutsideSwitchContext,
-    MultipleDefaultCasesInSwitch,
-    /// in theory this should never occur
-    LoopNestingError,
-    UndeclaredIdentifier(String),
-    InvalidLValue,
-}
-
-impl fmt::Display for MiddleEndError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            MiddleEndError::BreakOutsideLoopOrSwitchContext => {
-                write!(
-                    f,
-                    "Illegal break statement found outside loop or switch context"
-                )
+fn get_type_info(
+    specifier: SpecifierQualifier,
+    declarator: Option<Box<Declarator>>,
+    prog: &mut Box<Program>,
+) -> Result<(Box<TypeInfo>, Option<String>), MiddleEndError> {
+    let mut type_info = Box::new(TypeInfo::new());
+    match specifier.type_specifier {
+        TypeSpecifier::ArithmeticType(t) => match t {
+            ArithmeticType::I8 => {
+                type_info.type_ = Type::I8;
             }
-            MiddleEndError::ContinueOutsideLoopContext => {
-                write!(f, "Illegal continue statement found outside loop context")
+            ArithmeticType::U8 => {
+                type_info.type_ = Type::U8;
             }
-            MiddleEndError::CaseOutsideSwitchContext => {
-                write!(f, "Illegal case statement found outside switch context")
+            ArithmeticType::I16 => {
+                type_info.type_ = Type::I16;
             }
-            MiddleEndError::DefaultOutsideSwitchContext => {
-                write!(f, "Illegal default case statement outside switch context")
+            ArithmeticType::U16 => {
+                type_info.type_ = Type::U16;
             }
-            MiddleEndError::MultipleDefaultCasesInSwitch => {
-                write!(
-                    f,
-                    "Multiple default case statements found inside switch context"
-                )
+            ArithmeticType::I32 => {
+                type_info.type_ = Type::I32;
             }
-            MiddleEndError::LoopNestingError => {
-                write!(f, "Loop nesting error when converting to IR")
+            ArithmeticType::U32 => {
+                type_info.type_ = Type::U32;
             }
-            MiddleEndError::UndeclaredIdentifier(name) => {
-                write!(f, "Use of undeclared identifier: \"{}\"", name)
+            ArithmeticType::I64 => {
+                type_info.type_ = Type::I64;
             }
-            MiddleEndError::InvalidLValue => {
-                write!(f, "Invalid LValue used")
+            ArithmeticType::U64 => {
+                type_info.type_ = Type::U64;
             }
+            ArithmeticType::F32 => {
+                type_info.type_ = Type::F32;
+            }
+            ArithmeticType::F64 => {
+                type_info.type_ = Type::F64;
+            }
+        },
+        TypeSpecifier::Void => {
+            type_info.type_ = Type::Void;
         }
+        TypeSpecifier::Struct(_) => {
+            todo!()
+        }
+        TypeSpecifier::Union(_) => {
+            todo!()
+        }
+        TypeSpecifier::Enum(_) => {
+            todo!()
+        }
+        TypeSpecifier::CustomType(Identifier(name)) => {
+            type_info = Box::new(prog.resolve_typedef(&name)?)
+        }
+    }
+
+    match declarator {
+        Some(decl) => {
+            let decl_name = get_type_info_from_declarator(decl, &mut type_info, prog)?;
+            Ok((type_info, Some(decl_name)))
+        }
+        None => Ok((type_info, None)),
     }
 }
 
-impl Error for MiddleEndError {}
+/// Modifies the TypeInfo struct it's given, and returns the identifier name
+fn get_type_info_from_declarator(
+    decl: Box<Declarator>,
+    type_info: &mut Box<TypeInfo>,
+    prog: &mut Box<Program>,
+) -> Result<String, MiddleEndError> {
+    match *decl {
+        Declarator::Identifier(Identifier(name)) => Ok(name),
+        Declarator::PointerDeclarator(d) => {
+            type_info.wrap_with_pointer();
+            get_type_info_from_declarator(d, type_info, prog)
+        }
+        Declarator::AbstractPointerDeclarator => Err(MiddleEndError::InvalidAbstractDeclarator),
+        Declarator::ArrayDeclarator(d, size_expr) => {
+            let size = match size_expr {
+                None => None,
+                Some(size_expr) => Some(eval_constant_expression(size_expr, prog)? as u64),
+            };
+            type_info.wrap_with_array(size);
+            get_type_info_from_declarator(d, type_info, prog)
+        }
+        Declarator::FunctionDeclarator(d, params) => {
+            let mut is_variadic = false;
+            let param_decls = match params {
+                None => Vec::new(),
+                Some(params) => match params {
+                    ParameterTypeList::Normal(params) => params,
+                    ParameterTypeList::Variadic(params) => {
+                        is_variadic = true;
+                        params
+                    }
+                },
+            };
+
+            let mut param_types: Vec<Box<TypeInfo>> = Vec::new();
+            for p in param_decls {
+                let (param_type, param_name) = get_type_info(p.0, p.1, prog)?;
+                param_types.push(param_type);
+            }
+
+            type_info.wrap_with_fun(param_types);
+
+            get_type_info_from_declarator(d, type_info, prog)
+        }
+    }
+}

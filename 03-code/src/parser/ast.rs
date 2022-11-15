@@ -390,10 +390,10 @@ impl AstNode for BinaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpecifierQualifier {
-    type_specifier: TypeSpecifier,
-    storage_class_specifier: Option<StorageClassSpecifier>,
-    const_: bool,
-    inline: bool,
+    pub type_specifier: TypeSpecifier,
+    pub storage_class_specifier: Option<StorageClassSpecifier>,
+    pub const_: bool,
+    pub inline: bool,
 }
 
 impl SpecifierQualifier {
@@ -892,7 +892,7 @@ impl AstNode for ParameterDeclaration {
 pub enum DeclaratorInitialiser {
     NoInit(Box<Declarator>),
     Init(Box<Declarator>, Box<Initialiser>),
-    Function(Box<Declarator>, Box<Statement>),
+    // Function(Box<Declarator>, Box<Statement>),
     // StructOrUnion(Box<Declarator>, Vec<Box<Expression>>),
 }
 
@@ -901,8 +901,8 @@ impl DeclaratorInitialiser {
         match self {
             DeclaratorInitialiser::NoInit(d)
             | DeclaratorInitialiser::Init(d, _)
-            | DeclaratorInitialiser::Function(d, _)
-            // | DeclaratorInitialiser::StructOrUnion(d, _)
+            // | DeclaratorInitialiser::Function(d, _)
+            // // | DeclaratorInitialiser::StructOrUnion(d, _)
                 => d.get_identifier_name(),
         }
     }
@@ -914,10 +914,9 @@ impl AstNode for DeclaratorInitialiser {
             DeclaratorInitialiser::NoInit(d) => d.reconstruct_source(),
             DeclaratorInitialiser::Init(d, i) => {
                 format!("{} = {}", d.reconstruct_source(), i.reconstruct_source())
-            }
-            DeclaratorInitialiser::Function(d, s) => {
-                format!("{} {}", d.reconstruct_source(), s.reconstruct_source())
-            } // DeclaratorInitialiser::StructOrUnion(d, es) => {
+            } // DeclaratorInitialiser::Function(d, s) => {
+              //     format!("{} {}", d.reconstruct_source(), s.reconstruct_source())
+              // } // DeclaratorInitialiser::StructOrUnion(d, es) => {
               //     let mut s = String::new();
               //     write!(&mut s, "{} = {{\n", d.reconstruct_source()).unwrap();
               //     for e in es {

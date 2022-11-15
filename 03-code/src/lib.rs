@@ -13,7 +13,6 @@ use std::path::Path;
 
 #[macro_use]
 extern crate lalrpop_util;
-extern crate core;
 
 #[derive(ClapParser, Debug)]
 pub struct CliConfig {
