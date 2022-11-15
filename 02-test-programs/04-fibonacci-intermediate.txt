@@ -1,0 +1,29 @@
+[function fib]
+[params: (p1: i32)]
+[return: i32]
+BrIfLE n, 0, l0
+BrIfEq n, 1, l1
+t0 = n - 1
+t1 = Call fib (t0)
+t2 = n - 2
+t3 = Call fib (t2)
+t4 = t1 + t3
+Ret t4
+l0:
+Ret 0
+l1:
+Ret 1
+
+[function main]
+[params: (p1: i32) (p2: *i8)]
+[return: i32]
+t5 = 0
+l2:
+t6 = t5 < 15
+IfEq t6, 0, l3
+t7 = Call fib (t5)
+Call printf ("%d: %d\n", t5, t7)
+t5 = t5 + 1
+Br l2
+l3:
+Ret 0
