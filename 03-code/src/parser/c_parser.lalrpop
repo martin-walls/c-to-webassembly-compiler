@@ -319,17 +319,6 @@ NoPtrDeclarator: Box<ast::Declarator> = {
   <NoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
 };
 
-// AbstractDeclarator: Box<ast::Declarator> = {
-//   "*" => Box::new(ast::Declarator::AbstractPointerDeclarator),
-//   <AbstractNoPtrDeclarator>,
-// };
-
-// AbstractNoPtrDeclarator: Box<ast::Declarator> = {
-//   "(" <AbstractDeclarator> ")",
-//   <AbstractNoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
-//   <AbstractNoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
-// };
-
 ParameterTypeList: ast::ParameterTypeList = {
   <ParameterList> => ast::ParameterTypeList::Normal(<>),
   // variadic functions
@@ -339,8 +328,9 @@ ParameterTypeList: ast::ParameterTypeList = {
 ParameterList = CommaSepList<ParameterDeclaration>;
 
 ParameterDeclaration: ast::ParameterDeclaration = {
-  <sqs:SpecifierQualifier+> <d:Declarator> => ast::ParameterDeclaration::Named(ast::SpecifierQualifier::create(sqs).unwrap(), d),
-  // <SpecifierQualifier+> <AbstractDeclarator?> => ast::ParameterDeclaration::Abstract(<>),
+  <sqs:SpecifierQualifier+> <d:Declarator?> => {
+    ast::ParameterDeclaration(ast::SpecifierQualifier::create(sqs).unwrap(), d)
+  }
 };
 
 DeclaratorInitialiserList = CommaSepList<DeclaratorInitialiser>;

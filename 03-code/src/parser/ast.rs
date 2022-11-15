@@ -877,17 +877,13 @@ impl AstNode for ParameterTypeList {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ParameterDeclaration {
-    Named(SpecifierQualifier, Box<Declarator>),
-    // Abstract(Vec<SpecifierQualifier>, Option<Box<AbstractDeclarator>>),
-}
+pub struct ParameterDeclaration(pub SpecifierQualifier, pub Option<Box<Declarator>>);
 
 impl AstNode for ParameterDeclaration {
     fn reconstruct_source(&self) -> String {
-        match self {
-            ParameterDeclaration::Named(s, d) => {
-                format!("{} {}", s.reconstruct_source(), d.reconstruct_source())
-            }
+        match &self.1 {
+            None => format!("{}", self.0.reconstruct_source()),
+            Some(d) => format!("{} {}", self.0.reconstruct_source(), d.reconstruct_source()),
         }
     }
 }
