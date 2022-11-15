@@ -3,7 +3,7 @@ use crate::middle_end::ir::{Constant, Function, Instruction, Label, Src, Var};
 use crate::parser::ast;
 use crate::parser::ast::{
     BinaryOperator, Expression, ExpressionOrDeclaration, LabelledStatement, Program as AstProgram,
-    Statement,
+    Statement, UnaryOperator,
 };
 use core::fmt;
 use std::collections::HashMap;
@@ -169,7 +169,17 @@ impl Context {
     }
 
     fn get_switch_variable(&self) -> Option<Var> {
-        todo!()
+        let mut i = self.loop_stack.len() - 1;
+        loop {
+            match self.loop_stack.get(i) {
+                None => return None,
+                Some(LoopOrSwitchContext::Switch(switch_context)) => {
+                    return Some(switch_context.switch_var);
+                }
+                _ => {}
+            }
+            i -= 1;
+        }
     }
 
     fn add_default_switch_case(&mut self, body: Vec<Instruction>) -> Result<(), MiddleEndError> {
@@ -271,9 +281,9 @@ fn convert_statement_to_ir(
                 instrs.push(Instruction::Ret(None));
             }
             Some(expr) => {
-                let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog)?;
+                let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
                 instrs.append(&mut expr_instrs);
-                instrs.push(Instruction::Ret(Some(Src::Var(expr_var))));
+                instrs.push(Instruction::Ret(Some(expr_var)));
             }
         },
         Statement::While(cond, body) => {
@@ -283,11 +293,11 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::Label(loop_start_label));
             context.push_loop(LoopContext::while_loop(loop_start_label, loop_end_label));
             // while condition
-            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog)?;
+            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // jump out of loop if condition false
             instrs.push(Instruction::BrIfEq(
-                Src::Var(cond_var),
+                cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_end_label,
             ));
@@ -314,11 +324,11 @@ fn convert_statement_to_ir(
             // continue label
             instrs.push(Instruction::Label(loop_continue_label));
             // loop condition
-            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog)?;
+            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // jump back to start of loop if condition true
             instrs.push(Instruction::BrIfNotEq(
-                Src::Var(cond_var),
+                cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_start_label,
             ));
@@ -335,7 +345,7 @@ fn convert_statement_to_ir(
                 None => {}
                 Some(e_or_d) => match e_or_d {
                     ExpressionOrDeclaration::Expression(e) => {
-                        let (mut expr_instrs, _) = convert_expression_to_ir(e, prog)?;
+                        let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
                         instrs.append(&mut expr_instrs);
                     }
                     ExpressionOrDeclaration::Declaration(d) => {
@@ -358,16 +368,16 @@ fn convert_statement_to_ir(
                         temp,
                         Src::Constant(Constant::Int(1)),
                     ));
-                    temp
+                    Src::Var(temp)
                 }
                 Some(e) => {
-                    let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog)?;
+                    let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
                     instrs.append(&mut expr_instrs);
                     expr_var
                 }
             };
             instrs.push(Instruction::BrIfEq(
-                Src::Var(cond_var),
+                cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_end_label,
             ));
@@ -379,7 +389,7 @@ fn convert_statement_to_ir(
             match end {
                 None => {}
                 Some(e) => {
-                    let (mut expr_instrs, _) = convert_expression_to_ir(e, prog)?;
+                    let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
                     instrs.append(&mut expr_instrs);
                 }
             }
@@ -391,12 +401,12 @@ fn convert_statement_to_ir(
         }
         Statement::If(cond, body) => {
             // if statement condition
-            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog)?;
+            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // if condition is false, jump to after body
             let if_end_label = prog.new_label();
             instrs.push(Instruction::BrIfEq(
-                Src::Var(cond_var),
+                cond_var,
                 Src::Constant(Constant::Int(0)),
                 if_end_label,
             ));
@@ -406,12 +416,12 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::Label(if_end_label));
         }
         Statement::IfElse(cond, true_body, false_body) => {
-            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog)?;
+            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // if condition is false, jump to else body
             let else_label = prog.new_label();
             instrs.push(Instruction::BrIfEq(
-                Src::Var(cond_var),
+                cond_var,
                 Src::Constant(Constant::Int(0)),
                 else_label,
             ));
@@ -427,8 +437,17 @@ fn convert_statement_to_ir(
         }
         Statement::Switch(switch_expr, body) => {
             let switch_end_label = prog.new_label();
-            let (mut expr_instrs, switch_var) = convert_expression_to_ir(switch_expr, prog)?;
+            let (mut expr_instrs, switch_src) =
+                convert_expression_to_ir(switch_expr, prog, context)?;
             instrs.append(&mut expr_instrs);
+            let switch_var = match switch_src {
+                Src::Var(var) => var,
+                Src::Constant(c) => {
+                    let temp = prog.new_var();
+                    instrs.push(Instruction::SimpleAssignment(temp, Src::Constant(c)));
+                    temp
+                }
+            };
             context.push_switch(SwitchContext::new(switch_end_label, switch_var));
             // switch body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
@@ -455,12 +474,13 @@ fn convert_statement_to_ir(
                     if !context.is_in_switch_context() {
                         return Err(MiddleEndError::CaseOutsideSwitchContext);
                     }
-                    let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog)?;
+                    let (mut expr_instrs, expr_var) =
+                        convert_expression_to_ir(expr, prog, context)?;
                     instrs.append(&mut expr_instrs);
                     let end_of_case_label = prog.new_label();
                     // check if case condition matches the switch expression
                     instrs.push(Instruction::BrIfNotEq(
-                        Src::Var(expr_var),
+                        expr_var,
                         Src::Var(context.get_switch_variable().unwrap()),
                         end_of_case_label,
                     ));
@@ -476,7 +496,7 @@ fn convert_statement_to_ir(
             }
         }
         Statement::Expr(e) => {
-            let (mut expr_instrs, _) = convert_expression_to_ir(e, prog)?;
+            let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
         }
         Statement::Declaration(_, _) => {}
@@ -510,67 +530,205 @@ fn convert_expression_to_ir(
             Ok((instrs, Src::Var(var)))
         }
         Expression::Index(arr, index) => {
-            let (mut arr_instrs, arr_var) = convert_expression_to_ir(arr, prog, context);
+            let (mut arr_instrs, arr_var) = convert_expression_to_ir(arr, prog, context)?;
             instrs.append(&mut arr_instrs);
-            let (mut index_instrs, index_var) = convert_expression_to_ir(index, prog, context);
+            let (mut index_instrs, index_var) = convert_expression_to_ir(index, prog, context)?;
             instrs.append(&mut index_instrs);
             // array variable is a pointer to the start of the array
             let ptr = prog.new_var();
-            instrs.push(Instruction::Add(
-                ptr,
-                Src::Var(arr_var),
-                Src::Var(index_var),
-            ));
+            instrs.push(Instruction::Add(ptr, arr_var, index_var));
             let dest = prog.new_var();
             instrs.push(Instruction::Dereference(dest, Src::Var(ptr)));
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::FunctionCall(_, _) => {}
-        Expression::DirectMemberSelection(_, _) => {}
-        Expression::IndirectMemberSelection(_, _) => {}
-        Expression::PostfixIncrement(_) => {}
-        Expression::PostfixDecrement(_) => {}
-        Expression::PrefixIncrement(_) => {}
-        Expression::PrefixDecrement(_) => {}
-        Expression::UnaryOp(_, _) => {}
-        Expression::SizeOfExpr(_) => {}
-        Expression::SizeOfType(_) => {}
+        Expression::FunctionCall(fun, params) => {
+            todo!()
+        }
+        Expression::DirectMemberSelection(_, _) => {
+            todo!()
+        }
+        Expression::IndirectMemberSelection(_, _) => {
+            todo!()
+        }
+        Expression::PostfixIncrement(expr) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            let dest = prog.new_var();
+            instrs.push(Instruction::SimpleAssignment(dest, expr_var.to_owned()));
+            match expr_var {
+                Src::Var(var) => {
+                    instrs.push(Instruction::Add(
+                        var,
+                        Src::Var(var),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+                }
+                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+            }
+            Ok((instrs, Src::Var(dest)))
+            //todo if var is a pointer move it on by the size of the object it points to
+        }
+        Expression::PostfixDecrement(_) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            let dest = prog.new_var();
+            instrs.push(Instruction::SimpleAssignment(dest, expr_var.to_owned()));
+            match expr_var {
+                Src::Var(var) => {
+                    instrs.push(Instruction::Sub(
+                        var,
+                        Src::Var(var),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+                }
+                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+            }
+            Ok((instrs, Src::Var(dest)))
+        }
+        Expression::PrefixIncrement(_) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            match expr_var {
+                Src::Var(var) => {
+                    instrs.push(Instruction::Add(
+                        var,
+                        Src::Var(var),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+                    Ok((instrs, Src::Var(var)))
+                }
+                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+            }
+        }
+        Expression::PrefixDecrement(_) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            match expr_var {
+                Src::Var(var) => {
+                    instrs.push(Instruction::Sub(
+                        var,
+                        Src::Var(var),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+                    Ok((instrs, Src::Var(var)))
+                }
+                Src::Constant(_) => return Err(MiddleEndError::InvalidLValue),
+            }
+        }
+        Expression::UnaryOp(op, expr) => {
+            let dest = prog.new_var();
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            match op {
+                UnaryOperator::AddressOf => {
+                    instrs.push(Instruction::AddressOf(dest, expr_var));
+                }
+                UnaryOperator::Dereference => {
+                    instrs.push(Instruction::Dereference(dest, expr_var));
+                }
+                UnaryOperator::Plus => {
+                    instrs.push(Instruction::Add(
+                        dest,
+                        Src::Constant(Constant::Int(0)),
+                        expr_var,
+                    ));
+                }
+                UnaryOperator::Minus => {
+                    instrs.push(Instruction::Sub(
+                        dest,
+                        Src::Constant(Constant::Int(0)),
+                        expr_var,
+                    ));
+                }
+                UnaryOperator::BitwiseNot => {
+                    instrs.push(Instruction::BitwiseNot(dest, expr_var));
+                }
+                UnaryOperator::LogicalNot => {
+                    instrs.push(Instruction::LogicalNot(dest, expr_var));
+                }
+            }
+            Ok((instrs, Src::Var(dest)))
+        }
+        Expression::SizeOfExpr(_) => {
+            todo!()
+        }
+        Expression::SizeOfType(_) => {
+            todo!()
+        }
         Expression::BinaryOp(op, left, right) => match op {
             BinaryOperator::Mult => {
                 let dest = prog.new_var();
-                let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context);
+                let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
                 instrs.append(&mut left_instrs);
-                let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context);
+                let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
                 instrs.append(&mut right_instrs);
-                instrs.push(Instruction::Mult(
-                    dest,
-                    Src::Var(left_var),
-                    Src::Var(right_var),
-                ));
+                instrs.push(Instruction::Mult(dest, left_var, right_var));
                 Ok((instrs, Src::Var(dest)))
             }
-            BinaryOperator::Div => {}
-            BinaryOperator::Mod => {}
-            BinaryOperator::Add => {}
-            BinaryOperator::Sub => {}
-            BinaryOperator::LeftShift => {}
-            BinaryOperator::RightShift => {}
-            BinaryOperator::LessThan => {}
-            BinaryOperator::GreaterThan => {}
-            BinaryOperator::LessThanEq => {}
-            BinaryOperator::GreaterThanEq => {}
-            BinaryOperator::Equal => {}
-            BinaryOperator::NotEqual => {}
-            BinaryOperator::BitwiseAnd => {}
-            BinaryOperator::BitwiseOr => {}
-            BinaryOperator::BitwiseXor => {}
-            BinaryOperator::LogicalAnd => {}
-            BinaryOperator::LogicalOr => {}
+            BinaryOperator::Div => {
+                todo!()
+            }
+            BinaryOperator::Mod => {
+                todo!()
+            }
+            BinaryOperator::Add => {
+                todo!()
+            }
+            BinaryOperator::Sub => {
+                todo!()
+            }
+            BinaryOperator::LeftShift => {
+                todo!()
+            }
+            BinaryOperator::RightShift => {
+                todo!()
+            }
+            BinaryOperator::LessThan => {
+                todo!()
+            }
+            BinaryOperator::GreaterThan => {
+                todo!()
+            }
+            BinaryOperator::LessThanEq => {
+                todo!()
+            }
+            BinaryOperator::GreaterThanEq => {
+                todo!()
+            }
+            BinaryOperator::Equal => {
+                todo!()
+            }
+            BinaryOperator::NotEqual => {
+                todo!()
+            }
+            BinaryOperator::BitwiseAnd => {
+                todo!()
+            }
+            BinaryOperator::BitwiseOr => {
+                todo!()
+            }
+            BinaryOperator::BitwiseXor => {
+                todo!()
+            }
+            BinaryOperator::LogicalAnd => {
+                todo!()
+            }
+            BinaryOperator::LogicalOr => {
+                todo!()
+            }
         },
-        Expression::Ternary(_, _, _) => {}
-        Expression::Assignment(_, _, _) => {}
-        Expression::Cast(_, _) => {}
-        Expression::ExpressionList(_, _) => {}
+        Expression::Ternary(_, _, _) => {
+            todo!()
+        }
+        Expression::Assignment(_, _, _) => {
+            todo!()
+        }
+        Expression::Cast(_, _) => {
+            todo!()
+        }
+        Expression::ExpressionList(_, _) => {
+            todo!()
+        }
     }
 }
 
@@ -584,6 +742,7 @@ pub enum MiddleEndError {
     /// in theory this should never occur
     LoopNestingError,
     UndeclaredIdentifier(String),
+    InvalidLValue,
 }
 
 impl fmt::Display for MiddleEndError {
@@ -615,6 +774,9 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::UndeclaredIdentifier(name) => {
                 write!(f, "Use of undeclared identifier: \"{}\"", name)
+            }
+            MiddleEndError::InvalidLValue => {
+                write!(f, "Invalid LValue used")
             }
         }
     }
