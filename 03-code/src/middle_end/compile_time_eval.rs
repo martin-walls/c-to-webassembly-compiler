@@ -1,9 +1,12 @@
-use crate::middle_end::ir::{Constant, Program};
+use crate::middle_end::ir;
+use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast::{BinaryOperator, Expression};
 use crate::parser::ast::{Constant as AstConstant, UnaryOperator};
 
-pub fn eval_constant_expression(
+/// constant expression used for array bounds, explicit enum values,
+/// values of case labels. Must evaluate to an integer
+pub fn eval_integral_constant_expression(
     expr: Box<Expression>,
     prog: &Box<Program>,
 ) -> Result<i128, MiddleEndError> {
@@ -13,10 +16,19 @@ pub fn eval_constant_expression(
     }
 }
 
+pub fn eval_initialiser_constant_expression(
+    expr: Box<Expression>,
+    prog: &Box<Program>,
+) -> Result<ir::Constant, MiddleEndError> {
+    match eval(expr, prog)? {
+        ConstantExpressionType::Int(i) => Ok(ir::Constant::Int(i)),
+        ConstantExpressionType::Float(f) => Ok(ir::Constant::Float(f)),
+    }
+}
+
 enum ConstantExpressionType {
     Int(i128),
     Float(f64),
-    StringLiteral(String),
 }
 
 fn eval(
@@ -32,7 +44,7 @@ fn eval(
             AstConstant::Float(f) => Ok(ConstantExpressionType::Float(f)),
             AstConstant::Char(c) => Ok(ConstantExpressionType::Int(c as i128)),
         },
-        Expression::StringLiteral(s) => Ok(ConstantExpressionType::StringLiteral(s)),
+        Expression::StringLiteral(_) => Err(MiddleEndError::InvalidConstantExpression),
         Expression::Index(_, _) => {
             todo!()
         }
@@ -55,16 +67,10 @@ fn eval(
                     ConstantExpressionType::Int(_) | ConstantExpressionType::Float(_) => {
                         Ok(expr_result)
                     }
-                    ConstantExpressionType::StringLiteral(_) => {
-                        Err(MiddleEndError::InvalidConstantExpression)
-                    }
                 },
                 UnaryOperator::Minus => match expr_result {
                     ConstantExpressionType::Int(i) => Ok(ConstantExpressionType::Int(-i)),
                     ConstantExpressionType::Float(f) => Ok(ConstantExpressionType::Float(-f)),
-                    ConstantExpressionType::StringLiteral(_) => {
-                        Err(MiddleEndError::InvalidConstantExpression)
-                    }
                 },
                 UnaryOperator::BitwiseNot => match expr_result {
                     ConstantExpressionType::Int(i) => Ok(ConstantExpressionType::Int(!i)),
@@ -76,9 +82,6 @@ fn eval(
                     }
                     ConstantExpressionType::Float(f) => {
                         Ok(ConstantExpressionType::Int(!(f > 0.) as i128))
-                    }
-                    ConstantExpressionType::StringLiteral(s) => {
-                        Ok(ConstantExpressionType::Int(s.is_empty() as i128))
                     }
                 },
             }
@@ -104,7 +107,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Float(l * r))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::Div => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -119,7 +121,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Float(l / r))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::Mod => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -138,7 +139,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Float(l + r))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::Sub => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -153,7 +153,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Float(l - r))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::LeftShift => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -180,7 +179,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l < r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::GreaterThan => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -195,7 +193,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l > r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::LessThanEq => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -210,7 +207,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l <= r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::GreaterThanEq => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -225,7 +221,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l >= r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::Equal => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -240,7 +235,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l == r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::NotEqual => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -255,7 +249,6 @@ fn eval(
                     (ConstantExpressionType::Float(l), ConstantExpressionType::Float(r)) => {
                         Ok(ConstantExpressionType::Int((l != r) as i128))
                     }
-                    _ => Err(MiddleEndError::InvalidConstantExpression),
                 },
                 BinaryOperator::BitwiseAnd => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -294,7 +287,6 @@ fn eval(
             let cond_value = match cond_result {
                 ConstantExpressionType::Int(i) => i != 0,
                 ConstantExpressionType::Float(f) => f != 0.,
-                ConstantExpressionType::StringLiteral(s) => !s.is_empty(),
             };
             if cond_value {
                 eval(true_expr, prog)

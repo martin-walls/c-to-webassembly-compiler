@@ -1,5 +1,5 @@
 use super::ir::Program;
-use crate::middle_end::compile_time_eval::eval_constant_expression;
+use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::ir::{
     Constant, Fun, Function, Instruction, Label, Src, Type, TypeInfo, Var,
 };
@@ -256,9 +256,9 @@ pub fn convert_to_ir(ast: AstProgram) {
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
         let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
-        println!("{:?}", instrs);
+        println!("{:#?}", instrs);
     }
-    println!("Program: {:?}\nContext: {:?}", program, context);
+    println!("Program: {:#?}\nContext: {:#?}", program, context);
 }
 
 // fn convert_function_to_ir(stmt: Statement) {
@@ -526,7 +526,7 @@ fn convert_statement_to_ir(
         Statement::Expr(e) => {
             println!(
                 "evaluated: {:?}",
-                eval_constant_expression(e.to_owned(), prog)
+                eval_integral_constant_expression(e.to_owned(), prog)
             );
             let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
@@ -885,7 +885,7 @@ fn get_type_info_from_declarator(
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
                 None => None,
-                Some(size_expr) => Some(eval_constant_expression(size_expr, prog)? as u64),
+                Some(size_expr) => Some(eval_integral_constant_expression(size_expr, prog)? as u64),
             };
             type_info.wrap_with_array(size);
             get_type_info_from_declarator(d, type_info, prog)
