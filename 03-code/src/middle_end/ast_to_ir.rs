@@ -809,74 +809,70 @@ fn convert_expression_to_ir(
         Expression::SizeOfType(_) => {
             todo!()
         }
-        Expression::BinaryOp(op, left, right) => match op {
-            BinaryOperator::Mult => {
-                let dest = prog.new_var();
-                let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
-                instrs.append(&mut left_instrs);
-                let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
-                instrs.append(&mut right_instrs);
-                instrs.push(Instruction::Mult(dest, left_var, right_var));
-                Ok((instrs, Src::Var(dest)))
+        Expression::BinaryOp(op, left, right) => {
+            let dest = prog.new_var();
+            let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
+            instrs.append(&mut left_instrs);
+            let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
+            instrs.append(&mut right_instrs);
+            match op {
+                BinaryOperator::Mult => {
+                    instrs.push(Instruction::Mult(dest, left_var, right_var));
+                }
+                BinaryOperator::Div => {
+                    instrs.push(Instruction::Div(dest, left_var, right_var));
+                }
+                BinaryOperator::Mod => {
+                    instrs.push(Instruction::Mod(dest, left_var, right_var));
+                }
+                BinaryOperator::Add => {
+                    instrs.push(Instruction::Add(dest, left_var, right_var));
+                }
+                BinaryOperator::Sub => {
+                    instrs.push(Instruction::Sub(dest, left_var, right_var));
+                }
+                BinaryOperator::LeftShift => {
+                    instrs.push(Instruction::LeftShift(dest, left_var, right_var));
+                }
+                BinaryOperator::RightShift => {
+                    instrs.push(Instruction::RightShift(dest, left_var, right_var));
+                }
+                BinaryOperator::LessThan => {
+                    instrs.push(Instruction::LessThan(dest, left_var, right_var));
+                }
+                BinaryOperator::GreaterThan => {
+                    instrs.push(Instruction::GreaterThan(dest, left_var, right_var));
+                }
+                BinaryOperator::LessThanEq => {
+                    instrs.push(Instruction::LessThanEq(dest, left_var, right_var));
+                }
+                BinaryOperator::GreaterThanEq => {
+                    instrs.push(Instruction::GreaterThanEq(dest, left_var, right_var));
+                }
+                BinaryOperator::Equal => {
+                    instrs.push(Instruction::Equal(dest, left_var, right_var));
+                }
+                BinaryOperator::NotEqual => {
+                    instrs.push(Instruction::NotEqual(dest, left_var, right_var));
+                }
+                BinaryOperator::BitwiseAnd => {
+                    instrs.push(Instruction::BitwiseAnd(dest, left_var, right_var));
+                }
+                BinaryOperator::BitwiseOr => {
+                    instrs.push(Instruction::BitwiseOr(dest, left_var, right_var));
+                }
+                BinaryOperator::BitwiseXor => {
+                    instrs.push(Instruction::BitwiseXor(dest, left_var, right_var));
+                }
+                BinaryOperator::LogicalAnd => {
+                    instrs.push(Instruction::LogicalAnd(dest, left_var, right_var));
+                }
+                BinaryOperator::LogicalOr => {
+                    instrs.push(Instruction::LogicalOr(dest, left_var, right_var));
+                }
             }
-            BinaryOperator::Div => {
-                todo!()
-            }
-            BinaryOperator::Mod => {
-                todo!()
-            }
-            BinaryOperator::Add => {
-                let dest = prog.new_var();
-                let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
-                instrs.append(&mut left_instrs);
-                let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
-                instrs.append(&mut right_instrs);
-                instrs.push(Instruction::Add(dest, left_var, right_var));
-                Ok((instrs, Src::Var(dest)))
-            }
-            BinaryOperator::Sub => {
-                todo!()
-            }
-            BinaryOperator::LeftShift => {
-                todo!()
-            }
-            BinaryOperator::RightShift => {
-                todo!()
-            }
-            BinaryOperator::LessThan => {
-                todo!()
-            }
-            BinaryOperator::GreaterThan => {
-                todo!()
-            }
-            BinaryOperator::LessThanEq => {
-                todo!()
-            }
-            BinaryOperator::GreaterThanEq => {
-                todo!()
-            }
-            BinaryOperator::Equal => {
-                todo!()
-            }
-            BinaryOperator::NotEqual => {
-                todo!()
-            }
-            BinaryOperator::BitwiseAnd => {
-                todo!()
-            }
-            BinaryOperator::BitwiseOr => {
-                todo!()
-            }
-            BinaryOperator::BitwiseXor => {
-                todo!()
-            }
-            BinaryOperator::LogicalAnd => {
-                todo!()
-            }
-            BinaryOperator::LogicalOr => {
-                todo!()
-            }
-        },
+            Ok((instrs, Src::Var(dest)))
+        }
         Expression::Ternary(_, _, _) => {
             todo!()
         }
