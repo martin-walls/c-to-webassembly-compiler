@@ -5,15 +5,26 @@ use std::fmt::Formatter;
 
 const POINTER_SIZE: u64 = 4; // bytes
 
+/// A type representing an identifier in the IR.
+/// E.g. variable identifiers, function identifiers.
+///
+/// The trait is an abstraction for generating new identifiers.
+trait Id {
+    /// Generate the initial id, when no IDs exist yet. (Id 0)
+    fn initial_id() -> Self;
+    /// Generate a new id, given the current max id. (Id n+1)
+    fn next_id(&self) -> Self;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Var(u64);
 
-impl Var {
-    fn initial() -> Self {
+impl Id for Var {
+    fn initial_id() -> Self {
         Var(0)
     }
 
-    fn next_var(&self) -> Self {
+    fn next_id(&self) -> Self {
         Var(self.0 + 1)
     }
 }
@@ -48,12 +59,12 @@ pub type Dest = Var;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunId(u64);
 
-impl FunId {
-    fn initial() -> Self {
+impl Id for FunId {
+    fn initial_id() -> Self {
         FunId(0)
     }
 
-    fn next_fun_id(&self) -> Self {
+    fn next_id(&self) -> Self {
         FunId(self.0 + 1)
     }
 }
@@ -87,7 +98,24 @@ impl fmt::Display for Src {
     }
 }
 
-pub type Label = u64;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Label(u64);
+
+impl Id for Label {
+    fn initial_id() -> Self {
+        Label(0)
+    }
+
+    fn next_id(&self) -> Self {
+        Label(self.0 + 1)
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "l{}", self.0)
+    }
+}
 
 #[derive(Debug)]
 pub enum Instruction {
@@ -489,23 +517,24 @@ impl Program {
     }
 
     pub fn new_label(&mut self) -> Label {
-        match self.max_label {
-            None => self.max_label = Some(0),
-            Some(label) => self.max_label = Some(label + 1),
-        }
-        self.max_label.unwrap()
+        let new_label = match &self.max_label {
+            None => Label::initial_id(),
+            Some(label) => label.next_id(),
+        };
+        self.max_label = Some(new_label.to_owned());
+        new_label
     }
 
     pub fn new_identifier_label(&mut self, name: String) -> Label {
         let label = self.new_label();
-        self.label_identifiers.insert(name, label);
+        self.label_identifiers.insert(name, label.to_owned());
         label
     }
 
     fn new_fun_id(&mut self, name: String) -> FunId {
         let new_fun_id = match &self.max_fun_id {
-            None => FunId::initial(),
-            Some(fun_id) => fun_id.next_fun_id(),
+            None => FunId::initial_id(),
+            Some(fun_id) => fun_id.next_id(),
         };
         self.max_fun_id = Some(new_fun_id.to_owned());
         self.function_ids.insert(name, new_fun_id.to_owned());
@@ -520,8 +549,8 @@ impl Program {
 
     pub fn new_var(&mut self) -> Var {
         let new_var = match &self.max_var {
-            None => Var::initial(),
-            Some(var) => var.next_var(),
+            None => Var::initial_id(),
+            Some(var) => var.next_id(),
         };
         self.max_var = Some(new_var.to_owned());
         new_var
@@ -561,6 +590,6 @@ impl fmt::Display for Program {
         write!(f, "\nLabel identifiers: {:#?}", self.label_identifiers)?;
         write!(f, "\nString literals: {:#?}", self.string_literals)?;
         write!(f, "\nDeclarations: {:#?}", self.declarations)?;
-        write!(f, "}}")
+        write!(f, "\n}}")
     }
 }

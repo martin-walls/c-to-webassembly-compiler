@@ -22,7 +22,7 @@ struct LoopContext {
 impl LoopContext {
     fn while_loop(start_label: Label, end_label: Label) -> Self {
         LoopContext {
-            start_label,
+            start_label: start_label.to_owned(),
             end_label,
             continue_label: start_label,
         }
@@ -151,15 +151,15 @@ impl Context {
         }
     }
 
-    fn get_break_label(&self) -> Option<Label> {
+    fn get_break_label(&self) -> Option<&Label> {
         match self.loop_stack.last() {
             None => None,
-            Some(LoopOrSwitchContext::Loop(loop_context)) => Some(loop_context.end_label),
-            Some(LoopOrSwitchContext::Switch(switch_context)) => Some(switch_context.end_label),
+            Some(LoopOrSwitchContext::Loop(loop_context)) => Some(&loop_context.end_label),
+            Some(LoopOrSwitchContext::Switch(switch_context)) => Some(&switch_context.end_label),
         }
     }
 
-    fn get_continue_label(&self) -> Option<Label> {
+    fn get_continue_label(&self) -> Option<&Label> {
         if self.loop_stack.is_empty() {
             return None;
         }
@@ -168,7 +168,7 @@ impl Context {
             match self.loop_stack.get(i) {
                 None => return None,
                 Some(LoopOrSwitchContext::Loop(loop_context)) => {
-                    return Some(loop_context.continue_label);
+                    return Some(&loop_context.continue_label);
                 }
                 Some(LoopOrSwitchContext::Switch(_)) => {}
             }
@@ -299,7 +299,7 @@ fn convert_statement_to_ir(
             Some(label) => instrs.push(Instruction::Br(label.to_owned())),
             None => {
                 let label = prog.new_label();
-                prog.label_identifiers.insert(x.0, label);
+                prog.label_identifiers.insert(x.0, label.to_owned());
                 instrs.push(Instruction::Br(label));
             }
         },
@@ -308,7 +308,7 @@ fn convert_statement_to_ir(
                 return Err(MiddleEndError::ContinueOutsideLoopContext);
             }
             Some(label) => {
-                instrs.push(Instruction::Br(label));
+                instrs.push(Instruction::Br(label.to_owned()));
             }
         },
         Statement::Break => match context.get_break_label() {
@@ -316,7 +316,7 @@ fn convert_statement_to_ir(
                 return Err(MiddleEndError::BreakOutsideLoopOrSwitchContext);
             }
             Some(label) => {
-                instrs.push(Instruction::Br(label));
+                instrs.push(Instruction::Br(label.to_owned()));
             }
         },
         Statement::Return(expr) => match expr {
@@ -333,8 +333,11 @@ fn convert_statement_to_ir(
             let loop_start_label = prog.new_label();
             let loop_end_label = prog.new_label();
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label));
-            context.push_loop(LoopContext::while_loop(loop_start_label, loop_end_label));
+            instrs.push(Instruction::Label(loop_start_label.to_owned()));
+            context.push_loop(LoopContext::while_loop(
+                loop_start_label.to_owned(),
+                loop_end_label.to_owned(),
+            ));
             // while condition
             let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
@@ -342,7 +345,7 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::BrIfEq(
                 cond_var,
                 Src::Constant(Constant::Int(0)),
-                loop_end_label,
+                loop_end_label.to_owned(),
             ));
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
@@ -356,11 +359,11 @@ fn convert_statement_to_ir(
             let loop_end_label = prog.new_label();
             let loop_continue_label = prog.new_label();
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label));
+            instrs.push(Instruction::Label(loop_start_label.to_owned()));
             context.push_loop(LoopContext::do_while_loop(
-                loop_start_label,
-                loop_end_label,
-                loop_continue_label,
+                loop_start_label.to_owned(),
+                loop_end_label.to_owned(),
+                loop_continue_label.to_owned(),
             ));
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
@@ -397,11 +400,11 @@ fn convert_statement_to_ir(
                 },
             }
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label));
+            instrs.push(Instruction::Label(loop_start_label.to_owned()));
             context.push_loop(LoopContext::for_loop(
-                loop_start_label,
-                loop_end_label,
-                loop_continue_label,
+                loop_start_label.to_owned(),
+                loop_end_label.to_owned(),
+                loop_continue_label.to_owned(),
             ));
             // condition
             let cond_var = match cond {
@@ -422,7 +425,7 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::BrIfEq(
                 cond_var,
                 Src::Constant(Constant::Int(0)),
-                loop_end_label,
+                loop_end_label.to_owned(),
             ));
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
@@ -451,7 +454,7 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::BrIfEq(
                 cond_var,
                 Src::Constant(Constant::Int(0)),
-                if_end_label,
+                if_end_label.to_owned(),
             ));
             // if statement body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
@@ -466,13 +469,13 @@ fn convert_statement_to_ir(
             instrs.push(Instruction::BrIfEq(
                 cond_var,
                 Src::Constant(Constant::Int(0)),
-                else_label,
+                else_label.to_owned(),
             ));
             // if body
             instrs.append(&mut convert_statement_to_ir(true_body, prog, context)?);
             // jump to after else body
             let else_end_label = prog.new_label();
-            instrs.push(Instruction::Br(else_end_label));
+            instrs.push(Instruction::Br(else_end_label.to_owned()));
             // else body
             instrs.push(Instruction::Label(else_label));
             instrs.append(&mut convert_statement_to_ir(false_body, prog, context)?);
@@ -495,7 +498,7 @@ fn convert_statement_to_ir(
                 }
                 Src::Fun(_) => unreachable!(),
             };
-            context.push_switch(SwitchContext::new(switch_end_label, switch_var));
+            context.push_switch(SwitchContext::new(switch_end_label.to_owned(), switch_var));
             // switch body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
             // add default case after all other cases, if it exists
@@ -529,7 +532,7 @@ fn convert_statement_to_ir(
                     instrs.push(Instruction::BrIfNotEq(
                         expr_var,
                         Src::Var(context.get_switch_variable().unwrap()),
-                        end_of_case_label,
+                        end_of_case_label.to_owned(),
                     ));
                     // case body
                     instrs.append(&mut convert_statement_to_ir(stmt, prog, context)?);
