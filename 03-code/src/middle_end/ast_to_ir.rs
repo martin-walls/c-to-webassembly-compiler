@@ -1,13 +1,13 @@
 use super::ir::Program;
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::ir::{
-    Constant, Fun, Function, Instruction, Label, Src, Type, TypeInfo, Var,
+    Constant, FunId, Function, Instruction, Label, Src, Type, TypeInfo, Var,
 };
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
-    ExpressionOrDeclaration, Identifier, LabelledStatement, ParameterTypeList,
+    ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement, ParameterTypeList,
     Program as AstProgram, SpecifierQualifier, Statement, TypeSpecifier, UnaryOperator,
 };
 use std::collections::HashMap;
@@ -83,22 +83,34 @@ enum LoopOrSwitchContext {
 
 #[derive(Debug)]
 struct Scope {
-    variables: HashMap<String, Var>,
+    // map identifiers to variables in the IR
+    variable_names: HashMap<String, Var>,
+    // map variables to their type information
+    variable_types: HashMap<Var, Box<TypeInfo>>,
 }
 
 impl Scope {
     fn new() -> Self {
         Scope {
-            variables: HashMap::new(),
+            variable_names: HashMap::new(),
+            variable_types: HashMap::new(),
         }
     }
 
-    fn new_var(&mut self, identifier_name: String, var: Var) -> Result<(), MiddleEndError> {
-        todo!()
+    fn add_var(
+        &mut self,
+        identifier_name: String,
+        var: Var,
+        type_info: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        self.variable_names.insert(identifier_name, var);
+        self.variable_types.insert(var, type_info);
+        println!("updated scope: {:#?}", self);
+        Ok(())
     }
 
     fn resolve_identifier_to_var(&self, identifier_name: &str) -> Option<Var> {
-        match self.variables.get(identifier_name) {
+        match self.variable_names.get(identifier_name) {
             None => None,
             Some(var) => Some(var.to_owned()),
         }
@@ -110,13 +122,14 @@ struct Context {
     loop_stack: Vec<LoopOrSwitchContext>,
     scope_stack: Vec<Scope>,
     in_function_name_expr: bool,
+    // function_context: Option<FunId>,
 }
 
 impl Context {
     fn new() -> Self {
         Context {
             loop_stack: Vec::new(),
-            scope_stack: Vec::new(),
+            scope_stack: vec![Scope::new()], // start with global scope
             in_function_name_expr: false,
         }
     }
@@ -210,12 +223,25 @@ impl Context {
         }
     }
 
-    fn push_scope(&mut self, scope: Scope) {
-        self.scope_stack.push(scope);
+    fn new_scope(&mut self) {
+        self.scope_stack.push(Scope::new());
+        println!("Context: {:#?}", self);
     }
 
     fn pop_scope(&mut self) {
         self.scope_stack.pop();
+    }
+
+    fn add_variable_to_scope(
+        &mut self,
+        name: String,
+        var: Var,
+        type_info: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_var(name, var, type_info),
+        }
     }
 
     fn resolve_identifier_to_var(&self, identifier_name: &str) -> Result<Var, MiddleEndError> {
@@ -246,7 +272,7 @@ impl Context {
         }
     }
 
-    fn resolve_identifier_to_fun(&self, identifier_name: &str) -> Result<Fun, MiddleEndError> {
+    fn resolve_identifier_to_fun(&self, identifier_name: &str) -> Result<FunId, MiddleEndError> {
         todo!()
     }
 }
@@ -256,14 +282,10 @@ pub fn convert_to_ir(ast: AstProgram) {
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
         let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
-        println!("{:#?}", instrs);
+        println!("Instructions: {:#?}", instrs);
     }
     println!("Program: {:#?}\nContext: {:#?}", program, context);
 }
-
-// fn convert_function_to_ir(stmt: Statement) {
-//     let mut function = Function { instrs: Vec::new() };
-// }
 
 fn convert_statement_to_ir(
     stmt: Box<Statement>,
@@ -273,11 +295,11 @@ fn convert_statement_to_ir(
     let mut instrs: Vec<Instruction> = Vec::new();
     match *stmt {
         Statement::Block(stmts) => {
-            instrs.push(Instruction::StartBlock);
+            context.new_scope();
             for s in stmts {
                 instrs.append(&mut convert_statement_to_ir(s, prog, context)?);
             }
-            instrs.push(Instruction::EndBlock);
+            context.pop_scope();
         }
         Statement::Goto(x) => match prog.label_identifiers.get(&x.0) {
             Some(label) => instrs.push(Instruction::Br(label.to_owned())),
@@ -531,15 +553,55 @@ fn convert_statement_to_ir(
             let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
         }
-        Statement::Declaration(specifier, declarators) => {
+        Statement::Declaration(sq, declarators) => {
             for declarator in declarators {
                 let type_info = TypeInfo::new();
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
-                        todo!()
+                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog)?;
+                        match name {
+                            Some(name) => {
+                                let var = prog.new_var();
+                                context.add_variable_to_scope(name, var, type_info)?;
+                            }
+                            None => {
+                                todo!("check for struct/union/enum definition")
+                            }
+                        }
                     }
                     DeclaratorInitialiser::Init(d, init_expr) => {
-                        todo!()
+                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog)?;
+                        match name {
+                            None => return Err(MiddleEndError::InvalidAbstractDeclarator),
+                            Some(name) => {
+                                let var =
+                                    match *init_expr {
+                                        Initialiser::Expr(e) => {
+                                            let (mut expr_instrs, expr_var) =
+                                                convert_expression_to_ir(e, prog, context)?;
+                                            instrs.append(&mut expr_instrs);
+                                            match expr_var {
+                                                Src::Var(var) => var,
+                                                Src::Constant(c) => {
+                                                    let v = prog.new_var();
+                                                    instrs.push(Instruction::SimpleAssignment(
+                                                        v,
+                                                        Src::Constant(c),
+                                                    ));
+                                                    v
+                                                }
+                                                Src::Fun(_) => return Err(
+                                                    MiddleEndError::InvalidInitialiserExpression,
+                                                ),
+                                            }
+                                        }
+                                        Initialiser::List(_) => {
+                                            todo!()
+                                        }
+                                    };
+                                context.add_variable_to_scope(name, var, type_info)?;
+                            }
+                        }
                     }
                 }
             }
@@ -547,8 +609,28 @@ fn convert_statement_to_ir(
         Statement::EmptyDeclaration(_) => {
             todo!()
         }
-        Statement::FunctionDeclaration(_, _, _) => {
-            todo!()
+        Statement::FunctionDeclaration(sq, decl, body) => {
+            let (type_info, name, param_bindings) = get_type_info(&sq, Some(decl), prog)?;
+            let name = match name {
+                None => return Err(MiddleEndError::InvalidFunctionDeclaration),
+                Some(n) => n,
+            };
+            context.new_scope();
+            // for each parameter, store which var it maps to
+            let mut param_var_mappings: Vec<Var> = Vec::new();
+            // put parameter names into scope
+            if let Some(param_bindings) = param_bindings {
+                for (param_name, param_type) in param_bindings {
+                    let param_var = prog.new_var();
+                    param_var_mappings.push(param_var);
+                    context.add_variable_to_scope(param_name, param_var, param_type)?;
+                }
+            }
+            // function body instructions
+            let instrs = convert_statement_to_ir(body, prog, context)?;
+            let fun = Function::new(instrs, type_info, param_var_mappings);
+            prog.new_fun(name, fun);
+            context.pop_scope()
         }
         Statement::Empty => {}
     }
@@ -744,7 +826,13 @@ fn convert_expression_to_ir(
                 todo!()
             }
             BinaryOperator::Add => {
-                todo!()
+                let dest = prog.new_var();
+                let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
+                instrs.append(&mut left_instrs);
+                let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
+                instrs.append(&mut right_instrs);
+                instrs.push(Instruction::Add(dest, left_var, right_var));
+                Ok((instrs, Src::Var(dest)))
             }
             BinaryOperator::Sub => {
                 todo!()
@@ -805,12 +893,20 @@ fn convert_expression_to_ir(
 }
 
 fn get_type_info(
-    specifier: SpecifierQualifier,
+    specifier: &SpecifierQualifier,
     declarator: Option<Box<Declarator>>,
     prog: &mut Box<Program>,
-) -> Result<(Box<TypeInfo>, Option<String>), MiddleEndError> {
+) -> Result<
+    (
+        Box<TypeInfo>,
+        Option<String>,
+        // parameter bindings, if this is a function definition
+        Option<HashMap<String, Box<TypeInfo>>>,
+    ),
+    MiddleEndError,
+> {
     let mut type_info = Box::new(TypeInfo::new());
-    match specifier.type_specifier {
+    match &specifier.type_specifier {
         TypeSpecifier::ArithmeticType(t) => match t {
             ArithmeticType::I8 => {
                 type_info.type_ = Type::I8;
@@ -862,21 +958,23 @@ fn get_type_info(
 
     match declarator {
         Some(decl) => {
-            let decl_name = get_type_info_from_declarator(decl, &mut type_info, prog)?;
-            Ok((type_info, Some(decl_name)))
+            let (decl_name, param_bindings) =
+                get_type_info_from_declarator(decl, &mut type_info, prog)?;
+            Ok((type_info, Some(decl_name), param_bindings))
         }
-        None => Ok((type_info, None)),
+        None => Ok((type_info, None, None)),
     }
 }
 
-/// Modifies the TypeInfo struct it's given, and returns the identifier name
+/// Modifies the TypeInfo struct it's given, and returns the identifier name,
+/// and the types of any parameters
 fn get_type_info_from_declarator(
     decl: Box<Declarator>,
     type_info: &mut Box<TypeInfo>,
     prog: &mut Box<Program>,
-) -> Result<String, MiddleEndError> {
+) -> Result<(String, Option<HashMap<String, Box<TypeInfo>>>), MiddleEndError> {
     match *decl {
-        Declarator::Identifier(Identifier(name)) => Ok(name),
+        Declarator::Identifier(Identifier(name)) => Ok((name, None)),
         Declarator::PointerDeclarator(d) => {
             type_info.wrap_with_pointer();
             get_type_info_from_declarator(d, type_info, prog)
@@ -904,14 +1002,19 @@ fn get_type_info_from_declarator(
             };
 
             let mut param_types: Vec<Box<TypeInfo>> = Vec::new();
+            let mut param_bindings: HashMap<String, Box<TypeInfo>> = HashMap::new();
             for p in param_decls {
-                let (param_type, param_name) = get_type_info(p.0, p.1, prog)?;
-                param_types.push(param_type);
+                let (param_type, param_name, _sub_param_bindings) = get_type_info(&p.0, p.1, prog)?;
+                param_types.push(param_type.to_owned());
+                if let Some(name) = param_name {
+                    param_bindings.insert(name, param_type);
+                }
             }
 
             type_info.wrap_with_fun(param_types);
 
-            get_type_info_from_declarator(d, type_info, prog)
+            let (name, _) = get_type_info_from_declarator(d, type_info, prog)?;
+            Ok((name, Some(param_bindings)))
         }
     }
 }

@@ -17,6 +17,10 @@ pub enum MiddleEndError {
     DuplicateDeclaration(String),
     InvalidAbstractDeclarator,
     InvalidConstantExpression,
+    InvalidFunctionDeclaration,
+    InvalidInitialiserExpression,
+    /// in theory this should never occur because of global scope
+    ScopeError,
 }
 
 impl fmt::Display for MiddleEndError {
@@ -63,6 +67,15 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::InvalidConstantExpression => {
                 write!(f, "Invalid constant expression")
+            }
+            MiddleEndError::InvalidFunctionDeclaration => {
+                write!(f, "Invalid function declaration")
+            }
+            MiddleEndError::ScopeError => {
+                write!(f, "Scoping error")
+            }
+            MiddleEndError::InvalidInitialiserExpression => {
+                write!(f, "Invalid initialiser expression")
             }
         }
     }

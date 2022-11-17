@@ -13,13 +13,13 @@ pub enum Constant {
 
 pub type Dest = Var;
 
-pub type Fun = u64;
+pub type FunId = u64;
 
 #[derive(Debug, Clone)]
 pub enum Src {
     Var(Var),
     Constant(Constant),
-    Fun(Fun),
+    Fun(FunId),
 }
 
 pub type Label = u64;
@@ -77,6 +77,23 @@ pub enum Instruction {
 #[derive(Debug)]
 pub struct Function {
     pub instrs: Vec<Instruction>,
+    pub type_info: Box<TypeInfo>,
+    // for each parameter, store which var it maps to
+    pub param_var_mappings: Vec<Var>,
+}
+
+impl Function {
+    pub fn new(
+        instrs: Vec<Instruction>,
+        type_info: Box<TypeInfo>,
+        param_var_mappings: Vec<Var>,
+    ) -> Self {
+        Function {
+            instrs,
+            type_info,
+            param_var_mappings,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,6 +149,7 @@ impl Type {
     }
 }
 
+// todo equality
 #[derive(Debug, Clone)]
 pub struct TypeInfo {
     pub type_: Type,
@@ -165,7 +183,9 @@ pub struct Program {
     pub label_identifiers: HashMap<String, Label>,
     /// the highest label value currently in use
     max_label: Option<Label>,
-    pub functions: HashMap<String, Function>,
+    pub function_ids: HashMap<String, FunId>,
+    pub functions: HashMap<FunId, Function>,
+    max_fun_id: Option<FunId>,
     max_var: Option<Var>,
     pub string_literals: HashMap<Var, String>,
     pub declarations: HashMap<String, TypeInfo>,
@@ -176,7 +196,9 @@ impl Program {
         Program {
             label_identifiers: HashMap::new(),
             max_label: None,
+            function_ids: HashMap::new(),
             functions: HashMap::new(),
+            max_fun_id: None,
             max_var: None,
             string_literals: HashMap::new(),
             declarations: HashMap::new(),
@@ -188,15 +210,29 @@ impl Program {
             None => self.max_label = Some(0),
             Some(label) => self.max_label = Some(label + 1),
         }
-        println!("new label");
         self.max_label.unwrap()
     }
 
     pub fn new_identifier_label(&mut self, name: String) -> Label {
         let label = self.new_label();
         self.label_identifiers.insert(name, label);
-        println!("adding label");
         label
+    }
+
+    fn new_fun_id(&mut self, name: String) -> FunId {
+        match self.max_fun_id {
+            None => self.max_fun_id = Some(0),
+            Some(fun_id) => self.max_fun_id = Some(fun_id + 1),
+        }
+        let id = self.max_fun_id.unwrap();
+        self.function_ids.insert(name, id);
+        id
+    }
+
+    pub fn new_fun(&mut self, name: String, fun: Function) -> FunId {
+        let fun_id = self.new_fun_id(name);
+        self.functions.insert(fun_id, fun);
+        fun_id
     }
 
     pub fn new_var(&mut self) -> Var {
