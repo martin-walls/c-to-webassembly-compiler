@@ -1,9 +1,28 @@
 use crate::middle_end::middle_end_error::MiddleEndError;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
 
 const POINTER_SIZE: u64 = 4; // bytes
 
-pub type Var = u64;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Var(u64);
+
+impl Var {
+    fn initial() -> Self {
+        Var(0)
+    }
+
+    fn next_var(&self) -> Self {
+        Var(self.0 + 1)
+    }
+}
+
+impl fmt::Display for Var {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "t{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Constant {
@@ -11,15 +30,61 @@ pub enum Constant {
     Float(f64),
 }
 
+impl fmt::Display for Constant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Constant::Int(i) => {
+                write!(f, "{}", i)
+            }
+            Constant::Float(fl) => {
+                write!(f, "{}", fl)
+            }
+        }
+    }
+}
+
 pub type Dest = Var;
 
-pub type FunId = u64;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunId(u64);
+
+impl FunId {
+    fn initial() -> Self {
+        FunId(0)
+    }
+
+    fn next_fun_id(&self) -> Self {
+        FunId(self.0 + 1)
+    }
+}
+
+impl fmt::Display for FunId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "f{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Src {
     Var(Var),
     Constant(Constant),
     Fun(FunId),
+}
+
+impl fmt::Display for Src {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Src::Var(var) => {
+                write!(f, "{}", var)
+            }
+            Src::Constant(c) => {
+                write!(f, "{}", c)
+            }
+            Src::Fun(fun) => {
+                write!(f, "{}", fun)
+            }
+        }
+    }
 }
 
 pub type Label = u64;
@@ -68,10 +133,130 @@ pub enum Instruction {
     BrIfLT(Src, Src, Label),
     BrIfGE(Src, Src, Label),
     BrIfLE(Src, Src, Label),
-    Else(Label),
 
     StartBlock,
     EndBlock,
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Instruction::SimpleAssignment(dest, src) => {
+                write!(f, "{} = {}", dest, src)
+            }
+            Instruction::AddressOf(dest, src) => {
+                write!(f, "{} = &{}", dest, src)
+            }
+            Instruction::Dereference(dest, src) => {
+                write!(f, "{} = *{}", dest, src)
+            }
+            Instruction::BitwiseNot(dest, src) => {
+                write!(f, "{} = ~{}", dest, src)
+            }
+            Instruction::LogicalNot(dest, src) => {
+                write!(f, "{} = !{}", dest, src)
+            }
+            Instruction::Mult(dest, left, right) => {
+                write!(f, "{} = {} * {}", dest, left, right)
+            }
+            Instruction::Div(dest, left, right) => {
+                write!(f, "{} = {} / {}", dest, left, right)
+            }
+            Instruction::Mod(dest, left, right) => {
+                write!(f, "{} = {} % {}", dest, left, right)
+            }
+            Instruction::Add(dest, left, right) => {
+                write!(f, "{} = {} + {}", dest, left, right)
+            }
+            Instruction::Sub(dest, left, right) => {
+                write!(f, "{} = {} - {}", dest, left, right)
+            }
+            Instruction::LeftShift(dest, left, right) => {
+                write!(f, "{} = {} << {}", dest, left, right)
+            }
+            Instruction::RightShift(dest, left, right) => {
+                write!(f, "{} = {} >> {}", dest, left, right)
+            }
+            Instruction::BitwiseAnd(dest, left, right) => {
+                write!(f, "{} = {} & {}", dest, left, right)
+            }
+            Instruction::BitwiseOr(dest, left, right) => {
+                write!(f, "{} = {} | {}", dest, left, right)
+            }
+            Instruction::BitwiseXor(dest, left, right) => {
+                write!(f, "{} = {} ^ {}", dest, left, right)
+            }
+            Instruction::LogicalAnd(dest, left, right) => {
+                write!(f, "{} = {} && {}", dest, left, right)
+            }
+            Instruction::LogicalOr(dest, left, right) => {
+                write!(f, "{} = {} || {}", dest, left, right)
+            }
+            Instruction::LessThan(dest, left, right) => {
+                write!(f, "{} = {} < {}", dest, left, right)
+            }
+            Instruction::GreaterThan(dest, left, right) => {
+                write!(f, "{} = {} > {}", dest, left, right)
+            }
+            Instruction::LessThanEq(dest, left, right) => {
+                write!(f, "{} = {} <= {}", dest, left, right)
+            }
+            Instruction::GreaterThanEq(dest, left, right) => {
+                write!(f, "{} = {} >= {}", dest, left, right)
+            }
+            Instruction::Equal(dest, left, right) => {
+                write!(f, "{} = {} == {}", dest, left, right)
+            }
+            Instruction::NotEqual(dest, left, right) => {
+                write!(f, "{} = {} != {}", dest, left, right)
+            }
+            Instruction::Call(dest, fun, params) => {
+                write!(f, "{} = {}(", dest, fun)?;
+                for param in &params[..params.len() - 1] {
+                    write!(f, "{}, ", param)?;
+                }
+                write!(f, "{})", params[params.len() - 1])
+            }
+            Instruction::Ret(src) => match src {
+                None => {
+                    write!(f, "return")
+                }
+                Some(src) => {
+                    write!(f, "return {}", src)
+                }
+            },
+            Instruction::Label(label) => {
+                write!(f, "{}:", label)
+            }
+            Instruction::Br(label) => {
+                write!(f, "goto {}", label)
+            }
+            Instruction::BrIfEq(left, right, label) => {
+                write!(f, "if {} == {} goto {}", left, right, label)
+            }
+            Instruction::BrIfNotEq(left, right, label) => {
+                write!(f, "if {} != {} goto {}", left, right, label)
+            }
+            Instruction::BrIfGT(left, right, label) => {
+                write!(f, "if {} > {} goto {}", left, right, label)
+            }
+            Instruction::BrIfLT(left, right, label) => {
+                write!(f, "if {} < {} goto {}", left, right, label)
+            }
+            Instruction::BrIfGE(left, right, label) => {
+                write!(f, "if {} >= {} goto {}", left, right, label)
+            }
+            Instruction::BrIfLE(left, right, label) => {
+                write!(f, "if {} <= {} goto {}", left, right, label)
+            }
+            Instruction::StartBlock => {
+                write!(f, "{{")
+            }
+            Instruction::EndBlock => {
+                write!(f, "}}")
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -93,6 +278,28 @@ impl Function {
             type_info,
             param_var_mappings,
         }
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        write!(f, "\n  Function type:\n    {}", self.type_info)?;
+        write!(f, "\n  Parameters: ")?;
+        for i in 0..self.param_var_mappings.len() - 1 {
+            write!(f, "{} => {}, ", i, self.param_var_mappings[i])?;
+        }
+        write!(
+            f,
+            "{} => {}",
+            self.param_var_mappings.len() - 1,
+            self.param_var_mappings[self.param_var_mappings.len() - 1]
+        )?;
+        write!(f, "\n  Body instructions:")?;
+        for instr in &self.instrs {
+            write!(f, "\n    {}", instr)?;
+        }
+        write!(f, "\n}}")
     }
 }
 
@@ -149,6 +356,76 @@ impl Type {
     }
 }
 
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::I8 => {
+                write!(f, "signed char")
+            }
+            Type::U8 => {
+                write!(f, "unsigned char")
+            }
+            Type::I16 => {
+                write!(f, "signed short")
+            }
+            Type::U16 => {
+                write!(f, "unsigned short")
+            }
+            Type::I32 => {
+                write!(f, "signed int")
+            }
+            Type::U32 => {
+                write!(f, "unsigned int")
+            }
+            Type::I64 => {
+                write!(f, "signed long")
+            }
+            Type::U64 => {
+                write!(f, "unsigned long")
+            }
+            Type::F32 => {
+                write!(f, "float")
+            }
+            Type::F64 => {
+                write!(f, "double")
+            }
+            Type::Struct(members) => {
+                write!(f, "struct {{")?;
+                for member in &members[..members.len() - 1] {
+                    write!(f, "{}, ", member)?;
+                }
+                write!(f, "{}", members[members.len() - 1])?;
+                write!(f, "}}")
+            }
+            Type::Union(members) => {
+                write!(f, "union {{")?;
+                for member in &members[..members.len() - 1] {
+                    write!(f, "{}, ", member)?;
+                }
+                write!(f, "{}", members[members.len() - 1])?;
+                write!(f, "}}")
+            }
+            Type::Void => {
+                write!(f, "void")
+            }
+            Type::PointerTo(t) => {
+                write!(f, "*({})", t)
+            }
+            Type::ArrayOf(t, size) => match size {
+                Some(size) => write!(f, "({})[{}]", t, size),
+                None => write!(f, "({})[]", t),
+            },
+            Type::Function(ret, params) => {
+                write!(f, "({})(", ret)?;
+                for param in &params[..params.len() - 1] {
+                    write!(f, "{}, ", param)?;
+                }
+                write!(f, "{})", params[params.len() - 1])
+            }
+        }
+    }
+}
+
 // todo equality
 #[derive(Debug, Clone)]
 pub struct TypeInfo {
@@ -175,6 +452,12 @@ impl TypeInfo {
 
     pub fn wrap_with_fun(&mut self, params: Vec<Box<TypeInfo>>) {
         self.type_ = Type::Function(Box::new(self.type_.to_owned()), params);
+    }
+}
+
+impl fmt::Display for TypeInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.type_)
     }
 }
 
@@ -220,32 +503,33 @@ impl Program {
     }
 
     fn new_fun_id(&mut self, name: String) -> FunId {
-        match self.max_fun_id {
-            None => self.max_fun_id = Some(0),
-            Some(fun_id) => self.max_fun_id = Some(fun_id + 1),
-        }
-        let id = self.max_fun_id.unwrap();
-        self.function_ids.insert(name, id);
-        id
+        let new_fun_id = match &self.max_fun_id {
+            None => FunId::initial(),
+            Some(fun_id) => fun_id.next_fun_id(),
+        };
+        self.max_fun_id = Some(new_fun_id.to_owned());
+        self.function_ids.insert(name, new_fun_id.to_owned());
+        new_fun_id
     }
 
     pub fn new_fun(&mut self, name: String, fun: Function) -> FunId {
         let fun_id = self.new_fun_id(name);
-        self.functions.insert(fun_id, fun);
+        self.functions.insert(fun_id.to_owned(), fun);
         fun_id
     }
 
     pub fn new_var(&mut self) -> Var {
-        match self.max_var {
-            None => self.max_var = Some(0),
-            Some(var) => self.max_var = Some(var + 1),
-        }
-        self.max_var.unwrap()
+        let new_var = match &self.max_var {
+            None => Var::initial(),
+            Some(var) => var.next_var(),
+        };
+        self.max_var = Some(new_var.to_owned());
+        new_var
     }
 
     pub fn new_string_literal(&mut self, s: String) -> Var {
         let var = self.new_var();
-        self.string_literals.insert(var, s);
+        self.string_literals.insert(var.to_owned(), s);
         var
     }
 
@@ -263,5 +547,20 @@ impl Program {
 
     pub fn resolve_typedef(&self, typedef_name: &str) -> Result<TypeInfo, MiddleEndError> {
         todo!()
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        for fun_name in self.function_ids.keys() {
+            let fun_id = self.function_ids.get(fun_name).unwrap();
+            let fun = self.functions.get(fun_id).unwrap();
+            write!(f, "\nFunction {} => {}\n{}", fun_name, fun_id, fun)?;
+        }
+        write!(f, "\nLabel identifiers: {:#?}", self.label_identifiers)?;
+        write!(f, "\nString literals: {:#?}", self.string_literals)?;
+        write!(f, "\nDeclarations: {:#?}", self.declarations)?;
+        write!(f, "}}")
     }
 }

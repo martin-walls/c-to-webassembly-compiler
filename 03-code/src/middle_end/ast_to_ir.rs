@@ -11,9 +11,6 @@ use crate::parser::ast::{
     Program as AstProgram, SpecifierQualifier, Statement, TypeSpecifier, UnaryOperator,
 };
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
-use std::fmt::Formatter;
 
 #[derive(Debug)]
 struct LoopContext {
@@ -103,9 +100,8 @@ impl Scope {
         var: Var,
         type_info: Box<TypeInfo>,
     ) -> Result<(), MiddleEndError> {
-        self.variable_names.insert(identifier_name, var);
+        self.variable_names.insert(identifier_name, var.to_owned());
         self.variable_types.insert(var, type_info);
-        println!("updated scope: {:#?}", self);
         Ok(())
     }
 
@@ -199,7 +195,7 @@ impl Context {
             match self.loop_stack.get(i) {
                 None => return None,
                 Some(LoopOrSwitchContext::Switch(switch_context)) => {
-                    return Some(switch_context.switch_var);
+                    return Some(switch_context.switch_var.to_owned());
                 }
                 _ => {}
             }
@@ -225,7 +221,6 @@ impl Context {
 
     fn new_scope(&mut self) {
         self.scope_stack.push(Scope::new());
-        println!("Context: {:#?}", self);
     }
 
     fn pop_scope(&mut self) {
@@ -282,9 +277,8 @@ pub fn convert_to_ir(ast: AstProgram) {
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
         let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
-        println!("Instructions: {:#?}", instrs);
     }
-    println!("Program: {:#?}\nContext: {:#?}", program, context);
+    println!("Program: {}", program);
 }
 
 fn convert_statement_to_ir(
@@ -414,7 +408,7 @@ fn convert_statement_to_ir(
                 None => {
                     let temp = prog.new_var();
                     instrs.push(Instruction::SimpleAssignment(
-                        temp,
+                        temp.to_owned(),
                         Src::Constant(Constant::Int(1)),
                     ));
                     Src::Var(temp)
@@ -493,10 +487,13 @@ fn convert_statement_to_ir(
                 Src::Var(var) => var,
                 Src::Constant(c) => {
                     let temp = prog.new_var();
-                    instrs.push(Instruction::SimpleAssignment(temp, Src::Constant(c)));
+                    instrs.push(Instruction::SimpleAssignment(
+                        temp.to_owned(),
+                        Src::Constant(c),
+                    ));
                     temp
                 }
-                Src::Fun(fun) => unreachable!(),
+                Src::Fun(_) => unreachable!(),
             };
             context.push_switch(SwitchContext::new(switch_end_label, switch_var));
             // switch body
@@ -514,7 +511,7 @@ fn convert_statement_to_ir(
         }
         Statement::Labelled(stmt) => {
             match stmt {
-                LabelledStatement::Named(ast::Identifier(label_name), stmt) => {
+                LabelledStatement::Named(Identifier(label_name), stmt) => {
                     let label = prog.new_identifier_label(label_name);
                     instrs.push(Instruction::Label(label));
                     instrs.append(&mut convert_statement_to_ir(stmt, prog, context)?);
@@ -555,7 +552,6 @@ fn convert_statement_to_ir(
         }
         Statement::Declaration(sq, declarators) => {
             for declarator in declarators {
-                let type_info = TypeInfo::new();
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
                         let (type_info, name, _) = get_type_info(&sq, Some(d), prog)?;
@@ -585,7 +581,7 @@ fn convert_statement_to_ir(
                                                 Src::Constant(c) => {
                                                     let v = prog.new_var();
                                                     instrs.push(Instruction::SimpleAssignment(
-                                                        v,
+                                                        v.to_owned(),
                                                         Src::Constant(c),
                                                     ));
                                                     v
@@ -622,7 +618,7 @@ fn convert_statement_to_ir(
             if let Some(param_bindings) = param_bindings {
                 for (param_name, param_type) in param_bindings {
                     let param_var = prog.new_var();
-                    param_var_mappings.push(param_var);
+                    param_var_mappings.push(param_var.to_owned());
                     context.add_variable_to_scope(param_name, param_var, param_type)?;
                 }
             }
@@ -646,7 +642,7 @@ fn convert_expression_to_ir(
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
     let mut instrs: Vec<Instruction> = Vec::new();
     match *expr {
-        Expression::Identifier(ast::Identifier(name)) => {
+        Expression::Identifier(Identifier(name)) => {
             if context.in_function_name_expr {
                 let fun = context.resolve_identifier_to_fun(&name)?;
                 Ok((instrs, Src::Fun(fun)))
@@ -671,9 +667,9 @@ fn convert_expression_to_ir(
             instrs.append(&mut index_instrs);
             // array variable is a pointer to the start of the array
             let ptr = prog.new_var();
-            instrs.push(Instruction::Add(ptr, arr_var, index_var));
+            instrs.push(Instruction::Add(ptr.to_owned(), arr_var, index_var));
             let dest = prog.new_var();
-            instrs.push(Instruction::Dereference(dest, Src::Var(ptr)));
+            instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::FunctionCall(fun, params) => {
@@ -693,7 +689,7 @@ fn convert_expression_to_ir(
             }
             let dest = prog.new_var();
             instrs.push(Instruction::Call(
-                dest,
+                dest.to_owned(),
                 Src::Fun(fun_identifier),
                 param_srcs,
             ));
@@ -709,11 +705,14 @@ fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
-            instrs.push(Instruction::SimpleAssignment(dest, expr_var.to_owned()));
+            instrs.push(Instruction::SimpleAssignment(
+                dest.to_owned(),
+                expr_var.to_owned(),
+            ));
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Add(
-                        var,
+                        var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
                     ));
@@ -726,11 +725,14 @@ fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
-            instrs.push(Instruction::SimpleAssignment(dest, expr_var.to_owned()));
+            instrs.push(Instruction::SimpleAssignment(
+                dest.to_owned(),
+                expr_var.to_owned(),
+            ));
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Sub(
-                        var,
+                        var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
                     ));
@@ -745,8 +747,8 @@ fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Add(
-                        var,
-                        Src::Var(var),
+                        var.to_owned(),
+                        Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
                     Ok((instrs, Src::Var(var)))
@@ -760,8 +762,8 @@ fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Sub(
-                        var,
-                        Src::Var(var),
+                        var.to_owned(),
+                        Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
                     Ok((instrs, Src::Var(var)))
@@ -775,30 +777,30 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             match op {
                 UnaryOperator::AddressOf => {
-                    instrs.push(Instruction::AddressOf(dest, expr_var));
+                    instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
                 }
                 UnaryOperator::Dereference => {
-                    instrs.push(Instruction::Dereference(dest, expr_var));
+                    instrs.push(Instruction::Dereference(dest.to_owned(), expr_var));
                 }
                 UnaryOperator::Plus => {
                     instrs.push(Instruction::Add(
-                        dest,
+                        dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
                         expr_var,
                     ));
                 }
                 UnaryOperator::Minus => {
                     instrs.push(Instruction::Sub(
-                        dest,
+                        dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
                         expr_var,
                     ));
                 }
                 UnaryOperator::BitwiseNot => {
-                    instrs.push(Instruction::BitwiseNot(dest, expr_var));
+                    instrs.push(Instruction::BitwiseNot(dest.to_owned(), expr_var));
                 }
                 UnaryOperator::LogicalNot => {
-                    instrs.push(Instruction::LogicalNot(dest, expr_var));
+                    instrs.push(Instruction::LogicalNot(dest.to_owned(), expr_var));
                 }
             }
             Ok((instrs, Src::Var(dest)))
@@ -817,58 +819,86 @@ fn convert_expression_to_ir(
             instrs.append(&mut right_instrs);
             match op {
                 BinaryOperator::Mult => {
-                    instrs.push(Instruction::Mult(dest, left_var, right_var));
+                    instrs.push(Instruction::Mult(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Div => {
-                    instrs.push(Instruction::Div(dest, left_var, right_var));
+                    instrs.push(Instruction::Div(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Mod => {
-                    instrs.push(Instruction::Mod(dest, left_var, right_var));
+                    instrs.push(Instruction::Mod(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Add => {
-                    instrs.push(Instruction::Add(dest, left_var, right_var));
+                    instrs.push(Instruction::Add(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Sub => {
-                    instrs.push(Instruction::Sub(dest, left_var, right_var));
+                    instrs.push(Instruction::Sub(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::LeftShift => {
-                    instrs.push(Instruction::LeftShift(dest, left_var, right_var));
+                    instrs.push(Instruction::LeftShift(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::RightShift => {
-                    instrs.push(Instruction::RightShift(dest, left_var, right_var));
+                    instrs.push(Instruction::RightShift(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::LessThan => {
-                    instrs.push(Instruction::LessThan(dest, left_var, right_var));
+                    instrs.push(Instruction::LessThan(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::GreaterThan => {
-                    instrs.push(Instruction::GreaterThan(dest, left_var, right_var));
+                    instrs.push(Instruction::GreaterThan(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::LessThanEq => {
-                    instrs.push(Instruction::LessThanEq(dest, left_var, right_var));
+                    instrs.push(Instruction::LessThanEq(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::GreaterThanEq => {
-                    instrs.push(Instruction::GreaterThanEq(dest, left_var, right_var));
+                    instrs.push(Instruction::GreaterThanEq(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::Equal => {
-                    instrs.push(Instruction::Equal(dest, left_var, right_var));
+                    instrs.push(Instruction::Equal(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::NotEqual => {
-                    instrs.push(Instruction::NotEqual(dest, left_var, right_var));
+                    instrs.push(Instruction::NotEqual(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::BitwiseAnd => {
-                    instrs.push(Instruction::BitwiseAnd(dest, left_var, right_var));
+                    instrs.push(Instruction::BitwiseAnd(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::BitwiseOr => {
-                    instrs.push(Instruction::BitwiseOr(dest, left_var, right_var));
+                    instrs.push(Instruction::BitwiseOr(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::BitwiseXor => {
-                    instrs.push(Instruction::BitwiseXor(dest, left_var, right_var));
+                    instrs.push(Instruction::BitwiseXor(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::LogicalAnd => {
-                    instrs.push(Instruction::LogicalAnd(dest, left_var, right_var));
+                    instrs.push(Instruction::LogicalAnd(
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::LogicalOr => {
-                    instrs.push(Instruction::LogicalOr(dest, left_var, right_var));
+                    instrs.push(Instruction::LogicalOr(dest.to_owned(), left_var, right_var));
                 }
             }
             Ok((instrs, Src::Var(dest)))
