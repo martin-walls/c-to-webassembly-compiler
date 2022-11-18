@@ -815,11 +815,11 @@ fn convert_expression_to_ir(
             todo!()
         }
         Expression::BinaryOp(op, left, right) => {
-            let dest = prog.new_var();
             let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
             instrs.append(&mut left_instrs);
             let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
             instrs.append(&mut right_instrs);
+            let dest = prog.new_var();
             match op {
                 BinaryOperator::Mult => {
                     instrs.push(Instruction::Mult(dest.to_owned(), left_var, right_var));
@@ -921,6 +921,8 @@ fn convert_expression_to_ir(
     }
 }
 
+type FunctionParameterBindings = Vec<(String, Box<TypeInfo>)>;
+
 fn get_type_info(
     specifier: &SpecifierQualifier,
     declarator: Option<Box<Declarator>>,
@@ -930,7 +932,7 @@ fn get_type_info(
         Box<TypeInfo>,
         Option<String>,
         // parameter bindings, if this is a function definition
-        Option<HashMap<String, Box<TypeInfo>>>,
+        Option<FunctionParameterBindings>,
     ),
     MiddleEndError,
 > {
@@ -1001,7 +1003,7 @@ fn get_type_info_from_declarator(
     decl: Box<Declarator>,
     type_info: &mut Box<TypeInfo>,
     prog: &mut Box<Program>,
-) -> Result<(String, Option<HashMap<String, Box<TypeInfo>>>), MiddleEndError> {
+) -> Result<(String, Option<FunctionParameterBindings>), MiddleEndError> {
     match *decl {
         Declarator::Identifier(Identifier(name)) => Ok((name, None)),
         Declarator::PointerDeclarator(d) => {
@@ -1031,12 +1033,12 @@ fn get_type_info_from_declarator(
             };
 
             let mut param_types: Vec<Box<TypeInfo>> = Vec::new();
-            let mut param_bindings: HashMap<String, Box<TypeInfo>> = HashMap::new();
+            let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
                 let (param_type, param_name, _sub_param_bindings) = get_type_info(&p.0, p.1, prog)?;
                 param_types.push(param_type.to_owned());
                 if let Some(name) = param_name {
-                    param_bindings.insert(name, param_type);
+                    param_bindings.push((name, param_type));
                 }
             }
 
