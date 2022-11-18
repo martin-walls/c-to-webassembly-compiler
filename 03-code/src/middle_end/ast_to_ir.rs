@@ -291,8 +291,12 @@ impl Context {
         name: String,
         fun_id: FunId,
     ) -> Result<(), MiddleEndError> {
+        // check for duplicate declarations
+        match self.resolve_identifier_to_fun(&name) {
+            Ok(_) => return Err(MiddleEndError::DuplicateFunctionDeclaration(name)),
+            Err(_) => {}
+        }
         self.function_names.insert(name, fun_id);
-        // todo check for name clashes
         Ok(())
     }
 

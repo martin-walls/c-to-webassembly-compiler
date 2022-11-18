@@ -16,6 +16,7 @@ pub enum MiddleEndError {
     InvalidLValue,
     InvalidFunctionCall,
     DuplicateDeclaration(String),
+    DuplicateFunctionDeclaration(String),
     DuplicateTypeDeclaration(String),
     InvalidAbstractDeclarator,
     InvalidConstantExpression,
@@ -84,10 +85,13 @@ impl fmt::Display for MiddleEndError {
                 write!(f, "Invalid initialiser expression")
             }
             MiddleEndError::DuplicateTypeDeclaration(t) => {
-                write!(f, "Duplicate typedef declaration \"{}\"", t)
+                write!(f, "Duplicate typedef declaration: \"{}\"", t)
             }
             MiddleEndError::InvalidTypedefDeclaration => {
                 write!(f, "Invalid typedef declaration")
+            }
+            MiddleEndError::DuplicateFunctionDeclaration(name) => {
+                write!(f, "Duplicate function declaration: \"{}\"", name)
             }
         }
     }
