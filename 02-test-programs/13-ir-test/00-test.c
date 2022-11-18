@@ -2,11 +2,25 @@
 
 typedef unsigned long bar;
 
+int foo = 1;
+char* baz = "hello world";
+foo + baz;
+
+struct Complex {
+    double real;
+    double imaginary;
+};
+
 bar add(int x, bar y) {
     int z = 1;
     label1:
     return x + y - z;
 }
+
+// uncomment this should throw error for duplicate function defn
+//double add(double x, double y) {
+//    return x + y;
+//}
 
 double quadratic(double a, double b, double c, double x) {
     return add(a * x * x + b * x, c);

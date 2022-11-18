@@ -1,15 +1,14 @@
-use super::ir::Program;
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::ir::{
-    Constant, FunId, Function, Instruction, Label, Src, Type, TypeInfo, Var,
+    Constant, FunId, Function, Instruction, Label, Program, Src, StructType, Type, TypeInfo, Var,
 };
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
     ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement, ParameterTypeList,
-    Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier, TypeSpecifier,
-    UnaryOperator,
+    Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
+    StructType as AstStructType, TypeSpecifier, UnaryOperator,
 };
 use std::collections::HashMap;
 
@@ -640,13 +639,16 @@ fn convert_statement_to_ir(
                             None => {
                                 // typedef declaration, so no need to do anything more here
                             }
-                            Some((type_info, name, _)) => match name {
+                            Some((type_info, name, _params)) => match name {
                                 Some(name) => {
                                     let var = prog.new_var();
                                     context.add_variable_to_scope(name, var, type_info)?;
                                 }
                                 None => {
-                                    todo!("check for struct/union/enum definition")
+                                    // If declarator has no name, it should be a
+                                    // Statement::EmptyDeclaration, so this case should never
+                                    // be reached
+                                    unreachable!()
                                 }
                             },
                         };
@@ -692,8 +694,20 @@ fn convert_statement_to_ir(
                 }
             }
         }
-        Statement::EmptyDeclaration(_) => {
-            todo!()
+        Statement::EmptyDeclaration(sq) => {
+            match get_type_info(&sq, None, prog, context)? {
+                None => {
+                    // typedef declaration is invalid without a name
+                    return Err(MiddleEndError::InvalidTypedefDeclaration);
+                }
+                Some((type_info, _name, _params)) => {
+                    if !type_info.is_struct_union_or_enum() {
+                        return Err(MiddleEndError::InvalidDeclaration);
+                    }
+                    println!("{:#?}", type_info)
+                }
+            }
+            todo!("empty declaration")
         }
         Statement::FunctionDeclaration(sq, decl, body) => {
             let (type_info, name, param_bindings) =
@@ -1099,14 +1113,20 @@ fn get_type_info(
         TypeSpecifier::Void => {
             type_info.type_ = Type::Void;
         }
-        TypeSpecifier::Struct(_) => {
-            todo!()
-        }
+        TypeSpecifier::Struct(struct_type) => match struct_type {
+            AstStructType::Declaration(Identifier(struct_name)) => {
+                type_info.type_ = Type::Struct(StructType::new(struct_name.to_string()));
+                type_info.is_defined = false;
+            }
+            AstStructType::Definition(struct_name, members) => {
+                todo!("get type info for struct definition - get types of all members")
+            }
+        },
         TypeSpecifier::Union(_) => {
-            todo!()
+            todo!("get_type_info for union")
         }
         TypeSpecifier::Enum(_) => {
-            todo!()
+            todo!("get_type_info for enum")
         }
         TypeSpecifier::CustomType(Identifier(name)) => {
             type_info = context.resolve_typedef(&name)?;

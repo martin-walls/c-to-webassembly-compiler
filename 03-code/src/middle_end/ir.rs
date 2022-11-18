@@ -347,6 +347,27 @@ impl fmt::Display for Function {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct StructType {
+    name: String,
+    members: Vec<Box<TypeInfo>>,
+}
+
+impl StructType {
+    pub fn new(name: String) -> Self {
+        StructType {
+            name,
+            members: Vec::new(),
+        }
+    }
+}
+
+impl fmt::Display for StructType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!("fmt::Display for StructType")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     I8,  // signed char
     U8,  // unsigned char
@@ -358,7 +379,7 @@ pub enum Type {
     U64, // unsigned long
     F32, // float
     F64, // double
-    Struct(Vec<Box<TypeInfo>>),
+    Struct(StructType),
     Union(Vec<Box<TypeInfo>>),
     Void,
     PointerTo(Box<Type>),
@@ -377,7 +398,14 @@ impl Type {
             Type::I64 | Type::U64 => 8,
             Type::F32 => 4,
             Type::F64 => 8,
-            Type::Struct(members) | Type::Union(members) => {
+            Type::Struct(struct_type) => {
+                let mut total = 0;
+                for type_info in &struct_type.members {
+                    total += type_info.get_byte_size();
+                }
+                total
+            }
+            Type::Union(members) => {
                 let mut total = 0;
                 for type_info in members {
                     total += type_info.get_byte_size();
@@ -432,12 +460,12 @@ impl fmt::Display for Type {
             Type::F64 => {
                 write!(f, "double")
             }
-            Type::Struct(members) => {
+            Type::Struct(struct_type) => {
                 write!(f, "struct {{")?;
-                for member in &members[..members.len() - 1] {
+                for member in &struct_type.members[..struct_type.members.len() - 1] {
                     write!(f, "{}, ", member)?;
                 }
-                write!(f, "{}", members[members.len() - 1])?;
+                write!(f, "{}", struct_type.members[struct_type.members.len() - 1])?;
                 write!(f, "}}")
             }
             Type::Union(members) => {
@@ -472,12 +500,17 @@ impl fmt::Display for Type {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeInfo {
     pub type_: Type,
+    /// If a struct/union/enum is declared but not defined, this will be false
+    pub is_defined: bool,
     // todo mapping of struct/union fields to their type
 }
 
 impl TypeInfo {
     pub fn new() -> Self {
-        TypeInfo { type_: Type::Void }
+        TypeInfo {
+            type_: Type::Void,
+            is_defined: true,
+        }
     }
 
     pub fn get_byte_size(&self) -> u64 {
@@ -494,6 +527,26 @@ impl TypeInfo {
 
     pub fn wrap_with_fun(&mut self, params: Vec<Box<TypeInfo>>) {
         self.type_ = Type::Function(Box::new(self.type_.to_owned()), params);
+    }
+
+    pub fn is_struct_union_or_enum(&self) -> bool {
+        match &self.type_ {
+            Type::I8
+            | Type::U8
+            | Type::I16
+            | Type::U16
+            | Type::I32
+            | Type::U32
+            | Type::I64
+            | Type::U64
+            | Type::F32
+            | Type::F64
+            | Type::Void
+            | Type::PointerTo(_)
+            | Type::ArrayOf(_, _)
+            | Type::Function(_, _) => false,
+            Type::Struct(_) | Type::Union(_) => true,
+        }
     }
 }
 

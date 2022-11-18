@@ -18,6 +18,7 @@ pub enum MiddleEndError {
     DuplicateDeclaration(String),
     DuplicateFunctionDeclaration(String),
     DuplicateTypeDeclaration(String),
+    InvalidDeclaration,
     InvalidAbstractDeclarator,
     InvalidConstantExpression,
     InvalidFunctionDeclaration,
@@ -92,6 +93,9 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::DuplicateFunctionDeclaration(name) => {
                 write!(f, "Duplicate function declaration: \"{}\"", name)
+            }
+            MiddleEndError::InvalidDeclaration => {
+                write!(f, "Invalid declaration")
             }
         }
     }
