@@ -24,6 +24,7 @@ pub enum MiddleEndError {
     InvalidFunctionDeclaration,
     InvalidTypedefDeclaration,
     InvalidInitialiserExpression,
+    UnnamedStructMember,
     /// in theory this should never occur because of global scope
     ScopeError,
 }
@@ -96,6 +97,9 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::InvalidDeclaration => {
                 write!(f, "Invalid declaration")
+            }
+            MiddleEndError::UnnamedStructMember => {
+                write!(f, "Unnamed struct members are not allowed")
             }
         }
     }

@@ -348,15 +348,26 @@ impl fmt::Display for Function {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructType {
-    name: String,
-    members: Vec<Box<TypeInfo>>,
+    pub name: Option<String>,
+    /// store members' names and types
+    pub member_names: Vec<String>,
+    pub member_types: Vec<Box<TypeInfo>>,
 }
 
 impl StructType {
-    pub fn new(name: String) -> Self {
+    pub fn named(name: String) -> Self {
         StructType {
-            name,
-            members: Vec::new(),
+            name: Some(name),
+            member_names: Vec::new(),
+            member_types: Vec::new(),
+        }
+    }
+
+    pub fn unnamed() -> Self {
+        StructType {
+            name: None,
+            member_names: Vec::new(),
+            member_types: Vec::new(),
         }
     }
 }
@@ -400,7 +411,7 @@ impl Type {
             Type::F64 => 8,
             Type::Struct(struct_type) => {
                 let mut total = 0;
-                for type_info in &struct_type.members {
+                for type_info in &struct_type.member_types {
                     total += type_info.get_byte_size();
                 }
                 total
@@ -462,10 +473,14 @@ impl fmt::Display for Type {
             }
             Type::Struct(struct_type) => {
                 write!(f, "struct {{")?;
-                for member in &struct_type.members[..struct_type.members.len() - 1] {
+                for member in &struct_type.member_types[..struct_type.member_types.len() - 1] {
                     write!(f, "{}, ", member)?;
                 }
-                write!(f, "{}", struct_type.members[struct_type.members.len() - 1])?;
+                write!(
+                    f,
+                    "{}",
+                    struct_type.member_types[struct_type.member_types.len() - 1]
+                )?;
                 write!(f, "}}")
             }
             Type::Union(members) => {

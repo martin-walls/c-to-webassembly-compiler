@@ -1115,11 +1115,33 @@ fn get_type_info(
         }
         TypeSpecifier::Struct(struct_type) => match struct_type {
             AstStructType::Declaration(Identifier(struct_name)) => {
-                type_info.type_ = Type::Struct(StructType::new(struct_name.to_string()));
+                type_info.type_ = Type::Struct(StructType::named(struct_name.to_owned()));
                 type_info.is_defined = false;
             }
             AstStructType::Definition(struct_name, members) => {
-                todo!("get type info for struct definition - get types of all members")
+                let mut struct_type = match struct_name {
+                    Some(Identifier(name)) => StructType::named(name.to_owned()),
+                    None => StructType::unnamed(),
+                };
+                for member in members {
+                    for decl in &member.1 {
+                        let (member_type_info, member_name, _params) = match get_type_info(
+                            &member.0,
+                            Some(Box::new(*decl.to_owned())),
+                            prog,
+                            context,
+                        )? {
+                            None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                            Some(x) => x,
+                        };
+                        if member_name == None {
+                            return Err(MiddleEndError::UnnamedStructMember);
+                        }
+                        struct_type.member_names.push(member_name.unwrap());
+                        struct_type.member_types.push(member_type_info);
+                    }
+                }
+                type_info.type_ = Type::Struct(struct_type);
             }
         },
         TypeSpecifier::Union(_) => {
