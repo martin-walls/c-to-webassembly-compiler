@@ -12,6 +12,7 @@ pub enum MiddleEndError {
     /// in theory this should never occur
     LoopNestingError,
     UndeclaredIdentifier(String),
+    UndeclaredType(String),
     InvalidLValue,
     InvalidFunctionCall,
     DuplicateDeclaration(String),
@@ -52,6 +53,9 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::UndeclaredIdentifier(name) => {
                 write!(f, "Use of undeclared identifier: \"{}\"", name)
+            }
+            MiddleEndError::UndeclaredType(name) => {
+                write!(f, "Use of undeclared type: \"{}\"", name)
             }
             MiddleEndError::InvalidLValue => {
                 write!(f, "Invalid LValue used")

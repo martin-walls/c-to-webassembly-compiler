@@ -80,10 +80,12 @@ enum LoopOrSwitchContext {
 
 #[derive(Debug)]
 struct Scope {
-    // map identifiers to variables in the IR
+    /// map identifiers to variables in the IR
     variable_names: HashMap<String, Var>,
-    // map variables to their type information
+    /// map variables to their type information
     variable_types: HashMap<Var, Box<TypeInfo>>,
+    /// map typedef names to their types
+    typedef_types: HashMap<String, Box<TypeInfo>>,
 }
 
 impl Scope {
@@ -91,6 +93,7 @@ impl Scope {
         Scope {
             variable_names: HashMap::new(),
             variable_types: HashMap::new(),
+            typedef_types: HashMap::new(),
         }
     }
 
@@ -109,6 +112,23 @@ impl Scope {
         match self.variable_names.get(identifier_name) {
             None => None,
             Some(var) => Some(var.to_owned()),
+        }
+    }
+
+    fn add_typedef(
+        &mut self,
+        typedef_name: String,
+        type_info: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        // todo check for existing typedef of same name but different type
+        self.typedef_types.insert(typedef_name, type_info);
+        Ok(())
+    }
+
+    fn resolve_identifier_to_type(&self, typedef_name: &str) -> Option<Box<TypeInfo>> {
+        match self.typedef_types.get(typedef_name) {
+            None => None,
+            Some(t) => Some(t.to_owned()),
         }
     }
 }
@@ -242,9 +262,7 @@ impl Context {
 
     fn resolve_identifier_to_var(&self, identifier_name: &str) -> Result<Var, MiddleEndError> {
         if self.scope_stack.is_empty() {
-            return Err(MiddleEndError::UndeclaredIdentifier(
-                identifier_name.to_owned(),
-            ));
+            return Err(MiddleEndError::ScopeError);
         }
         let mut i = self.scope_stack.len() - 1;
         loop {
@@ -287,8 +305,24 @@ impl Context {
         }
     }
 
-    fn resolve_typedef(&self, typedef_name: &str) -> Result<TypeInfo, MiddleEndError> {
-        todo!()
+    fn resolve_typedef(&self, typedef_name: &str) -> Result<Box<TypeInfo>, MiddleEndError> {
+        if self.scope_stack.is_empty() {
+            return Err(MiddleEndError::ScopeError);
+        }
+        let mut i = self.scope_stack.len() - 1;
+        loop {
+            match self.scope_stack.get(i) {
+                None => return Err(MiddleEndError::UndeclaredType(typedef_name.to_owned())),
+                Some(scope) => match scope.resolve_identifier_to_type(typedef_name) {
+                    None => {}
+                    Some(type_info) => return Ok(type_info),
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::UndeclaredType(typedef_name.to_owned()));
+            }
+            i -= 1;
+        }
     }
 }
 
@@ -560,6 +594,7 @@ fn convert_statement_to_ir(
                     instrs.push(Instruction::Label(end_of_case_label));
                 }
                 LabelledStatement::Default(stmt) => {
+                    // todo default statement may contain other cases
                     let body_instrs = convert_statement_to_ir(stmt, prog, context)?;
                     context.add_default_switch_case(body_instrs)?;
                 }
@@ -615,7 +650,7 @@ fn convert_statement_to_ir(
                                             }
                                         }
                                         Initialiser::List(_) => {
-                                            todo!()
+                                            todo!("struct/union/array initialiser")
                                         }
                                     };
                                 context.add_variable_to_scope(name, var, type_info)?;
@@ -927,8 +962,34 @@ fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::Ternary(_, _, _) => {
-            todo!()
+        Expression::Ternary(cond, true_expr, false_expr) => {
+            let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
+            instrs.append(&mut cond_instrs);
+            let dest = prog.new_var();
+            let false_label = prog.new_label();
+            let end_label = prog.new_label();
+            // if condition false, execute the false instructions
+            instrs.push(Instruction::BrIfEq(
+                cond_var,
+                Src::Constant(Constant::Int(0)),
+                false_label.to_owned(),
+            ));
+            // if condition true, fall through to the true instructions
+            let (mut true_instrs, true_var) = convert_expression_to_ir(true_expr, prog, context)?;
+            instrs.append(&mut true_instrs);
+            // assign the result to dest
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), true_var));
+            // jump over the false instructions
+            instrs.push(Instruction::Br(end_label.to_owned()));
+            // false instructions
+            instrs.push(Instruction::Label(false_label));
+            let (mut false_instrs, false_var) =
+                convert_expression_to_ir(false_expr, prog, context)?;
+            instrs.append(&mut false_instrs);
+            // assign the result to dest
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), false_var));
+            instrs.push(Instruction::Label(end_label));
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::Assignment(_, _, _) => {
             todo!()
@@ -1005,7 +1066,7 @@ fn get_type_info(
             todo!()
         }
         TypeSpecifier::CustomType(Identifier(name)) => {
-            type_info = Box::new(context.resolve_typedef(&name)?)
+            type_info = context.resolve_typedef(&name)?;
         }
     }
 
