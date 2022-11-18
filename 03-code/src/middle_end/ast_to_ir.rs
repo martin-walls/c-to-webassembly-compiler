@@ -8,7 +8,8 @@ use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
     ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement, ParameterTypeList,
-    Program as AstProgram, SpecifierQualifier, Statement, TypeSpecifier, UnaryOperator,
+    Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier, TypeSpecifier,
+    UnaryOperator,
 };
 use std::collections::HashMap;
 
@@ -120,7 +121,6 @@ impl Scope {
         typedef_name: String,
         type_info: Box<TypeInfo>,
     ) -> Result<(), MiddleEndError> {
-        // todo check for existing typedef of same name but different type
         self.typedef_types.insert(typedef_name, type_info);
         Ok(())
     }
@@ -305,6 +305,26 @@ impl Context {
         }
     }
 
+    fn add_typedef(
+        &mut self,
+        typedef_name: String,
+        type_info: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        // it's an error to redeclare the same typedef name with a different type
+        match self.resolve_typedef(&typedef_name) {
+            Ok(t) => {
+                if t != type_info {
+                    return Err(MiddleEndError::DuplicateTypeDeclaration(typedef_name));
+                }
+            }
+            Err(_) => {}
+        }
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_typedef(typedef_name, type_info),
+        }
+    }
+
     fn resolve_typedef(&self, typedef_name: &str) -> Result<Box<TypeInfo>, MiddleEndError> {
         if self.scope_stack.is_empty() {
             return Err(MiddleEndError::ScopeError);
@@ -331,6 +351,7 @@ pub fn convert_to_ir(ast: AstProgram) {
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
         let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
+        println!("{:?}", instrs);
     }
     println!("Program: {}", program);
 }
@@ -612,19 +633,27 @@ fn convert_statement_to_ir(
             for declarator in declarators {
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
-                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog, context)?;
-                        match name {
-                            Some(name) => {
-                                let var = prog.new_var();
-                                context.add_variable_to_scope(name, var, type_info)?;
-                            }
+                        match get_type_info(&sq, Some(d), prog, context)? {
                             None => {
-                                todo!("check for struct/union/enum definition")
+                                // typedef declaration, so no need to do anything more here
                             }
-                        }
+                            Some((type_info, name, _)) => match name {
+                                Some(name) => {
+                                    let var = prog.new_var();
+                                    context.add_variable_to_scope(name, var, type_info)?;
+                                }
+                                None => {
+                                    todo!("check for struct/union/enum definition")
+                                }
+                            },
+                        };
                     }
                     DeclaratorInitialiser::Init(d, init_expr) => {
-                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog, context)?;
+                        let (type_info, name, _) = match get_type_info(&sq, Some(d), prog, context)?
+                        {
+                            None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                            Some(x) => x,
+                        };
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
@@ -664,7 +693,11 @@ fn convert_statement_to_ir(
             todo!()
         }
         Statement::FunctionDeclaration(sq, decl, body) => {
-            let (type_info, name, param_bindings) = get_type_info(&sq, Some(decl), prog, context)?;
+            let (type_info, name, param_bindings) =
+                match get_type_info(&sq, Some(decl), prog, context)? {
+                    None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                    Some(x) => x,
+                };
             let name = match name {
                 None => return Err(MiddleEndError::InvalidFunctionDeclaration),
                 Some(n) => n,
@@ -991,7 +1024,9 @@ fn convert_expression_to_ir(
             instrs.push(Instruction::Label(end_label));
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::Assignment(_, _, _) => {
+        Expression::Assignment(dest_expr, src_expr, op) => {
+            // todo can dest_expr be anything other than an identifier?
+            //      pointers and array access i guess
             todo!()
         }
         Expression::Cast(_, _) => {
@@ -1011,12 +1046,12 @@ fn get_type_info(
     prog: &mut Box<Program>,
     context: &mut Box<Context>,
 ) -> Result<
-    (
+    Option<(
         Box<TypeInfo>,
         Option<String>,
         // parameter bindings, if this is a function definition
         Option<FunctionParameterBindings>,
-    ),
+    )>,
     MiddleEndError,
 > {
     let mut type_info = Box::new(TypeInfo::new());
@@ -1070,13 +1105,37 @@ fn get_type_info(
         }
     }
 
+    let mut is_typedef = false;
+    match specifier.storage_class_specifier {
+        None => {}
+        Some(StorageClassSpecifier::Typedef) => {
+            is_typedef = true;
+        }
+        Some(StorageClassSpecifier::Auto) => {
+            todo!()
+        }
+        Some(StorageClassSpecifier::Extern) => {
+            todo!()
+        }
+        Some(StorageClassSpecifier::Register) => {
+            todo!()
+        }
+        Some(StorageClassSpecifier::Static) => {
+            todo!()
+        }
+    }
+
     match declarator {
         Some(decl) => {
             let (decl_name, param_bindings) =
                 get_type_info_from_declarator(decl, &mut type_info, prog, context)?;
-            Ok((type_info, Some(decl_name), param_bindings))
+            if is_typedef {
+                context.add_typedef(decl_name, type_info)?;
+                return Ok(None);
+            }
+            Ok(Some((type_info, Some(decl_name), param_bindings)))
         }
-        None => Ok((type_info, None, None)),
+        None => Ok(Some((type_info, None, None))),
     }
 }
 
@@ -1120,7 +1179,10 @@ fn get_type_info_from_declarator(
             let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
                 let (param_type, param_name, _sub_param_bindings) =
-                    get_type_info(&p.0, p.1, prog, context)?;
+                    match get_type_info(&p.0, p.1, prog, context)? {
+                        None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                        Some(x) => x,
+                    };
                 param_types.push(param_type.to_owned());
                 if let Some(name) = param_name {
                     param_bindings.push((name, param_type));

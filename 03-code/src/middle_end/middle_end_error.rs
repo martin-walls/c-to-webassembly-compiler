@@ -16,9 +16,11 @@ pub enum MiddleEndError {
     InvalidLValue,
     InvalidFunctionCall,
     DuplicateDeclaration(String),
+    DuplicateTypeDeclaration(String),
     InvalidAbstractDeclarator,
     InvalidConstantExpression,
     InvalidFunctionDeclaration,
+    InvalidTypedefDeclaration,
     InvalidInitialiserExpression,
     /// in theory this should never occur because of global scope
     ScopeError,
@@ -80,6 +82,12 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::InvalidInitialiserExpression => {
                 write!(f, "Invalid initialiser expression")
+            }
+            MiddleEndError::DuplicateTypeDeclaration(t) => {
+                write!(f, "Duplicate typedef declaration \"{}\"", t)
+            }
+            MiddleEndError::InvalidTypedefDeclaration => {
+                write!(f, "Invalid typedef declaration")
             }
         }
     }

@@ -161,9 +161,6 @@ pub enum Instruction {
     BrIfLT(Src, Src, Label),
     BrIfGE(Src, Src, Label),
     BrIfLE(Src, Src, Label),
-
-    StartBlock,
-    EndBlock,
 }
 
 impl fmt::Display for Instruction {
@@ -277,12 +274,6 @@ impl fmt::Display for Instruction {
             Instruction::BrIfLE(left, right, label) => {
                 write!(f, "if {} <= {} goto {}", left, right, label)
             }
-            Instruction::StartBlock => {
-                write!(f, "{{")
-            }
-            Instruction::EndBlock => {
-                write!(f, "}}")
-            }
         }
     }
 }
@@ -331,7 +322,7 @@ impl fmt::Display for Function {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     I8,  // signed char
     U8,  // unsigned char
@@ -454,7 +445,7 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypeInfo {
     pub type_: Type,
     // todo mapping of struct/union fields to their type

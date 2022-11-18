@@ -1,6 +1,8 @@
 #define FOO 1
 
-int add(int x, int y) {
+typedef unsigned long bar;
+
+bar add(int x, bar y) {
     int z = 1;
     label1:
     return x + y - z;
