@@ -117,6 +117,25 @@ impl fmt::Display for Label {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StringLiteralId(u64);
+
+impl Id for StringLiteralId {
+    fn initial_id() -> Self {
+        StringLiteralId(0)
+    }
+
+    fn next_id(&self) -> Self {
+        StringLiteralId(self.0 + 1)
+    }
+}
+
+impl fmt::Display for StringLiteralId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "s{}", self.0)
+    }
+}
+
 #[derive(Debug)]
 pub enum Instruction {
     // t = a
@@ -161,6 +180,8 @@ pub enum Instruction {
     BrIfLT(Src, Src, Label),
     BrIfGE(Src, Src, Label),
     BrIfLE(Src, Src, Label),
+
+    PointerToStringLiteral(Dest, StringLiteralId),
 }
 
 impl fmt::Display for Instruction {
@@ -273,6 +294,9 @@ impl fmt::Display for Instruction {
             }
             Instruction::BrIfLE(left, right, label) => {
                 write!(f, "if {} <= {} goto {}", left, right, label)
+            }
+            Instruction::PointerToStringLiteral(dest, string_id) => {
+                write!(f, "{} = pointer to string literal {}", dest, string_id)
             }
         }
     }
@@ -487,8 +511,10 @@ pub struct Program {
     pub function_ids: HashMap<String, FunId>,
     pub functions: HashMap<FunId, Function>,
     max_fun_id: Option<FunId>,
+    pub global_instrs: Vec<Instruction>,
     max_var: Option<Var>,
-    pub string_literals: HashMap<Var, String>,
+    pub string_literals: HashMap<StringLiteralId, String>,
+    max_string_literal_id: Option<StringLiteralId>,
     pub declarations: HashMap<String, TypeInfo>,
 }
 
@@ -500,8 +526,10 @@ impl Program {
             function_ids: HashMap::new(),
             functions: HashMap::new(),
             max_fun_id: None,
+            global_instrs: Vec::new(),
             max_var: None,
             string_literals: HashMap::new(),
+            max_string_literal_id: None,
             declarations: HashMap::new(),
         }
     }
@@ -546,10 +574,14 @@ impl Program {
         new_var
     }
 
-    pub fn new_string_literal(&mut self, s: String) -> Var {
-        let var = self.new_var();
-        self.string_literals.insert(var.to_owned(), s);
-        var
+    pub fn new_string_literal(&mut self, s: String) -> StringLiteralId {
+        let new_string_id = match &self.max_string_literal_id {
+            None => StringLiteralId::initial_id(),
+            Some(string_id) => string_id.next_id(),
+        };
+        self.max_string_literal_id = Some(new_string_id.to_owned());
+        self.string_literals.insert(new_string_id.to_owned(), s);
+        new_string_id
     }
 
     pub fn add_declaration(
@@ -568,6 +600,10 @@ impl Program {
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
+        write!(f, "\nGlobal instructions:")?;
+        for instr in &self.global_instrs {
+            write!(f, "\n  {}", instr)?;
+        }
         for fun_name in self.function_ids.keys() {
             let fun_id = self.function_ids.get(fun_name).unwrap();
             let fun = self.functions.get(fun_id).unwrap();

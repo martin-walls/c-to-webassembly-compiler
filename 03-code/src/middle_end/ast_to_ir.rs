@@ -350,14 +350,17 @@ impl Context {
     }
 }
 
-pub fn convert_to_ir(ast: AstProgram) {
+pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut program = Box::new(Program::new());
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
-        let instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
-        println!("{:?}", instrs);
+        let global_instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
+        match global_instrs {
+            Ok(mut instrs) => program.global_instrs.append(&mut instrs),
+            Err(e) => return Err(e),
+        }
     }
-    println!("Program: {}", program);
+    Ok(program)
 }
 
 fn convert_statement_to_ir(
@@ -626,10 +629,6 @@ fn convert_statement_to_ir(
             }
         }
         Statement::Expr(e) => {
-            println!(
-                "evaluated: {:?}",
-                eval_integral_constant_expression(e.to_owned(), prog)
-            );
             let (mut expr_instrs, _) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
         }
@@ -753,8 +752,13 @@ fn convert_expression_to_ir(
             ast::Constant::Char(ch) => Ok((instrs, Src::Constant(Constant::Int(ch as i128)))),
         },
         Expression::StringLiteral(s) => {
-            let var = prog.new_string_literal(s);
-            Ok((instrs, Src::Var(var)))
+            let string_id = prog.new_string_literal(s);
+            let dest = prog.new_var();
+            instrs.push(Instruction::PointerToStringLiteral(
+                dest.to_owned(),
+                string_id,
+            ));
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::Index(arr, index) => {
             let (mut arr_instrs, arr_var) = convert_expression_to_ir(arr, prog, context)?;
