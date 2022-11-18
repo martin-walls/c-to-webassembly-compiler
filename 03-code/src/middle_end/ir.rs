@@ -239,7 +239,7 @@ impl fmt::Display for Instruction {
                 write!(f, "{} = {} != {}", dest, left, right)
             }
             Instruction::Call(dest, fun, params) => {
-                write!(f, "{} = {}(", dest, fun)?;
+                write!(f, "{} = call {}(", dest, fun)?;
                 for param in &params[..params.len() - 1] {
                     write!(f, "{}, ", param)?;
                 }
@@ -454,7 +454,6 @@ impl fmt::Display for Type {
     }
 }
 
-// todo equality
 #[derive(Debug, Clone)]
 pub struct TypeInfo {
     pub type_: Type,
@@ -572,10 +571,6 @@ impl Program {
         }
         self.declarations.insert(name, type_info);
         Ok(())
-    }
-
-    pub fn resolve_typedef(&self, typedef_name: &str) -> Result<TypeInfo, MiddleEndError> {
-        todo!()
     }
 }
 

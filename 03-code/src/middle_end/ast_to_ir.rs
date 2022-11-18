@@ -118,15 +118,16 @@ struct Context {
     loop_stack: Vec<LoopOrSwitchContext>,
     scope_stack: Vec<Scope>,
     in_function_name_expr: bool,
-    // function_context: Option<FunId>,
+    function_names: HashMap<String, FunId>,
 }
 
 impl Context {
     fn new() -> Self {
         Context {
             loop_stack: Vec::new(),
-            scope_stack: vec![Scope::new()], // start with global scope
+            scope_stack: vec![Scope::new()], // start with a global scope
             in_function_name_expr: false,
+            function_names: HashMap::new(),
         }
     }
 
@@ -267,7 +268,26 @@ impl Context {
         }
     }
 
+    fn add_function_declaration(
+        &mut self,
+        name: String,
+        fun_id: FunId,
+    ) -> Result<(), MiddleEndError> {
+        self.function_names.insert(name, fun_id);
+        // todo check for name clashes
+        Ok(())
+    }
+
     fn resolve_identifier_to_fun(&self, identifier_name: &str) -> Result<FunId, MiddleEndError> {
+        match self.function_names.get(identifier_name) {
+            Some(fun_id) => Ok(fun_id.to_owned()),
+            None => Err(MiddleEndError::UndeclaredIdentifier(
+                identifier_name.to_owned(),
+            )),
+        }
+    }
+
+    fn resolve_typedef(&self, typedef_name: &str) -> Result<TypeInfo, MiddleEndError> {
         todo!()
     }
 }
@@ -557,7 +577,7 @@ fn convert_statement_to_ir(
             for declarator in declarators {
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
-                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog)?;
+                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog, context)?;
                         match name {
                             Some(name) => {
                                 let var = prog.new_var();
@@ -569,7 +589,7 @@ fn convert_statement_to_ir(
                         }
                     }
                     DeclaratorInitialiser::Init(d, init_expr) => {
-                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog)?;
+                        let (type_info, name, _) = get_type_info(&sq, Some(d), prog, context)?;
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
@@ -609,7 +629,7 @@ fn convert_statement_to_ir(
             todo!()
         }
         Statement::FunctionDeclaration(sq, decl, body) => {
-            let (type_info, name, param_bindings) = get_type_info(&sq, Some(decl), prog)?;
+            let (type_info, name, param_bindings) = get_type_info(&sq, Some(decl), prog, context)?;
             let name = match name {
                 None => return Err(MiddleEndError::InvalidFunctionDeclaration),
                 Some(n) => n,
@@ -628,7 +648,8 @@ fn convert_statement_to_ir(
             // function body instructions
             let instrs = convert_statement_to_ir(body, prog, context)?;
             let fun = Function::new(instrs, type_info, param_var_mappings);
-            prog.new_fun(name, fun);
+            let fun_id = prog.new_fun(name.to_owned(), fun);
+            context.add_function_declaration(name, fun_id)?;
             context.pop_scope()
         }
         Statement::Empty => {}
@@ -927,6 +948,7 @@ fn get_type_info(
     specifier: &SpecifierQualifier,
     declarator: Option<Box<Declarator>>,
     prog: &mut Box<Program>,
+    context: &mut Box<Context>,
 ) -> Result<
     (
         Box<TypeInfo>,
@@ -983,14 +1005,14 @@ fn get_type_info(
             todo!()
         }
         TypeSpecifier::CustomType(Identifier(name)) => {
-            type_info = Box::new(prog.resolve_typedef(&name)?)
+            type_info = Box::new(context.resolve_typedef(&name)?)
         }
     }
 
     match declarator {
         Some(decl) => {
             let (decl_name, param_bindings) =
-                get_type_info_from_declarator(decl, &mut type_info, prog)?;
+                get_type_info_from_declarator(decl, &mut type_info, prog, context)?;
             Ok((type_info, Some(decl_name), param_bindings))
         }
         None => Ok((type_info, None, None)),
@@ -1003,12 +1025,13 @@ fn get_type_info_from_declarator(
     decl: Box<Declarator>,
     type_info: &mut Box<TypeInfo>,
     prog: &mut Box<Program>,
+    context: &mut Box<Context>,
 ) -> Result<(String, Option<FunctionParameterBindings>), MiddleEndError> {
     match *decl {
         Declarator::Identifier(Identifier(name)) => Ok((name, None)),
         Declarator::PointerDeclarator(d) => {
             type_info.wrap_with_pointer();
-            get_type_info_from_declarator(d, type_info, prog)
+            get_type_info_from_declarator(d, type_info, prog, context)
         }
         Declarator::AbstractPointerDeclarator => Err(MiddleEndError::InvalidAbstractDeclarator),
         Declarator::ArrayDeclarator(d, size_expr) => {
@@ -1017,7 +1040,7 @@ fn get_type_info_from_declarator(
                 Some(size_expr) => Some(eval_integral_constant_expression(size_expr, prog)? as u64),
             };
             type_info.wrap_with_array(size);
-            get_type_info_from_declarator(d, type_info, prog)
+            get_type_info_from_declarator(d, type_info, prog, context)
         }
         Declarator::FunctionDeclarator(d, params) => {
             let mut is_variadic = false;
@@ -1035,7 +1058,8 @@ fn get_type_info_from_declarator(
             let mut param_types: Vec<Box<TypeInfo>> = Vec::new();
             let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
-                let (param_type, param_name, _sub_param_bindings) = get_type_info(&p.0, p.1, prog)?;
+                let (param_type, param_name, _sub_param_bindings) =
+                    get_type_info(&p.0, p.1, prog, context)?;
                 param_types.push(param_type.to_owned());
                 if let Some(name) = param_name {
                     param_bindings.push((name, param_type));
@@ -1044,7 +1068,7 @@ fn get_type_info_from_declarator(
 
             type_info.wrap_with_fun(param_types);
 
-            let (name, _) = get_type_info_from_declarator(d, type_info, prog)?;
+            let (name, _) = get_type_info_from_declarator(d, type_info, prog, context)?;
             Ok((name, Some(param_bindings)))
         }
     }
