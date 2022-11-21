@@ -136,6 +136,25 @@ impl fmt::Display for StringLiteralId {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StructTypeId(u64);
+
+impl Id for StructTypeId {
+    fn initial_id() -> Self {
+        StructTypeId(0)
+    }
+
+    fn next_id(&self) -> Self {
+        StructTypeId(self.0 + 1)
+    }
+}
+
+impl fmt::Display for StructTypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "struct{}", self.0)
+    }
+}
+
 #[derive(Debug)]
 pub enum Instruction {
     // t = a
@@ -350,25 +369,47 @@ impl fmt::Display for Function {
 pub struct StructType {
     pub name: Option<String>,
     /// store members' names and types
-    pub member_names: Vec<String>,
-    pub member_types: Vec<Box<TypeInfo>>,
+    pub member_types: HashMap<String, Box<TypeInfo>>,
+    pub member_byte_offsets: HashMap<String, u64>,
+    pub total_byte_size: u64,
 }
 
 impl StructType {
     pub fn named(name: String) -> Self {
         StructType {
             name: Some(name),
-            member_names: Vec::new(),
-            member_types: Vec::new(),
+            member_types: HashMap::new(),
+            member_byte_offsets: HashMap::new(),
+            total_byte_size: 0,
         }
     }
 
     pub fn unnamed() -> Self {
         StructType {
             name: None,
-            member_names: Vec::new(),
-            member_types: Vec::new(),
+            member_types: HashMap::new(),
+            member_byte_offsets: HashMap::new(),
+            total_byte_size: 0,
         }
+    }
+
+    pub fn push_member(
+        &mut self,
+        member_name: String,
+        member_type: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        // check if member with same name already exists
+        if self.member_types.contains_key(&member_name) {
+            return Err(MiddleEndError::DuplicateStructMember);
+        }
+        let byte_size = member_type.get_byte_size();
+        self.member_types
+            .insert(member_name.to_owned(), member_type);
+        // store byte offset of this member and update total byte size of struct
+        self.member_byte_offsets
+            .insert(member_name, self.total_byte_size);
+        self.total_byte_size += byte_size;
+        Ok(())
     }
 }
 
@@ -409,13 +450,7 @@ impl Type {
             Type::I64 | Type::U64 => 8,
             Type::F32 => 4,
             Type::F64 => 8,
-            Type::Struct(struct_type) => {
-                let mut total = 0;
-                for type_info in &struct_type.member_types {
-                    total += type_info.get_byte_size();
-                }
-                total
-            }
+            Type::Struct(struct_type) => struct_type.total_byte_size,
             Type::Union(members) => {
                 let mut total = 0;
                 for type_info in members {
@@ -472,16 +507,7 @@ impl fmt::Display for Type {
                 write!(f, "double")
             }
             Type::Struct(struct_type) => {
-                write!(f, "struct {{")?;
-                for member in &struct_type.member_types[..struct_type.member_types.len() - 1] {
-                    write!(f, "{}, ", member)?;
-                }
-                write!(
-                    f,
-                    "{}",
-                    struct_type.member_types[struct_type.member_types.len() - 1]
-                )?;
-                write!(f, "}}")
+                write!(f, "struct {}", struct_type)
             }
             Type::Union(members) => {
                 write!(f, "union {{")?;

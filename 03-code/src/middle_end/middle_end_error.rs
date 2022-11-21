@@ -25,6 +25,7 @@ pub enum MiddleEndError {
     InvalidTypedefDeclaration,
     InvalidInitialiserExpression,
     UnnamedStructMember,
+    DuplicateStructMember,
     /// in theory this should never occur because of global scope
     ScopeError,
 }
@@ -100,6 +101,9 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::UnnamedStructMember => {
                 write!(f, "Unnamed struct members are not allowed")
+            }
+            MiddleEndError::DuplicateStructMember => {
+                write!(f, "Duplicate struct member")
             }
         }
     }

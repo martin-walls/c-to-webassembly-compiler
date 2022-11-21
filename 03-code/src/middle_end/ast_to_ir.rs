@@ -704,7 +704,7 @@ fn convert_statement_to_ir(
                     if !type_info.is_struct_union_or_enum() {
                         return Err(MiddleEndError::InvalidDeclaration);
                     }
-                    println!("{:#?}", type_info)
+                    println!("{:#?}", type_info);
                 }
             }
             todo!("empty declaration")
@@ -1137,8 +1137,7 @@ fn get_type_info(
                         if member_name == None {
                             return Err(MiddleEndError::UnnamedStructMember);
                         }
-                        struct_type.member_names.push(member_name.unwrap());
-                        struct_type.member_types.push(member_type_info);
+                        struct_type.push_member(member_name.unwrap(), member_type_info)?;
                     }
                 }
                 type_info.type_ = Type::Struct(struct_type);
