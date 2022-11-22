@@ -1,7 +1,10 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
-use crate::middle_end::ir::{
-    Constant, FunId, Function, Instruction, Label, Program, Src, StructType, Type, TypeInfo, Var,
-};
+use crate::middle_end::context::{Context, LoopContext, SwitchContext};
+use crate::middle_end::ids::VarId;
+use crate::middle_end::instructions::Instruction;
+use crate::middle_end::instructions::{Constant, Src};
+use crate::middle_end::ir::{Function, Program};
+use crate::middle_end::ir_types::{IrType, StructType};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
@@ -10,344 +13,6 @@ use crate::parser::ast::{
     Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
     StructType as AstStructType, TypeSpecifier, UnaryOperator,
 };
-use std::collections::HashMap;
-
-#[derive(Debug)]
-struct LoopContext {
-    start_label: Label,
-    end_label: Label,
-    continue_label: Label,
-}
-
-impl LoopContext {
-    fn while_loop(start_label: Label, end_label: Label) -> Self {
-        LoopContext {
-            start_label: start_label.to_owned(),
-            end_label,
-            continue_label: start_label,
-        }
-    }
-
-    fn do_while_loop(start_label: Label, end_label: Label, continue_label: Label) -> Self {
-        LoopContext {
-            start_label,
-            end_label,
-            continue_label,
-        }
-    }
-
-    fn for_loop(start_label: Label, end_label: Label, continue_label: Label) -> Self {
-        LoopContext {
-            start_label,
-            end_label,
-            continue_label,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct SwitchContext {
-    end_label: Label,
-    switch_var: Var,
-    default_case: Option<Vec<Instruction>>,
-}
-
-impl SwitchContext {
-    fn new(end_label: Label, switch_var: Var) -> Self {
-        SwitchContext {
-            end_label,
-            switch_var,
-            default_case: None,
-        }
-    }
-
-    fn add_default_case(&mut self, body: Vec<Instruction>) -> Result<(), MiddleEndError> {
-        match self.default_case {
-            None => {
-                self.default_case = Some(body);
-                Ok(())
-            }
-            Some(_) => Err(MiddleEndError::MultipleDefaultCasesInSwitch),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum LoopOrSwitchContext {
-    Loop(LoopContext),
-    Switch(SwitchContext),
-}
-
-#[derive(Debug)]
-struct Scope {
-    /// map identifiers to variables in the IR
-    variable_names: HashMap<String, Var>,
-    /// map variables to their type information
-    variable_types: HashMap<Var, Box<TypeInfo>>,
-    /// map typedef names to their types
-    typedef_types: HashMap<String, Box<TypeInfo>>,
-}
-
-impl Scope {
-    fn new() -> Self {
-        Scope {
-            variable_names: HashMap::new(),
-            variable_types: HashMap::new(),
-            typedef_types: HashMap::new(),
-        }
-    }
-
-    fn add_var(
-        &mut self,
-        identifier_name: String,
-        var: Var,
-        type_info: Box<TypeInfo>,
-    ) -> Result<(), MiddleEndError> {
-        self.variable_names.insert(identifier_name, var.to_owned());
-        self.variable_types.insert(var, type_info);
-        Ok(())
-    }
-
-    fn resolve_identifier_to_var(&self, identifier_name: &str) -> Option<Var> {
-        match self.variable_names.get(identifier_name) {
-            None => None,
-            Some(var) => Some(var.to_owned()),
-        }
-    }
-
-    fn add_typedef(
-        &mut self,
-        typedef_name: String,
-        type_info: Box<TypeInfo>,
-    ) -> Result<(), MiddleEndError> {
-        self.typedef_types.insert(typedef_name, type_info);
-        Ok(())
-    }
-
-    fn resolve_identifier_to_type(&self, typedef_name: &str) -> Option<Box<TypeInfo>> {
-        match self.typedef_types.get(typedef_name) {
-            None => None,
-            Some(t) => Some(t.to_owned()),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Context {
-    loop_stack: Vec<LoopOrSwitchContext>,
-    scope_stack: Vec<Scope>,
-    in_function_name_expr: bool,
-    function_names: HashMap<String, FunId>,
-}
-
-impl Context {
-    fn new() -> Self {
-        Context {
-            loop_stack: Vec::new(),
-            scope_stack: vec![Scope::new()], // start with a global scope
-            in_function_name_expr: false,
-            function_names: HashMap::new(),
-        }
-    }
-
-    fn push_loop(&mut self, loop_context: LoopContext) {
-        self.loop_stack
-            .push(LoopOrSwitchContext::Loop(loop_context));
-    }
-
-    fn pop_loop(&mut self) {
-        self.loop_stack.pop();
-    }
-
-    fn push_switch(&mut self, switch_context: SwitchContext) {
-        self.loop_stack
-            .push(LoopOrSwitchContext::Switch(switch_context));
-    }
-
-    fn pop_switch(&mut self) -> Result<SwitchContext, MiddleEndError> {
-        match self.loop_stack.pop() {
-            None | Some(LoopOrSwitchContext::Loop(_)) => Err(MiddleEndError::LoopNestingError),
-            Some(LoopOrSwitchContext::Switch(switch_context)) => Ok(switch_context),
-        }
-    }
-
-    fn get_break_label(&self) -> Option<&Label> {
-        match self.loop_stack.last() {
-            None => None,
-            Some(LoopOrSwitchContext::Loop(loop_context)) => Some(&loop_context.end_label),
-            Some(LoopOrSwitchContext::Switch(switch_context)) => Some(&switch_context.end_label),
-        }
-    }
-
-    fn get_continue_label(&self) -> Option<&Label> {
-        if self.loop_stack.is_empty() {
-            return None;
-        }
-        let mut i = self.loop_stack.len() - 1;
-        loop {
-            match self.loop_stack.get(i) {
-                None => return None,
-                Some(LoopOrSwitchContext::Loop(loop_context)) => {
-                    return Some(&loop_context.continue_label);
-                }
-                Some(LoopOrSwitchContext::Switch(_)) => {}
-            }
-            // if context was a switch context, keep looking backwards for the top loop context
-            i -= 1;
-        }
-    }
-
-    fn is_in_switch_context(&self) -> bool {
-        let mut i = self.loop_stack.len() - 1;
-        loop {
-            match self.loop_stack.get(i) {
-                None => return false,
-                Some(LoopOrSwitchContext::Switch(_)) => return true,
-                Some(LoopOrSwitchContext::Loop(_)) => {}
-            }
-            i -= 1;
-        }
-    }
-
-    fn get_switch_variable(&self) -> Option<Var> {
-        let mut i = self.loop_stack.len() - 1;
-        loop {
-            match self.loop_stack.get(i) {
-                None => return None,
-                Some(LoopOrSwitchContext::Switch(switch_context)) => {
-                    return Some(switch_context.switch_var.to_owned());
-                }
-                _ => {}
-            }
-            i -= 1;
-        }
-    }
-
-    fn add_default_switch_case(&mut self, body: Vec<Instruction>) -> Result<(), MiddleEndError> {
-        let mut i = self.loop_stack.len() - 1;
-        loop {
-            match self.loop_stack.get_mut(i) {
-                None => return Err(MiddleEndError::DefaultOutsideSwitchContext),
-                Some(loop_or_switch) => match loop_or_switch {
-                    LoopOrSwitchContext::Loop(_) => {}
-                    LoopOrSwitchContext::Switch(switch_context) => {
-                        return switch_context.add_default_case(body);
-                    }
-                },
-            }
-            i -= 1;
-        }
-    }
-
-    fn push_scope(&mut self) {
-        self.scope_stack.push(Scope::new());
-    }
-
-    fn pop_scope(&mut self) {
-        self.scope_stack.pop();
-    }
-
-    fn add_variable_to_scope(
-        &mut self,
-        name: String,
-        var: Var,
-        type_info: Box<TypeInfo>,
-    ) -> Result<(), MiddleEndError> {
-        match self.scope_stack.last_mut() {
-            None => Err(MiddleEndError::ScopeError),
-            Some(scope) => scope.add_var(name, var, type_info),
-        }
-    }
-
-    fn resolve_identifier_to_var(&self, identifier_name: &str) -> Result<Var, MiddleEndError> {
-        if self.scope_stack.is_empty() {
-            return Err(MiddleEndError::ScopeError);
-        }
-        let mut i = self.scope_stack.len() - 1;
-        loop {
-            match self.scope_stack.get(i) {
-                None => {
-                    return Err(MiddleEndError::UndeclaredIdentifier(
-                        identifier_name.to_owned(),
-                    ))
-                }
-                Some(scope) => match scope.resolve_identifier_to_var(identifier_name) {
-                    None => {}
-                    Some(var) => return Ok(var),
-                },
-            }
-            if i == 0 {
-                return Err(MiddleEndError::UndeclaredIdentifier(
-                    identifier_name.to_owned(),
-                ));
-            }
-            i -= 1;
-        }
-    }
-
-    fn add_function_declaration(
-        &mut self,
-        name: String,
-        fun_id: FunId,
-    ) -> Result<(), MiddleEndError> {
-        // check for duplicate declarations
-        match self.resolve_identifier_to_fun(&name) {
-            Ok(_) => return Err(MiddleEndError::DuplicateFunctionDeclaration(name)),
-            Err(_) => {}
-        }
-        self.function_names.insert(name, fun_id);
-        Ok(())
-    }
-
-    fn resolve_identifier_to_fun(&self, identifier_name: &str) -> Result<FunId, MiddleEndError> {
-        match self.function_names.get(identifier_name) {
-            Some(fun_id) => Ok(fun_id.to_owned()),
-            None => Err(MiddleEndError::UndeclaredIdentifier(
-                identifier_name.to_owned(),
-            )),
-        }
-    }
-
-    fn add_typedef(
-        &mut self,
-        typedef_name: String,
-        type_info: Box<TypeInfo>,
-    ) -> Result<(), MiddleEndError> {
-        // it's an error to redeclare the same typedef name with a different type
-        match self.resolve_typedef(&typedef_name) {
-            Ok(t) => {
-                if t != type_info {
-                    return Err(MiddleEndError::DuplicateTypeDeclaration(typedef_name));
-                }
-            }
-            Err(_) => {}
-        }
-        match self.scope_stack.last_mut() {
-            None => Err(MiddleEndError::ScopeError),
-            Some(scope) => scope.add_typedef(typedef_name, type_info),
-        }
-    }
-
-    fn resolve_typedef(&self, typedef_name: &str) -> Result<Box<TypeInfo>, MiddleEndError> {
-        if self.scope_stack.is_empty() {
-            return Err(MiddleEndError::ScopeError);
-        }
-        let mut i = self.scope_stack.len() - 1;
-        loop {
-            match self.scope_stack.get(i) {
-                None => return Err(MiddleEndError::UndeclaredType(typedef_name.to_owned())),
-                Some(scope) => match scope.resolve_identifier_to_type(typedef_name) {
-                    None => {}
-                    Some(type_info) => return Ok(type_info),
-                },
-            }
-            if i == 0 {
-                return Err(MiddleEndError::UndeclaredType(typedef_name.to_owned()));
-            }
-            i -= 1;
-        }
-    }
-}
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut program = Box::new(Program::new());
@@ -710,14 +375,24 @@ fn convert_statement_to_ir(
                     // typedef declaration is invalid without a name
                     return Err(MiddleEndError::InvalidTypedefDeclaration);
                 }
-                Some((type_info, _name, _params)) => {
-                    if !type_info.is_struct_union_or_enum() {
-                        return Err(MiddleEndError::InvalidDeclaration);
-                    }
-                    println!("{:#?}", type_info);
-                }
+                Some((type_info, _name, _params)) => match *type_info {
+                    IrType::I8
+                    | IrType::U8
+                    | IrType::I16
+                    | IrType::U16
+                    | IrType::I32
+                    | IrType::U32
+                    | IrType::I64
+                    | IrType::U64
+                    | IrType::F32
+                    | IrType::F64
+                    | IrType::Void
+                    | IrType::ArrayOf(_, _)
+                    | IrType::PointerTo(_)
+                    | IrType::Function(_, _) => return Err(MiddleEndError::InvalidDeclaration),
+                    IrType::Struct(_) | IrType::Union(_) => {}
+                },
             }
-            todo!("empty declaration")
         }
         Statement::FunctionDeclaration(sq, decl, body) => {
             let (type_info, name, param_bindings) =
@@ -731,7 +406,7 @@ fn convert_statement_to_ir(
             };
             context.push_scope();
             // for each parameter, store which var it maps to
-            let mut param_var_mappings: Vec<Var> = Vec::new();
+            let mut param_var_mappings: Vec<VarId> = Vec::new();
             // put parameter names into scope
             if let Some(param_bindings) = param_bindings {
                 for (param_name, param_type) in param_bindings {
@@ -1075,7 +750,7 @@ fn convert_expression_to_ir(
     }
 }
 
-type FunctionParameterBindings = Vec<(String, Box<TypeInfo>)>;
+type FunctionParameterBindings = Vec<(String, Box<IrType>)>;
 
 fn get_type_info(
     specifier: &SpecifierQualifier,
@@ -1084,54 +759,32 @@ fn get_type_info(
     context: &mut Box<Context>,
 ) -> Result<
     Option<(
-        Box<TypeInfo>,
+        Box<IrType>,
         Option<String>,
         // parameter bindings, if this is a function definition
         Option<FunctionParameterBindings>,
     )>,
     MiddleEndError,
 > {
-    let mut type_info = Box::new(TypeInfo::new());
-    match &specifier.type_specifier {
+    let ir_type = match &specifier.type_specifier {
         TypeSpecifier::ArithmeticType(t) => match t {
-            ArithmeticType::I8 => {
-                type_info.type_ = Type::I8;
-            }
-            ArithmeticType::U8 => {
-                type_info.type_ = Type::U8;
-            }
-            ArithmeticType::I16 => {
-                type_info.type_ = Type::I16;
-            }
-            ArithmeticType::U16 => {
-                type_info.type_ = Type::U16;
-            }
-            ArithmeticType::I32 => {
-                type_info.type_ = Type::I32;
-            }
-            ArithmeticType::U32 => {
-                type_info.type_ = Type::U32;
-            }
-            ArithmeticType::I64 => {
-                type_info.type_ = Type::I64;
-            }
-            ArithmeticType::U64 => {
-                type_info.type_ = Type::U64;
-            }
-            ArithmeticType::F32 => {
-                type_info.type_ = Type::F32;
-            }
-            ArithmeticType::F64 => {
-                type_info.type_ = Type::F64;
-            }
+            ArithmeticType::I8 => Box::new(IrType::I8),
+            ArithmeticType::U8 => Box::new(IrType::U8),
+            ArithmeticType::I16 => Box::new(IrType::I16),
+            ArithmeticType::U16 => Box::new(IrType::U16),
+            ArithmeticType::I32 => Box::new(IrType::I32),
+            ArithmeticType::U32 => Box::new(IrType::U32),
+            ArithmeticType::I64 => Box::new(IrType::I64),
+            ArithmeticType::U64 => Box::new(IrType::U64),
+            ArithmeticType::F32 => Box::new(IrType::F32),
+            ArithmeticType::F64 => Box::new(IrType::F64),
         },
-        TypeSpecifier::Void => {
-            type_info.type_ = Type::Void;
-        }
+        TypeSpecifier::Void => Box::new(IrType::Void),
         TypeSpecifier::Struct(struct_type) => match struct_type {
             AstStructType::Declaration(Identifier(struct_name)) => {
-                type_info.type_ = Type::Struct(StructType::named(struct_name.to_owned()));
-                type_info.is_defined = false;
+                let struct_type_id =
+                    prog.add_struct_type(StructType::named(struct_name.to_owned()))?;
+                Box::new(IrType::Struct(struct_type_id))
             }
             AstStructType::Definition(struct_name, members) => {
                 let mut struct_type = match struct_name {
@@ -1152,10 +805,11 @@ fn get_type_info(
                         if member_name == None {
                             return Err(MiddleEndError::UnnamedStructMember);
                         }
-                        struct_type.push_member(member_name.unwrap(), member_type_info)?;
+                        struct_type.push_member(member_name.unwrap(), member_type_info, prog)?;
                     }
                 }
-                type_info.type_ = Type::Struct(struct_type);
+                let struct_type_id = prog.add_struct_type(struct_type)?;
+                Box::new(IrType::Struct(struct_type_id))
             }
         },
         TypeSpecifier::Union(_) => {
@@ -1164,10 +818,8 @@ fn get_type_info(
         TypeSpecifier::Enum(_) => {
             todo!("get_type_info for enum")
         }
-        TypeSpecifier::CustomType(Identifier(name)) => {
-            type_info = context.resolve_typedef(&name)?;
-        }
-    }
+        TypeSpecifier::CustomType(Identifier(name)) => context.resolve_typedef(&name)?,
+    };
 
     let mut is_typedef = false;
     match specifier.storage_class_specifier {
@@ -1191,40 +843,38 @@ fn get_type_info(
 
     match declarator {
         Some(decl) => {
-            let (decl_name, param_bindings) =
-                get_type_info_from_declarator(decl, &mut type_info, prog, context)?;
+            let (ir_type, decl_name, param_bindings) =
+                add_type_info_from_declarator(decl, ir_type, prog, context)?;
             if is_typedef {
-                context.add_typedef(decl_name, type_info)?;
+                context.add_typedef(decl_name, ir_type)?;
                 return Ok(None);
             }
-            Ok(Some((type_info, Some(decl_name), param_bindings)))
+            Ok(Some((ir_type, Some(decl_name), param_bindings)))
         }
-        None => Ok(Some((type_info, None, None))),
+        None => Ok(Some((ir_type, None, None))),
     }
 }
 
 /// Modifies the TypeInfo struct it's given, and returns the identifier name,
 /// and the types of any parameters
-fn get_type_info_from_declarator(
+fn add_type_info_from_declarator(
     decl: Box<Declarator>,
-    type_info: &mut Box<TypeInfo>,
+    type_info: Box<IrType>,
     prog: &mut Box<Program>,
     context: &mut Box<Context>,
-) -> Result<(String, Option<FunctionParameterBindings>), MiddleEndError> {
+) -> Result<(Box<IrType>, String, Option<FunctionParameterBindings>), MiddleEndError> {
     match *decl {
-        Declarator::Identifier(Identifier(name)) => Ok((name, None)),
+        Declarator::Identifier(Identifier(name)) => Ok((type_info, name, None)),
         Declarator::PointerDeclarator(d) => {
-            type_info.wrap_with_pointer();
-            get_type_info_from_declarator(d, type_info, prog, context)
+            add_type_info_from_declarator(d, type_info.wrap_with_pointer(), prog, context)
         }
         Declarator::AbstractPointerDeclarator => Err(MiddleEndError::InvalidAbstractDeclarator),
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
-                None => None,
-                Some(size_expr) => Some(eval_integral_constant_expression(size_expr, prog)? as u64),
+                None => 0, //todo maybe better way of handling this (get array size from initialiser)
+                Some(size_expr) => eval_integral_constant_expression(size_expr, prog)? as u64,
             };
-            type_info.wrap_with_array(size);
-            get_type_info_from_declarator(d, type_info, prog, context)
+            add_type_info_from_declarator(d, type_info.wrap_with_array(size), prog, context)
         }
         Declarator::FunctionDeclarator(d, params) => {
             let mut is_variadic = false;
@@ -1239,7 +889,7 @@ fn get_type_info_from_declarator(
                 },
             };
 
-            let mut param_types: Vec<Box<TypeInfo>> = Vec::new();
+            let mut param_types: Vec<Box<IrType>> = Vec::new();
             let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
                 let (param_type, param_name, _sub_param_bindings) =
@@ -1253,10 +903,13 @@ fn get_type_info_from_declarator(
                 }
             }
 
-            type_info.wrap_with_fun(param_types);
-
-            let (name, _) = get_type_info_from_declarator(d, type_info, prog, context)?;
-            Ok((name, Some(param_bindings)))
+            let (type_info, name, _) = add_type_info_from_declarator(
+                d,
+                type_info.wrap_with_fun(param_types),
+                prog,
+                context,
+            )?;
+            Ok((type_info, name, Some(param_bindings)))
         }
     }
 }

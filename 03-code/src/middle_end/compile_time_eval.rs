@@ -1,4 +1,4 @@
-use crate::middle_end::ir;
+use crate::middle_end::instructions::Constant as IrConstant;
 use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast::{BinaryOperator, Expression};
@@ -19,10 +19,10 @@ pub fn eval_integral_constant_expression(
 pub fn eval_initialiser_constant_expression(
     expr: Box<Expression>,
     prog: &Box<Program>,
-) -> Result<ir::Constant, MiddleEndError> {
+) -> Result<IrConstant, MiddleEndError> {
     match eval(expr, prog)? {
-        ConstantExpressionType::Int(i) => Ok(ir::Constant::Int(i)),
-        ConstantExpressionType::Float(f) => Ok(ir::Constant::Float(f)),
+        ConstantExpressionType::Int(i) => Ok(IrConstant::Int(i)),
+        ConstantExpressionType::Float(f) => Ok(IrConstant::Float(f)),
     }
 }
 

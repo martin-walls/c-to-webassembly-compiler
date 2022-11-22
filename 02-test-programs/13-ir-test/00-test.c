@@ -7,11 +7,11 @@ char* baz = "hello world";
 foo + baz;
 int dec;
 
-//struct Complex {
-//    double real;
-//    double imaginary;
-//    int magnitude;
-//};
+struct Complex {
+    double real;
+    double imaginary;
+    int magnitude;
+};
 
 bar add(int x, bar y) {
     int z = 1;

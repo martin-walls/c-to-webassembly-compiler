@@ -1,4 +1,4 @@
-use crate::middle_end::ir::Var;
+use crate::middle_end::ids::VarId;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
@@ -30,9 +30,9 @@ pub enum MiddleEndError {
     /// in theory this should never occur because of global scope
     ScopeError,
     /// in theory shouldn't happen
-    RedeclaredVarType(Var),
+    RedeclaredVarType(VarId),
     /// in theory shouldn't happen
-    VarTypeNotFound(Var),
+    TypeNotFound,
 }
 
 impl fmt::Display for MiddleEndError {
@@ -113,8 +113,8 @@ impl fmt::Display for MiddleEndError {
             MiddleEndError::RedeclaredVarType(var) => {
                 write!(f, "Type for {} was declared twice in IR", var)
             }
-            MiddleEndError::VarTypeNotFound(var) => {
-                write!(f, "Type for {} was not found in IR", var)
+            MiddleEndError::TypeNotFound => {
+                write!(f, "Type was not found in IR")
             }
         }
     }
