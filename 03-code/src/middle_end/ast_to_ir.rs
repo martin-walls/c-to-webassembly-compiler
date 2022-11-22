@@ -5,7 +5,7 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{IrType, StructType};
-use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
@@ -435,12 +435,12 @@ fn convert_statement_to_ir(
 /// returns the list of instructions generated, and the name of the temp variable
 /// the result is assigned to
 fn convert_expression_to_ir(
-    expr: Box<Expression>,
+    src_expr: Box<Expression>,
     prog: &mut Box<Program>,
     context: &mut Box<Context>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
     let mut instrs: Vec<Instruction> = Vec::new();
-    match *expr {
+    match *src_expr {
         Expression::Identifier(Identifier(name)) => {
             if context.in_function_name_expr {
                 let fun = context.resolve_identifier_to_fun(&name)?;
@@ -509,10 +509,23 @@ fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
+            // propagate the type of dest: same as src
+            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            instrs.append(&mut unary_convert_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
+            // check type is valid to be incremented
+            if !expr_var_type.is_scalar_type() {
+                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                    "Incrementing a non-scalar type",
+                )));
+            }
+            prog.add_var_type(dest.to_owned(), expr_var_type)?;
+            // the returned value is the variable before incrementing
             instrs.push(Instruction::SimpleAssignment(
                 dest.to_owned(),
                 expr_var.to_owned(),
             ));
+            // check for a valid lvalue before adding add instr
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Add(
@@ -525,14 +538,27 @@ fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::PostfixDecrement(_) => {
+        Expression::PostfixDecrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
+            // propagate the type of dest: same as src
+            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            instrs.append(&mut unary_convert_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
+            // check type is valid to be incremented
+            if !expr_var_type.is_scalar_type() {
+                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                    "Decrementing a non-scalar type",
+                )));
+            }
+            prog.add_var_type(dest.to_owned(), expr_var_type)?;
+            // the returned value is the variable before decrementing
             instrs.push(Instruction::SimpleAssignment(
                 dest.to_owned(),
                 expr_var.to_owned(),
             ));
+            // check for valid lvalue before adding sub instr
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Sub(
@@ -545,9 +571,19 @@ fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::PrefixIncrement(_) => {
+        Expression::PrefixIncrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
+            // expr_var is the variable returned, after incrementing - no need to store a new type in prog
+            // check type is valid to be incremented
+            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            instrs.append(&mut unary_convert_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
+            if !expr_var_type.is_scalar_type() {
+                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                    "Incrementing a non-scalar type",
+                )));
+            }
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Add(
@@ -560,9 +596,19 @@ fn convert_expression_to_ir(
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
         }
-        Expression::PrefixDecrement(_) => {
+        Expression::PrefixDecrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
+            // expr_var is the variable returned, after decrementing - no need to store a new type in prog
+            // check type is valid to be incremented
+            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            instrs.append(&mut unary_convert_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
+            if !expr_var_type.is_scalar_type() {
+                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                    "Incrementing a non-scalar type",
+                )));
+            }
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Sub(
@@ -576,15 +622,33 @@ fn convert_expression_to_ir(
             }
         }
         Expression::UnaryOp(op, expr) => {
-            let dest = prog.new_var();
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
+            let dest = prog.new_var();
+            // unary convert type if necessary
+            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            instrs.append(&mut unary_convert_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
             match op {
                 UnaryOperator::AddressOf => {
                     instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
+                    // store type of dest
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
                 }
                 UnaryOperator::Dereference => {
                     instrs.push(Instruction::Dereference(dest.to_owned(), expr_var));
+                    // check whether the var is allowed to be dereferenced;
+                    // if so, store the type of dest
+                    match *expr_var_type {
+                        IrType::PointerTo(inner_type) => {
+                            prog.add_var_type(dest.to_owned(), inner_type)?;
+                        }
+                        _ => {
+                            return Err(MiddleEndError::TypeError(
+                                TypeError::DereferenceNonPointerType(expr_var_type),
+                            ))
+                        }
+                    }
                 }
                 UnaryOperator::Plus => {
                     instrs.push(Instruction::Add(
@@ -592,6 +656,13 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(0)),
                         expr_var,
                     ));
+                    if !expr_var_type.is_arithmetic_type() {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Unary plus of a non-arithmetic type",
+                        )));
+                    }
+                    // type of dest is same as type of src
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
                 }
                 UnaryOperator::Minus => {
                     instrs.push(Instruction::Sub(
@@ -599,12 +670,33 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(0)),
                         expr_var,
                     ));
+                    if !expr_var_type.is_arithmetic_type() {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Unary minus of a non-arithmetic type",
+                        )));
+                    }
+                    let dest_type = expr_var_type.smallest_signed_equivalent()?;
+                    prog.add_var_type(dest.to_owned(), dest_type)?;
                 }
                 UnaryOperator::BitwiseNot => {
                     instrs.push(Instruction::BitwiseNot(dest.to_owned(), expr_var));
+                    if !expr_var_type.is_integral_type() {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Bitwise not of a non-integral type",
+                        )));
+                    }
+                    // dest type is same as src
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
                 }
                 UnaryOperator::LogicalNot => {
                     instrs.push(Instruction::LogicalNot(dest.to_owned(), expr_var));
+                    if !expr_var_type.is_scalar_type() {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Logical not of a non-scalar type",
+                        )));
+                    }
+                    // dest type is same as src
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
                 }
             }
             Ok((instrs, Src::Var(dest)))
@@ -621,9 +713,25 @@ fn convert_expression_to_ir(
             let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
             instrs.append(&mut right_instrs);
             let dest = prog.new_var();
+            // unary convert operands
+            let (mut left_unary_convert_instrs, left_var) =
+                unary_convert_if_necessary(left_var, prog)?;
+            instrs.append(&mut left_unary_convert_instrs);
+            let (mut right_unary_convert_instrs, right_var) =
+                unary_convert_if_necessary(right_var, prog)?;
+            instrs.append(&mut right_unary_convert_instrs);
+            // todo binary conversions
+            let left_var_type = left_var.get_type(prog)?;
+            let right_var_type = right_var.get_type(prog)?;
             match op {
                 BinaryOperator::Mult => {
                     instrs.push(Instruction::Mult(dest.to_owned(), left_var, right_var));
+                    // check left and right types match and allow mult
+                    if !left_var_type.is_arithmetic_type() || !right_var_type.is_arithmetic_type() {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Mult of non-arithmetic type",
+                        )));
+                    }
                 }
                 BinaryOperator::Div => {
                     instrs.push(Instruction::Div(dest.to_owned(), left_var, right_var));
@@ -912,4 +1020,24 @@ fn add_type_info_from_declarator(
             Ok((type_info, name, Some(param_bindings)))
         }
     }
+}
+
+fn unary_convert_if_necessary(
+    src: Src,
+    prog: &mut Box<Program>,
+) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
+    let src_type = src.get_type(prog)?;
+    let unary_converted_type = src_type.unary_convert();
+    if src_type != unary_converted_type {
+        let converted_var = prog.new_var();
+        let instrs = vec![Instruction::get_conversion_instr(
+            src,
+            src_type,
+            converted_var.to_owned(),
+            unary_converted_type.to_owned(),
+        )?];
+        prog.add_var_type(converted_var.to_owned(), unary_converted_type)?;
+        return Ok((instrs, Src::Var(converted_var)));
+    }
+    Ok((Vec::new(), src))
 }

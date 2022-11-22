@@ -1,6 +1,6 @@
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::Program;
-use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -59,6 +59,113 @@ impl IrType {
 
     pub fn wrap_with_fun(self, params: Vec<Box<IrType>>) -> Box<Self> {
         Box::new(IrType::Function(Box::new(self), params))
+    }
+
+    pub fn smallest_signed_equivalent(&self) -> Result<Box<Self>, MiddleEndError> {
+        match self {
+            IrType::U8 => Ok(Box::new(IrType::I16)), // go up one size cos might be bigger than can fit
+            IrType::U16 => Ok(Box::new(IrType::I32)),
+            IrType::U32 => Ok(Box::new(IrType::I64)),
+            IrType::U64 => Ok(Box::new(IrType::I64)),
+            IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 | IrType::F32 | IrType::F64 => {
+                Ok(Box::new(self.to_owned()))
+            }
+            IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::PointerTo(_)
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => {
+                Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
+                    "Cannot convert to signed",
+                    Box::new(self.to_owned()),
+                    None,
+                )))
+            }
+        }
+    }
+
+    pub fn is_integral_type(&self) -> bool {
+        match self {
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64 => true,
+            IrType::F32
+            | IrType::F64
+            | IrType::PointerTo(_)
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    pub fn is_arithmetic_type(&self) -> bool {
+        match self {
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64 => true,
+            IrType::PointerTo(_)
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    pub fn is_scalar_type(&self) -> bool {
+        match self {
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::PointerTo(_) => true,
+            IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    /// ISO C standard unary type conversions
+    pub fn unary_convert(&self) -> Box<Self> {
+        match self {
+            IrType::I8 | IrType::U8 | IrType::U16 | IrType::I16 | IrType::I32 => {
+                Box::new(IrType::I32)
+            }
+            IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::PointerTo(_)
+            | IrType::Void => Box::new(self.to_owned()),
+            IrType::ArrayOf(t, _) => Box::new(IrType::PointerTo(t.to_owned())),
+            IrType::Function(_, _) => Box::new(IrType::PointerTo(Box::new(self.to_owned()))),
+        }
     }
 }
 

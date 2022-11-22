@@ -1,4 +1,5 @@
-use crate::middle_end::ids::VarId;
+use crate::middle_end::ids::{FunId, VarId};
+use crate::middle_end::ir_types::IrType;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
@@ -33,6 +34,8 @@ pub enum MiddleEndError {
     RedeclaredVarType(VarId),
     /// in theory shouldn't happen
     TypeNotFound,
+    FunctionNotFoundForId(FunId),
+    TypeError(TypeError),
 }
 
 impl fmt::Display for MiddleEndError {
@@ -116,8 +119,30 @@ impl fmt::Display for MiddleEndError {
             MiddleEndError::TypeNotFound => {
                 write!(f, "Type was not found in IR")
             }
+            MiddleEndError::TypeError(type_error) => {
+                write!(f, "Type error: {}", type_error)
+            }
+            e => {
+                write!(f, "Middle end error: {:?}", e)
+            }
         }
     }
 }
 
 impl Error for MiddleEndError {}
+
+#[derive(Debug)]
+pub enum TypeError {
+    DereferenceNonPointerType(Box<IrType>),
+    InvalidOperation(&'static str),
+    TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
+    MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
+}
+
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self) // todo nice error msgs
+    }
+}
+
+impl Error for TypeError {}

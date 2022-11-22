@@ -118,7 +118,6 @@ pub struct Program {
     max_var: Option<VarId>,
     pub string_literals: HashMap<StringLiteralId, String>,
     max_string_literal_id: Option<StringLiteralId>,
-    // pub declarations: HashMap<String, TypeInfo>, todo remove
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
     max_struct_id: Option<StructId>,
@@ -178,6 +177,13 @@ impl Program {
         let fun_id = self.new_fun_id(name);
         self.functions.insert(fun_id.to_owned(), fun);
         fun_id
+    }
+
+    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+        match self.functions.get(fun_id) {
+            None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
+            Some(fun) => Ok(fun.type_info.to_owned()),
+        }
     }
 
     pub fn new_var(&mut self) -> VarId {

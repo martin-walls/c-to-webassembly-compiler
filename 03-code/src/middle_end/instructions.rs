@@ -1,4 +1,7 @@
 use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, VarId};
+use crate::middle_end::ir::Program;
+use crate::middle_end::ir_types::IrType;
+use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -28,6 +31,26 @@ pub enum Src {
     Var(VarId),
     Constant(Constant),
     Fun(FunId),
+}
+
+impl Src {
+    pub fn get_type(&self, prog: &Box<Program>) -> Result<Box<IrType>, MiddleEndError> {
+        match self {
+            Src::Var(var) => prog.get_var_type(var),
+            Src::Constant(Constant::Int(i)) => match i {
+                0..255 => Ok(Box::new(IrType::U8)),
+                -128..127 => Ok(Box::new(IrType::I8)),
+                0..65535 => Ok(Box::new(IrType::U16)),
+                -32_768..32_767 => Ok(Box::new(IrType::I16)),
+                0..4_294_967_296 => Ok(Box::new(IrType::U32)),
+                -2_147_483_648..2_147_483_647 => Ok(Box::new(IrType::I32)),
+                0..18_446_744_073_709_551_615 => Ok(Box::new(IrType::U64)),
+                _ => Ok(Box::new(IrType::I64)),
+            },
+            Src::Constant(Constant::Float(f)) => Ok(Box::new(IrType::F64)),
+            Src::Fun(fun_id) => prog.get_fun_type(fun_id),
+        }
+    }
 }
 
 impl fmt::Display for Src {
@@ -92,6 +115,37 @@ pub enum Instruction {
     BrIfLE(Src, Src, LabelId),
 
     PointerToStringLiteral(Dest, StringLiteralId),
+
+    I8toI32(Dest, Src),
+    U8toI32(Dest, Src),
+    I16toI32(Dest, Src),
+    U16toI32(Dest, Src),
+
+    Nop,
+}
+
+impl Instruction {
+    pub fn get_conversion_instr(
+        src: Src,
+        src_type: Box<IrType>,
+        dest: Dest,
+        dest_type: Box<IrType>,
+    ) -> Result<Self, MiddleEndError> {
+        if src_type == dest_type {
+            return Ok(Instruction::Nop);
+        }
+        match (*src_type, *dest_type) {
+            (IrType::I8, IrType::I32) => Ok(Instruction::I8toI32(dest, src)),
+            (IrType::U8, IrType::I32) => Ok(Instruction::U8toI32(dest, src)),
+            (IrType::I16, IrType::I32) => Ok(Instruction::I16toI32(dest, src)),
+            (IrType::U16, IrType::I32) => Ok(Instruction::U16toI32(dest, src)),
+            _ => Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
+                "Cannot convert type",
+                src_type.to_owned(),
+                Some(dest_type.to_owned()),
+            ))),
+        }
+    }
 }
 
 impl fmt::Display for Instruction {
