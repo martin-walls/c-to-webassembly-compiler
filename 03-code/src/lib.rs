@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod middle_end;
 mod parser;
 mod preprocessor;

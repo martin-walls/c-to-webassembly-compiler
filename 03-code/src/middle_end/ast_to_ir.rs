@@ -239,7 +239,7 @@ impl Context {
         }
     }
 
-    fn new_scope(&mut self) {
+    fn push_scope(&mut self) {
         self.scope_stack.push(Scope::new());
     }
 
@@ -370,7 +370,7 @@ fn convert_statement_to_ir(
     let mut instrs: Vec<Instruction> = Vec::new();
     match *stmt {
         Statement::Block(stmts) => {
-            context.new_scope();
+            context.push_scope();
             for s in stmts {
                 instrs.append(&mut convert_statement_to_ir(s, prog, context)?);
             }
@@ -642,7 +642,12 @@ fn convert_statement_to_ir(
                             Some((type_info, name, _params)) => match name {
                                 Some(name) => {
                                     let var = prog.new_var();
-                                    context.add_variable_to_scope(name, var, type_info)?;
+                                    context.add_variable_to_scope(
+                                        name,
+                                        var.to_owned(),
+                                        type_info.to_owned(),
+                                    )?;
+                                    prog.add_var_type(var, type_info)?;
                                 }
                                 None => {
                                     // If declarator has no name, it should be a
@@ -687,7 +692,12 @@ fn convert_statement_to_ir(
                                             todo!("struct/union/array initialiser")
                                         }
                                     };
-                                context.add_variable_to_scope(name, var, type_info)?;
+                                context.add_variable_to_scope(
+                                    name,
+                                    var.to_owned(),
+                                    type_info.to_owned(),
+                                )?;
+                                prog.add_var_type(var, type_info)?;
                             }
                         }
                     }
@@ -719,7 +729,7 @@ fn convert_statement_to_ir(
                 None => return Err(MiddleEndError::InvalidFunctionDeclaration),
                 Some(n) => n,
             };
-            context.new_scope();
+            context.push_scope();
             // for each parameter, store which var it maps to
             let mut param_var_mappings: Vec<Var> = Vec::new();
             // put parameter names into scope
@@ -727,7 +737,12 @@ fn convert_statement_to_ir(
                 for (param_name, param_type) in param_bindings {
                     let param_var = prog.new_var();
                     param_var_mappings.push(param_var.to_owned());
-                    context.add_variable_to_scope(param_name, param_var, param_type)?;
+                    context.add_variable_to_scope(
+                        param_name,
+                        param_var.to_owned(),
+                        param_type.to_owned(),
+                    )?;
+                    prog.add_var_type(param_var, param_type)?;
                 }
             }
             // function body instructions

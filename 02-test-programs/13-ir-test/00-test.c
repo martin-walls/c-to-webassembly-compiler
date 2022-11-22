@@ -5,11 +5,13 @@ typedef unsigned long bar;
 int foo = 1;
 char* baz = "hello world";
 foo + baz;
+int dec;
 
-struct Complex {
-    double real;
-    double imaginary;
-};
+//struct Complex {
+//    double real;
+//    double imaginary;
+//    int magnitude;
+//};
 
 bar add(int x, bar y) {
     int z = 1;

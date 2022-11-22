@@ -1,3 +1,4 @@
+use crate::middle_end::ir::Var;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
@@ -28,6 +29,10 @@ pub enum MiddleEndError {
     DuplicateStructMember,
     /// in theory this should never occur because of global scope
     ScopeError,
+    /// in theory shouldn't happen
+    RedeclaredVarType(Var),
+    /// in theory shouldn't happen
+    VarTypeNotFound(Var),
 }
 
 impl fmt::Display for MiddleEndError {
@@ -104,6 +109,12 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::DuplicateStructMember => {
                 write!(f, "Duplicate struct member")
+            }
+            MiddleEndError::RedeclaredVarType(var) => {
+                write!(f, "Type for {} was declared twice in IR", var)
+            }
+            MiddleEndError::VarTypeNotFound(var) => {
+                write!(f, "Type for {} was not found in IR", var)
             }
         }
     }

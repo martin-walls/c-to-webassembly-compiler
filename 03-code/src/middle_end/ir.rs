@@ -610,6 +610,7 @@ pub struct Program {
     pub string_literals: HashMap<StringLiteralId, String>,
     max_string_literal_id: Option<StringLiteralId>,
     pub declarations: HashMap<String, TypeInfo>,
+    pub var_types: HashMap<Var, Box<TypeInfo>>,
 }
 
 impl Program {
@@ -625,6 +626,7 @@ impl Program {
             string_literals: HashMap::new(),
             max_string_literal_id: None,
             declarations: HashMap::new(),
+            var_types: HashMap::new(),
         }
     }
 
@@ -689,6 +691,25 @@ impl Program {
         self.declarations.insert(name, type_info);
         Ok(())
     }
+
+    pub fn add_var_type(
+        &mut self,
+        var: Var,
+        type_info: Box<TypeInfo>,
+    ) -> Result<(), MiddleEndError> {
+        if self.var_types.contains_key(&var) {
+            return Err(MiddleEndError::RedeclaredVarType(var));
+        }
+        self.var_types.insert(var, type_info);
+        Ok(())
+    }
+
+    pub fn get_var_type(&self, var: Var) -> Result<Box<TypeInfo>, MiddleEndError> {
+        match self.var_types.get(&var) {
+            None => Err(MiddleEndError::VarTypeNotFound(var)),
+            Some(t) => Ok(t.to_owned()),
+        }
+    }
 }
 
 impl fmt::Display for Program {
@@ -703,9 +724,22 @@ impl fmt::Display for Program {
             let fun = self.functions.get(fun_id).unwrap();
             write!(f, "\nFunction {} => {}\n{}", fun_name, fun_id, fun)?;
         }
-        write!(f, "\nLabel identifiers: {:#?}", self.label_identifiers)?;
-        write!(f, "\nString literals: {:#?}", self.string_literals)?;
-        write!(f, "\nDeclarations: {:#?}", self.declarations)?;
+        write!(f, "\nVar types:")?;
+        for (var, type_info) in &self.var_types {
+            write!(f, "\n  {}: {}", var, type_info)?;
+        }
+        write!(f, "\nLabel identifiers:")?;
+        for (name, label) in &self.label_identifiers {
+            write!(f, "\n  \"{}\": {}", name, label)?;
+        }
+        write!(f, "\nString literals:")?;
+        for (id, string) in &self.string_literals {
+            write!(f, "\n  {}: \"{}\"", id, string)?;
+        }
+        write!(f, "\nDeclarations:")?;
+        for (name, type_info) in &self.declarations {
+            write!(f, "\n  {}: {}", name, type_info)?;
+        }
         write!(f, "\n}}")
     }
 }
