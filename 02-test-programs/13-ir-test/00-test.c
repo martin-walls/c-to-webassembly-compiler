@@ -4,7 +4,6 @@ typedef unsigned long bar;
 
 int foo = 1;
 char* baz = "hello world";
-foo + baz;
 int dec;
 
 struct Complex {

@@ -210,6 +210,7 @@ impl Program {
         var: VarId,
         var_type: Box<IrType>,
     ) -> Result<(), MiddleEndError> {
+        println!("Setting type {} = {}", var, var_type);
         if self.var_types.contains_key(&var) {
             return Err(MiddleEndError::RedeclaredVarType(var));
         }

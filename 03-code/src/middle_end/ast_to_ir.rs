@@ -13,7 +13,6 @@ use crate::parser::ast::{
     Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
     StructType as AstStructType, TypeSpecifier, UnaryOperator,
 };
-use std::intrinsics::unreachable;
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut program = Box::new(Program::new());
@@ -161,6 +160,7 @@ fn convert_statement_to_ir(
                         temp.to_owned(),
                         Src::Constant(Constant::Int(1)),
                     ));
+                    prog.add_var_type(temp.to_owned(), Box::new(IrType::I32))?;
                     Src::Var(temp)
                 }
                 Some(e) => {
@@ -237,6 +237,7 @@ fn convert_statement_to_ir(
                 Src::Var(var) => var,
                 Src::Constant(c) => {
                     let temp = prog.new_var();
+                    prog.add_var_type(temp.to_owned(), c.get_type())?;
                     instrs.push(Instruction::SimpleAssignment(
                         temp.to_owned(),
                         Src::Constant(c),
@@ -343,6 +344,7 @@ fn convert_statement_to_ir(
                                                 Src::Var(var) => var,
                                                 Src::Constant(c) => {
                                                     let v = prog.new_var();
+                                                    prog.add_var_type(v.to_owned(), c.get_type())?;
                                                     instrs.push(Instruction::SimpleAssignment(
                                                         v.to_owned(),
                                                         Src::Constant(c),
@@ -363,7 +365,8 @@ fn convert_statement_to_ir(
                                     var.to_owned(),
                                     type_info.to_owned(),
                                 )?;
-                                prog.add_var_type(var, type_info)?;
+                                // todo check that the type of the initialiser matches the declared type
+                                // prog.add_var_type(var, type_info)?;
                             }
                         }
                     }
@@ -491,7 +494,7 @@ fn convert_expression_to_ir(
             prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
             instrs.push(Instruction::Add(ptr.to_owned(), arr_var, index_var));
             let dest = prog.new_var();
-            if let IrType::PointerTo(inner_type) = arr_var_type {
+            if let IrType::PointerTo(inner_type) = *arr_var_type {
                 // always true because we already asserted arr_var_type is a pointer type
                 prog.add_var_type(dest.to_owned(), inner_type)?;
             }
@@ -504,6 +507,9 @@ fn convert_expression_to_ir(
             instrs.append(&mut fun_instrs);
             context.in_function_name_expr = false;
 
+            // unary conversion
+            let (mut unary_convert_fun_instrs, fun_var) = unary_convert(fun_var, prog)?;
+            instrs.append(&mut unary_convert_fun_instrs);
             let fun_var_type = fun_var.get_type(prog)?;
             // must be a function pointer type
             fun_var_type.require_pointer_type()?;
@@ -519,10 +525,10 @@ fn convert_expression_to_ir(
                 _ => unreachable!("already asserted it's a pointer type"),
             };
 
-            let fun_identifier = match fun_var {
-                Src::Var(_) | Src::Constant(_) => return Err(MiddleEndError::InvalidFunctionCall),
-                Src::Fun(f) => f,
-            };
+            // let fun_identifier = match fun_var {
+            //     Src::Var(_) | Src::Constant(_) => return Err(MiddleEndError::InvalidFunctionCall),
+            //     Src::Fun(f) => f,
+            // };
             let mut param_srcs: Vec<Src> = Vec::new();
             for param in params {
                 let (mut param_instrs, param_var) = convert_expression_to_ir(param, prog, context)?;
@@ -532,11 +538,7 @@ fn convert_expression_to_ir(
             }
             let dest = prog.new_var();
             prog.add_var_type(dest.to_owned(), dest_type)?;
-            instrs.push(Instruction::Call(
-                dest.to_owned(),
-                Src::Fun(fun_identifier),
-                param_srcs,
-            ));
+            instrs.push(Instruction::Call(dest.to_owned(), fun_var, param_srcs));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::DirectMemberSelection(_, _) => {
@@ -798,9 +800,9 @@ fn convert_expression_to_ir(
                     let right_var_type = right_var.get_type(prog)?;
                     // must be either two arithmetic types, or a pointer and an integer
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_object_pointer_type()
+                        && !(left_var_type.is_object_pointer_type()
                             && right_var_type.is_integral_type())
-                        || !(left_var_type.is_integral_type()
+                        && !(left_var_type.is_integral_type()
                             && right_var_type.is_object_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
@@ -826,9 +828,9 @@ fn convert_expression_to_ir(
                     // must be either arithmetic - arithmetic, or pointer - integer, or pointer - pointer
                     // todo check for pointers being compatible types
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_object_pointer_type()
+                        && !(left_var_type.is_object_pointer_type()
                             && right_var_type.is_integral_type())
-                        || !(left_var_type.is_object_pointer_type()
+                        && !(left_var_type.is_object_pointer_type()
                             && right_var_type.is_object_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
@@ -873,7 +875,7 @@ fn convert_expression_to_ir(
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid comparison operand types",
@@ -892,7 +894,7 @@ fn convert_expression_to_ir(
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid comparison operand types",
@@ -915,7 +917,7 @@ fn convert_expression_to_ir(
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid comparison operand types",
@@ -938,7 +940,7 @@ fn convert_expression_to_ir(
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid comparison operand types",
@@ -955,9 +957,9 @@ fn convert_expression_to_ir(
                 BinaryOperator::Equal => {
                     // both arithmetic, both pointer, or pointer compared to NULL (int 0)
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
-                        || !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
+                        && !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid equality comparison operand types",
@@ -970,9 +972,9 @@ fn convert_expression_to_ir(
                 BinaryOperator::NotEqual => {
                     // both arithmetic, both pointer, or pointer compared to NULL (int 0)
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
-                        || !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
-                        || !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        && !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
+                        && !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
                     {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
                             "Invalid equality comparison operand types",

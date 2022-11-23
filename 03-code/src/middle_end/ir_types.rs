@@ -180,8 +180,8 @@ impl IrType {
 
     pub fn is_object_pointer_type(&self) -> bool {
         match self {
-            IrType::PointerTo(t) => match *t {
-                IrType::Function(_, _) | Box::from(IrType::Void) => false,
+            IrType::PointerTo(t) => match **t {
+                IrType::Function(_, _) | IrType::Void => false,
                 _ => true,
             },
             IrType::I8
@@ -238,7 +238,7 @@ impl IrType {
         match self.is_pointer_type() {
             true => Ok(()),
             false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
-                "Require object pointer type failed",
+                "Require pointer type failed",
             ))),
         }
     }

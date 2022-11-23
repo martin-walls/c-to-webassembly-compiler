@@ -11,6 +11,24 @@ pub enum Constant {
     Float(f64),
 }
 
+impl Constant {
+    pub fn get_type(&self) -> Box<IrType> {
+        match self {
+            Constant::Int(i) => match i {
+                0..=255 => Box::new(IrType::U8),
+                -128..=127 => Box::new(IrType::I8),
+                0..=65535 => Box::new(IrType::U16),
+                -32_768..=32_767 => Box::new(IrType::I16),
+                0..=4_294_967_296 => Box::new(IrType::U32),
+                -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
+                0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
+                _ => Box::new(IrType::I64),
+            },
+            Constant::Float(_) => Box::new(IrType::F64),
+        }
+    }
+}
+
 impl fmt::Display for Constant {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -37,17 +55,7 @@ impl Src {
     pub fn get_type(&self, prog: &Box<Program>) -> Result<Box<IrType>, MiddleEndError> {
         match self {
             Src::Var(var) => prog.get_var_type(var),
-            Src::Constant(Constant::Int(i)) => match i {
-                0..=255 => Ok(Box::new(IrType::U8)),
-                -128..=127 => Ok(Box::new(IrType::I8)),
-                0..=65535 => Ok(Box::new(IrType::U16)),
-                -32_768..=32_767 => Ok(Box::new(IrType::I16)),
-                0..=4_294_967_296 => Ok(Box::new(IrType::U32)),
-                -2_147_483_648..=2_147_483_647 => Ok(Box::new(IrType::I32)),
-                0..=18_446_744_073_709_551_615 => Ok(Box::new(IrType::U64)),
-                _ => Ok(Box::new(IrType::I64)),
-            },
-            Src::Constant(Constant::Float(f)) => Ok(Box::new(IrType::F64)),
+            Src::Constant(c) => Ok(c.get_type()),
             Src::Fun(fun_id) => prog.get_fun_type(fun_id),
         }
     }
@@ -103,7 +111,7 @@ pub enum Instruction {
     NotEqual(Dest, Src, Src),
 
     // control flow
-    Call(Dest, Src, Vec<Src>),
+    Call(Dest, Src, Vec<Src>), // probably will use call_indirect in wasm to call the function
     Ret(Option<Src>),
     Label(LabelId),
     Br(LabelId),
@@ -164,6 +172,8 @@ impl Instruction {
             (IrType::U8, IrType::I32) => Ok(Instruction::U8toI32(dest, src)),
             (IrType::I16, IrType::I32) => Ok(Instruction::I16toI32(dest, src)),
             (IrType::U16, IrType::I32) => Ok(Instruction::U16toI32(dest, src)),
+            (IrType::Function(_, _), IrType::PointerTo(_)) => Ok(Instruction::AddressOf(dest, src)),
+            (IrType::ArrayOf(_, _), IrType::PointerTo(_)) => Ok(Instruction::AddressOf(dest, src)),
             (s, d) => Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
                 "Cannot convert type",
                 Box::new(s),
@@ -288,7 +298,7 @@ impl fmt::Display for Instruction {
                 write!(f, "{} = pointer to string literal {}", dest, string_id)
             }
             _ => {
-                write!(f, "fmt::Display not yet implemented for {:?}", self)
+                write!(f, "{:?}", self)
             }
         }
     }
