@@ -38,13 +38,13 @@ impl Src {
         match self {
             Src::Var(var) => prog.get_var_type(var),
             Src::Constant(Constant::Int(i)) => match i {
-                0..255 => Ok(Box::new(IrType::U8)),
-                -128..127 => Ok(Box::new(IrType::I8)),
-                0..65535 => Ok(Box::new(IrType::U16)),
-                -32_768..32_767 => Ok(Box::new(IrType::I16)),
-                0..4_294_967_296 => Ok(Box::new(IrType::U32)),
-                -2_147_483_648..2_147_483_647 => Ok(Box::new(IrType::I32)),
-                0..18_446_744_073_709_551_615 => Ok(Box::new(IrType::U64)),
+                0..=255 => Ok(Box::new(IrType::U8)),
+                -128..=127 => Ok(Box::new(IrType::I8)),
+                0..=65535 => Ok(Box::new(IrType::U16)),
+                -32_768..=32_767 => Ok(Box::new(IrType::I16)),
+                0..=4_294_967_296 => Ok(Box::new(IrType::U32)),
+                -2_147_483_648..=2_147_483_647 => Ok(Box::new(IrType::I32)),
+                0..=18_446_744_073_709_551_615 => Ok(Box::new(IrType::U64)),
                 _ => Ok(Box::new(IrType::I64)),
             },
             Src::Constant(Constant::Float(f)) => Ok(Box::new(IrType::F64)),
@@ -116,10 +116,35 @@ pub enum Instruction {
 
     PointerToStringLiteral(Dest, StringLiteralId),
 
+    // integer promotion
     I8toI32(Dest, Src),
     U8toI32(Dest, Src),
     I16toI32(Dest, Src),
     U16toI32(Dest, Src),
+
+    I32toU32(Dest, Src),
+
+    // promotion to unsigned long
+    I32toU64(Dest, Src),
+    U32toU64(Dest, Src),
+    I64toU64(Dest, Src),
+
+    // promotion to long
+    I32toI64(Dest, Src),
+    U32toI64(Dest, Src),
+
+    // integer to float
+    U32toF32(Dest, Src),
+    I32toF32(Dest, Src),
+    U64toF32(Dest, Src),
+    I64toF32(Dest, Src),
+    U32toF64(Dest, Src),
+    I32toF64(Dest, Src),
+    U64toF64(Dest, Src),
+    I64toF64(Dest, Src),
+
+    // float promotion
+    F32toF64(Dest, Src),
 
     Nop,
 }
@@ -139,10 +164,10 @@ impl Instruction {
             (IrType::U8, IrType::I32) => Ok(Instruction::U8toI32(dest, src)),
             (IrType::I16, IrType::I32) => Ok(Instruction::I16toI32(dest, src)),
             (IrType::U16, IrType::I32) => Ok(Instruction::U16toI32(dest, src)),
-            _ => Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
+            (s, d) => Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
                 "Cannot convert type",
-                src_type.to_owned(),
-                Some(dest_type.to_owned()),
+                Box::new(s),
+                Some(Box::new(d)),
             ))),
         }
     }
@@ -261,6 +286,9 @@ impl fmt::Display for Instruction {
             }
             Instruction::PointerToStringLiteral(dest, string_id) => {
                 write!(f, "{} = pointer to string literal {}", dest, string_id)
+            }
+            _ => {
+                write!(f, "fmt::Display not yet implemented for {:?}", self)
             }
         }
     }

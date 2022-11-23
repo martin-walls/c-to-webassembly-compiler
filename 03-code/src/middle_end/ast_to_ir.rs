@@ -13,6 +13,7 @@ use crate::parser::ast::{
     Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
     StructType as AstStructType, TypeSpecifier, UnaryOperator,
 };
+use std::intrinsics::unreachable;
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut program = Box::new(Program::new());
@@ -462,6 +463,11 @@ fn convert_expression_to_ir(
                 dest.to_owned(),
                 string_id,
             ));
+            // dest has char * type
+            prog.add_var_type(
+                dest.to_owned(),
+                Box::new(IrType::PointerTo(Box::new(IrType::I8))),
+            )?;
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Index(arr, index) => {
@@ -469,10 +475,26 @@ fn convert_expression_to_ir(
             instrs.append(&mut arr_instrs);
             let (mut index_instrs, index_var) = convert_expression_to_ir(index, prog, context)?;
             instrs.append(&mut index_instrs);
+
+            // unary conversion
+            let (mut unary_convert_arr_instrs, arr_var) = unary_convert(arr_var, prog)?;
+            instrs.append(&mut unary_convert_arr_instrs);
+            let (mut unary_convert_index_instrs, index_var) = unary_convert(index_var, prog)?;
+            instrs.append(&mut unary_convert_index_instrs);
+            let arr_var_type = arr_var.get_type(prog)?;
+            arr_var_type.require_pointer_type()?;
+            let index_var_type = index_var.get_type(prog)?;
+            index_var_type.require_pointer_type()?;
+
             // array variable is a pointer to the start of the array
             let ptr = prog.new_var();
+            prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
             instrs.push(Instruction::Add(ptr.to_owned(), arr_var, index_var));
             let dest = prog.new_var();
+            if let IrType::PointerTo(inner_type) = arr_var_type {
+                // always true because we already asserted arr_var_type is a pointer type
+                prog.add_var_type(dest.to_owned(), inner_type)?;
+            }
             instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
             Ok((instrs, Src::Var(dest)))
         }
@@ -481,6 +503,22 @@ fn convert_expression_to_ir(
             let (mut fun_instrs, fun_var) = convert_expression_to_ir(fun, prog, context)?;
             instrs.append(&mut fun_instrs);
             context.in_function_name_expr = false;
+
+            let fun_var_type = fun_var.get_type(prog)?;
+            // must be a function pointer type
+            fun_var_type.require_pointer_type()?;
+            let dest_type = match *fun_var_type {
+                IrType::PointerTo(t) => match *t {
+                    IrType::Function(res, _) => res,
+                    _ => {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Attempt to call a non-function type",
+                        )))
+                    }
+                },
+                _ => unreachable!("already asserted it's a pointer type"),
+            };
+
             let fun_identifier = match fun_var {
                 Src::Var(_) | Src::Constant(_) => return Err(MiddleEndError::InvalidFunctionCall),
                 Src::Fun(f) => f,
@@ -488,10 +526,12 @@ fn convert_expression_to_ir(
             let mut param_srcs: Vec<Src> = Vec::new();
             for param in params {
                 let (mut param_instrs, param_var) = convert_expression_to_ir(param, prog, context)?;
+                // todo function parameter passing type conversions
                 instrs.append(&mut param_instrs);
                 param_srcs.push(param_var);
             }
             let dest = prog.new_var();
+            prog.add_var_type(dest.to_owned(), dest_type)?;
             instrs.push(Instruction::Call(
                 dest.to_owned(),
                 Src::Fun(fun_identifier),
@@ -510,7 +550,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
             // propagate the type of dest: same as src
-            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             // check type is valid to be incremented
@@ -543,7 +583,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
             // propagate the type of dest: same as src
-            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             // check type is valid to be incremented
@@ -576,7 +616,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             // expr_var is the variable returned, after incrementing - no need to store a new type in prog
             // check type is valid to be incremented
-            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             if !expr_var_type.is_scalar_type() {
@@ -601,7 +641,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             // expr_var is the variable returned, after decrementing - no need to store a new type in prog
             // check type is valid to be incremented
-            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             if !expr_var_type.is_scalar_type() {
@@ -626,7 +666,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var();
             // unary convert type if necessary
-            let (mut unary_convert_instrs, expr_var) = unary_convert_if_necessary(expr_var, prog)?;
+            let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             match op {
@@ -713,42 +753,111 @@ fn convert_expression_to_ir(
             let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
             instrs.append(&mut right_instrs);
             let dest = prog.new_var();
-            // unary convert operands
-            let (mut left_unary_convert_instrs, left_var) =
-                unary_convert_if_necessary(left_var, prog)?;
-            instrs.append(&mut left_unary_convert_instrs);
-            let (mut right_unary_convert_instrs, right_var) =
-                unary_convert_if_necessary(right_var, prog)?;
-            instrs.append(&mut right_unary_convert_instrs);
-            // todo binary conversions
             let left_var_type = left_var.get_type(prog)?;
             let right_var_type = right_var.get_type(prog)?;
             match op {
                 BinaryOperator::Mult => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_arithmetic_type()?;
+                    right_var_type.require_arithmetic_type()?;
+                    // left_var_type and right_var_type are the same cos of binary conversion
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::Mult(dest.to_owned(), left_var, right_var));
-                    // check left and right types match and allow mult
-                    if !left_var_type.is_arithmetic_type() || !right_var_type.is_arithmetic_type() {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
-                            "Mult of non-arithmetic type",
-                        )));
-                    }
                 }
                 BinaryOperator::Div => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_arithmetic_type()?;
+                    right_var_type.require_arithmetic_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::Div(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Mod => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::Mod(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Add => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // must be either two arithmetic types, or a pointer and an integer
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_object_pointer_type()
+                            && right_var_type.is_integral_type())
+                        || !(left_var_type.is_integral_type()
+                            && right_var_type.is_object_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid addition operand types",
+                        )));
+                    }
+                    if left_var_type.is_arithmetic_type() {
+                        prog.add_var_type(dest.to_owned(), left_var_type)?;
+                    } else if left_var_type.is_object_pointer_type() {
+                        // result is the pointer type
+                        prog.add_var_type(dest.to_owned(), left_var_type)?;
+                    } else {
+                        prog.add_var_type(dest.to_owned(), right_var_type)?;
+                    }
                     instrs.push(Instruction::Add(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Sub => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // must be either arithmetic - arithmetic, or pointer - integer, or pointer - pointer
+                    // todo check for pointers being compatible types
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_object_pointer_type()
+                            && right_var_type.is_integral_type())
+                        || !(left_var_type.is_object_pointer_type()
+                            && right_var_type.is_object_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid addition operand types",
+                        )));
+                    }
+                    if left_var_type.is_arithmetic_type() {
+                        prog.add_var_type(dest.to_owned(), left_var_type)?;
+                    } else if right_var_type.is_integral_type() {
+                        // pointer - integer
+                        prog.add_var_type(dest.to_owned(), left_var_type)?;
+                    } else {
+                        // pointer - pointer -> long
+                        prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
+                    }
                     instrs.push(Instruction::Sub(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::LeftShift => {
+                    // no binary conversion for shift operators
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::LeftShift(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::RightShift => {
+                    // no binary conversion for shift operators
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::RightShift(
                         dest.to_owned(),
                         left_var,
@@ -756,9 +865,41 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::LessThan => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // either both arithmetic or both pointers
+                    // todo check pointer types are compatible
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LessThan(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::GreaterThan => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // either both arithmetic or both pointers
+                    // todo check pointer types are compatible
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::GreaterThan(
                         dest.to_owned(),
                         left_var,
@@ -766,6 +907,22 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::LessThanEq => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // either both arithmetic or both pointers
+                    // todo check pointer types are compatible
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LessThanEq(
                         dest.to_owned(),
                         left_var,
@@ -773,6 +930,22 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::GreaterThanEq => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    // either both arithmetic or both pointers
+                    // todo check pointer types are compatible
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::GreaterThanEq(
                         dest.to_owned(),
                         left_var,
@@ -780,12 +953,44 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::Equal => {
+                    // both arithmetic, both pointer, or pointer compared to NULL (int 0)
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
+                        || !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid equality comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::Equal(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::NotEqual => {
+                    // both arithmetic, both pointer, or pointer compared to NULL (int 0)
+                    if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
+                        || !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
+                        || !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
+                    {
+                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                            "Invalid equality comparison operand types",
+                        )));
+                    }
+                    // result of comparison is always int
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::NotEqual(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::BitwiseAnd => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::BitwiseAnd(
                         dest.to_owned(),
                         left_var,
@@ -793,9 +998,25 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::BitwiseOr => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::BitwiseOr(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::BitwiseXor => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(prog)?;
+                    let right_var_type = right_var.get_type(prog)?;
+                    left_var_type.require_integral_type()?;
+                    right_var_type.require_integral_type()?;
+                    prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::BitwiseXor(
                         dest.to_owned(),
                         left_var,
@@ -803,6 +1024,11 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::LogicalAnd => {
+                    // no binary conversion for logical AND and OR
+                    left_var_type.require_scalar_type()?;
+                    right_var_type.require_scalar_type()?;
+                    // result is always int 0 or 1
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LogicalAnd(
                         dest.to_owned(),
                         left_var,
@@ -810,6 +1036,11 @@ fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::LogicalOr => {
+                    // no binary conversion for logical AND and OR
+                    left_var_type.require_scalar_type()?;
+                    right_var_type.require_scalar_type()?;
+                    // result is always int 0 or 1
+                    prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LogicalOr(dest.to_owned(), left_var, right_var));
                 }
             }
@@ -830,18 +1061,27 @@ fn convert_expression_to_ir(
             // if condition true, fall through to the true instructions
             let (mut true_instrs, true_var) = convert_expression_to_ir(true_expr, prog, context)?;
             instrs.append(&mut true_instrs);
+            // unary convert result of the expression
+            let (mut unary_convert_true_instrs, true_var) = unary_convert(true_var, prog)?;
+            instrs.append(&mut unary_convert_true_instrs);
+            let true_var_type = true_var.get_type(prog)?;
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), true_var));
             // jump over the false instructions
             instrs.push(Instruction::Br(end_label.to_owned()));
             // false instructions
             instrs.push(Instruction::Label(false_label));
+            // unary convert result of the expression
             let (mut false_instrs, false_var) =
                 convert_expression_to_ir(false_expr, prog, context)?;
             instrs.append(&mut false_instrs);
+            let (mut unary_convert_false_instrs, false_var) = unary_convert(false_var, prog)?;
+            instrs.append(&mut unary_convert_false_instrs);
+            let false_var_type = false_var.get_type(prog)?;
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), false_var));
             instrs.push(Instruction::Label(end_label));
+            //todo binary conversion, dest var type
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Assignment(dest_expr, src_expr, op) => {
@@ -1022,7 +1262,7 @@ fn add_type_info_from_declarator(
     }
 }
 
-fn unary_convert_if_necessary(
+fn unary_convert(
     src: Src,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
@@ -1040,4 +1280,146 @@ fn unary_convert_if_necessary(
         return Ok((instrs, Src::Var(converted_var)));
     }
     Ok((Vec::new(), src))
+}
+
+fn binary_convert(
+    left: Src,
+    right: Src,
+    prog: &mut Box<Program>,
+) -> Result<(Vec<Instruction>, Src, Src), MiddleEndError> {
+    let mut instrs = Vec::new();
+    let (mut left_unary_convert_instrs, unary_left) = unary_convert(left, prog)?;
+    instrs.append(&mut left_unary_convert_instrs);
+    let (mut right_unary_convert_instrs, unary_right) = unary_convert(right, prog)?;
+    instrs.append(&mut right_unary_convert_instrs);
+    let left_type = unary_left.get_type(prog)?;
+    let right_type = unary_right.get_type(prog)?;
+    if left_type == right_type
+        || !left_type.is_arithmetic_type()
+        || !right_type.is_arithmetic_type()
+    {
+        return Ok((instrs, unary_left, unary_right));
+    }
+
+    // if one operand is a double
+    if *left_type == IrType::F64 {
+        let right_dest = prog.new_var();
+        match *right_type {
+            IrType::I32 => instrs.push(Instruction::I32toF64(right_dest.to_owned(), unary_right)),
+            IrType::U32 => instrs.push(Instruction::U32toF64(right_dest.to_owned(), unary_right)),
+            IrType::I64 => instrs.push(Instruction::I64toF64(right_dest.to_owned(), unary_right)),
+            IrType::U64 => instrs.push(Instruction::U64toF64(right_dest.to_owned(), unary_right)),
+            IrType::F32 => instrs.push(Instruction::F32toF64(right_dest.to_owned(), unary_right)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F64))?;
+        return Ok((instrs, unary_left, Src::Var(right_dest)));
+    }
+    if *right_type == IrType::F64 {
+        let left_dest = prog.new_var();
+        match *left_type {
+            IrType::I32 => instrs.push(Instruction::I32toF64(left_dest.to_owned(), unary_left)),
+            IrType::U32 => instrs.push(Instruction::U32toF64(left_dest.to_owned(), unary_left)),
+            IrType::I64 => instrs.push(Instruction::I64toF64(left_dest.to_owned(), unary_left)),
+            IrType::U64 => instrs.push(Instruction::U64toF64(left_dest.to_owned(), unary_left)),
+            IrType::F32 => instrs.push(Instruction::F32toF64(left_dest.to_owned(), unary_left)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F64))?;
+        return Ok((instrs, Src::Var(left_dest), unary_right));
+    }
+
+    // if one operand is a float
+    if *left_type == IrType::F32 {
+        let right_dest = prog.new_var();
+        match *right_type {
+            IrType::I32 => instrs.push(Instruction::I32toF32(right_dest.to_owned(), unary_right)),
+            IrType::U32 => instrs.push(Instruction::U32toF32(right_dest.to_owned(), unary_right)),
+            IrType::I64 => instrs.push(Instruction::I64toF32(right_dest.to_owned(), unary_right)),
+            IrType::U64 => instrs.push(Instruction::U64toF32(right_dest.to_owned(), unary_right)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F32))?;
+        return Ok((instrs, unary_left, Src::Var(right_dest)));
+    }
+    if *right_type == IrType::F32 {
+        let left_dest = prog.new_var();
+        match *left_type {
+            IrType::I32 => instrs.push(Instruction::I32toF32(left_dest.to_owned(), unary_left)),
+            IrType::U32 => instrs.push(Instruction::U32toF32(left_dest.to_owned(), unary_left)),
+            IrType::I64 => instrs.push(Instruction::I64toF32(left_dest.to_owned(), unary_left)),
+            IrType::U64 => instrs.push(Instruction::U64toF32(left_dest.to_owned(), unary_left)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F32))?;
+        return Ok((instrs, Src::Var(left_dest), unary_right));
+    }
+
+    // if one operand is an unsigned long
+    if *left_type == IrType::U64 {
+        let right_dest = prog.new_var();
+        match *right_type {
+            IrType::I32 => instrs.push(Instruction::I32toU64(right_dest.to_owned(), unary_right)),
+            IrType::U32 => instrs.push(Instruction::U32toU64(right_dest.to_owned(), unary_right)),
+            IrType::I64 => instrs.push(Instruction::I64toU64(right_dest.to_owned(), unary_right)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U64))?;
+        return Ok((instrs, unary_left, Src::Var(right_dest)));
+    }
+    if *right_type == IrType::U64 {
+        let left_dest = prog.new_var();
+        match *left_type {
+            IrType::I32 => instrs.push(Instruction::I32toU64(left_dest.to_owned(), unary_left)),
+            IrType::U32 => instrs.push(Instruction::U32toU64(left_dest.to_owned(), unary_left)),
+            IrType::I64 => instrs.push(Instruction::I64toU64(left_dest.to_owned(), unary_left)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U64))?;
+        return Ok((instrs, Src::Var(left_dest), unary_right));
+    }
+
+    // if one operand is a long
+    if *left_type == IrType::I64 {
+        let right_dest = prog.new_var();
+        match *right_type {
+            IrType::I32 => instrs.push(Instruction::I32toI64(right_dest.to_owned(), unary_right)),
+            IrType::U32 => instrs.push(Instruction::U32toI64(right_dest.to_owned(), unary_right)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(right_dest.to_owned(), Box::new(IrType::I64))?;
+        return Ok((instrs, unary_left, Src::Var(right_dest)));
+    }
+    if *right_type == IrType::I64 {
+        let left_dest = prog.new_var();
+        match *left_type {
+            IrType::I32 => instrs.push(Instruction::I32toI64(left_dest.to_owned(), unary_left)),
+            IrType::U32 => instrs.push(Instruction::U32toI64(left_dest.to_owned(), unary_left)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(left_dest.to_owned(), Box::new(IrType::I64))?;
+        return Ok((instrs, Src::Var(left_dest), unary_right));
+    }
+
+    // if one operand is an unsigned int
+    if *left_type == IrType::U32 {
+        let right_dest = prog.new_var();
+        match *right_type {
+            IrType::I32 => instrs.push(Instruction::I32toU32(right_dest.to_owned(), unary_right)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U32))?;
+        return Ok((instrs, unary_left, Src::Var(right_dest)));
+    }
+    if *right_type == IrType::U32 {
+        let left_dest = prog.new_var();
+        match *left_type {
+            IrType::I32 => instrs.push(Instruction::I32toU32(left_dest.to_owned(), unary_left)),
+            _ => unreachable!(),
+        }
+        prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U32))?;
+        return Ok((instrs, Src::Var(left_dest), unary_right));
+    }
+
+    unreachable!("No other possible combinations of types left");
 }

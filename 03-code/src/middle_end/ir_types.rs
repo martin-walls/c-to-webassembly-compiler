@@ -106,6 +106,16 @@ impl IrType {
         }
     }
 
+    /// Returns an error if self isn't an integral type
+    pub fn require_integral_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_integral_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require integral type failed",
+            ))),
+        }
+    }
+
     pub fn is_arithmetic_type(&self) -> bool {
         match self {
             IrType::I8
@@ -127,6 +137,16 @@ impl IrType {
         }
     }
 
+    /// Returns an error if self isn't an arithmetic type
+    pub fn require_arithmetic_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_arithmetic_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require arithmetic type failed",
+            ))),
+        }
+    }
+
     pub fn is_scalar_type(&self) -> bool {
         match self {
             IrType::I8
@@ -145,6 +165,81 @@ impl IrType {
             | IrType::Void
             | IrType::ArrayOf(_, _)
             | IrType::Function(_, _) => false,
+        }
+    }
+
+    /// Returns an error if self isn't a scalar type
+    pub fn require_scalar_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_scalar_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require scalar type failed",
+            ))),
+        }
+    }
+
+    pub fn is_object_pointer_type(&self) -> bool {
+        match self {
+            IrType::PointerTo(t) => match *t {
+                IrType::Function(_, _) | Box::from(IrType::Void) => false,
+                _ => true,
+            },
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    /// Returns an error if self isn't a pointer type
+    pub fn require_object_pointer_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_object_pointer_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require object pointer type failed",
+            ))),
+        }
+    }
+
+    pub fn is_pointer_type(&self) -> bool {
+        match self {
+            IrType::PointerTo(_) => true,
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    /// Returns an error if self isn't a pointer type
+    pub fn require_pointer_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_pointer_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require object pointer type failed",
+            ))),
         }
     }
 
