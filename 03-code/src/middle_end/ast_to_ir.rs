@@ -835,11 +835,32 @@ fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::SizeOfExpr(_) => {
-            todo!()
+        Expression::SizeOfExpr(e) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            let expr_var_type = expr_var.get_type(prog)?;
+            let byte_size = expr_var_type.get_byte_size(prog);
+            let dest = prog.new_var();
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::SimpleAssignment(
+                dest.to_owned(),
+                Src::Constant(Constant::Int(byte_size as i128)),
+            ));
+            Ok((instrs, Src::Var(dest)))
         }
-        Expression::SizeOfType(_) => {
-            todo!()
+        Expression::SizeOfType(t) => {
+            let (type_info, _, _) = match get_type_info(&t.0, t.1, prog, context)? {
+                None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                Some(x) => x,
+            };
+            let byte_size = type_info.get_byte_size(prog);
+            let dest = prog.new_var();
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::SimpleAssignment(
+                dest.to_owned(),
+                Src::Constant(Constant::Int(byte_size as i128)),
+            ));
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::BinaryOp(op, left, right) => {
             let (mut left_instrs, left_var) = convert_expression_to_ir(left, prog, context)?;
