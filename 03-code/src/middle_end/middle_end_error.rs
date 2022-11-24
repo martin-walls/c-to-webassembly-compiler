@@ -40,6 +40,9 @@ pub enum MiddleEndError {
     TypeNotFound,
     FunctionNotFoundForId(FunId),
     TypeError(TypeError),
+    InvalidAssignment,
+    ValueTypeNotSet(VarId),
+    AttemptToModifyNonLValue,
 }
 
 impl fmt::Display for MiddleEndError {

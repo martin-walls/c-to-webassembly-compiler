@@ -1,4 +1,6 @@
-use crate::middle_end::ids::{FunId, Id, LabelId, StringLiteralId, StructId, UnionId, VarId};
+use crate::middle_end::ids::{
+    FunId, Id, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
+};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::MiddleEndError;
@@ -185,11 +187,12 @@ impl Program {
         }
     }
 
-    pub fn new_var(&mut self) -> VarId {
-        let new_var = match &self.max_var {
+    pub fn new_var(&mut self, value_type: ValueType) -> VarId {
+        let mut new_var = match &self.max_var {
             None => VarId::initial_id(),
             Some(var) => var.next_id(),
         };
+        new_var.set_value_type(value_type);
         self.max_var = Some(new_var.to_owned());
         new_var
     }
@@ -295,7 +298,7 @@ impl fmt::Display for Program {
         }
         write!(f, "\nVar types:")?;
         for (var, type_info) in &self.var_types {
-            write!(f, "\n  {}: {}", var, type_info)?;
+            write!(f, "\n  {} ({}): {}", var, var.get_value_type(), type_info)?;
         }
         write!(f, "\nLabel identifiers:")?;
         for (name, label) in &self.label_identifiers {

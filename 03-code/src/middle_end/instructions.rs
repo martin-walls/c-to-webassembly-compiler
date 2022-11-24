@@ -1,4 +1,4 @@
-use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, VarId};
+use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
@@ -57,6 +57,14 @@ impl Src {
             Src::Var(var) => prog.get_var_type(var),
             Src::Constant(c) => Ok(c.get_type()),
             Src::Fun(fun_id) => prog.get_fun_type(fun_id),
+        }
+    }
+
+    pub fn get_value_type(&self) -> ValueType {
+        match self {
+            Src::Var(var) => var.get_value_type(),
+            Src::Constant(c) => ValueType::RValue,
+            Src::Fun(_) => ValueType::RValue,
         }
     }
 }
@@ -124,12 +132,19 @@ pub enum Instruction {
 
     PointerToStringLiteral(Dest, StringLiteralId),
 
-    // integer promotion
-    I8toI32(Dest, Src),
-    U8toI32(Dest, Src),
+    // char promotions
+    I8toI16(Dest, Src),
+    I8toU16(Dest, Src),
+    U8toI16(Dest, Src),
+    U8toU16(Dest, Src),
+
+    // promotion to signed int
     I16toI32(Dest, Src),
     U16toI32(Dest, Src),
 
+    // promotion to unsigned int
+    I16toU32(Dest, Src),
+    U16toU32(Dest, Src),
     I32toU32(Dest, Src),
 
     // promotion to unsigned long
@@ -146,6 +161,7 @@ pub enum Instruction {
     I32toF32(Dest, Src),
     U64toF32(Dest, Src),
     I64toF32(Dest, Src),
+    // integer to double
     U32toF64(Dest, Src),
     I32toF64(Dest, Src),
     U64toF64(Dest, Src),
@@ -158,28 +174,165 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    pub fn get_conversion_instr(
+    pub fn get_conversion_instrs(
         src: Src,
         src_type: Box<IrType>,
         dest: Dest,
         dest_type: Box<IrType>,
-    ) -> Result<Self, MiddleEndError> {
+        prog: &mut Box<Program>,
+    ) -> Result<Vec<Self>, MiddleEndError> {
+        println!("convert {} to {}", src_type, dest_type);
+        let mut instrs = Vec::new();
         if src_type == dest_type {
-            return Ok(Instruction::Nop);
+            return Ok(instrs);
         }
         match (*src_type, *dest_type) {
-            (IrType::I8, IrType::I32) => Ok(Instruction::I8toI32(dest, src)),
-            (IrType::U8, IrType::I32) => Ok(Instruction::U8toI32(dest, src)),
-            (IrType::I16, IrType::I32) => Ok(Instruction::I16toI32(dest, src)),
-            (IrType::U16, IrType::I32) => Ok(Instruction::U16toI32(dest, src)),
-            (IrType::Function(_, _), IrType::PointerTo(_)) => Ok(Instruction::AddressOf(dest, src)),
-            (IrType::ArrayOf(_, _), IrType::PointerTo(_)) => Ok(Instruction::AddressOf(dest, src)),
-            (s, d) => Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
-                "Cannot convert type",
-                Box::new(s),
-                Some(Box::new(d)),
-            ))),
+            // char promotions
+            (IrType::I8, dest_type) => {
+                let intermediate_var = prog.new_var(src.get_value_type());
+                let mut intermediate_type;
+                if dest_type.is_signed_integral() {
+                    instrs.push(Instruction::I8toI16(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::I16;
+                } else {
+                    // unsigned
+                    instrs.push(Instruction::I8toU16(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::U16;
+                }
+                let mut convert_instrs = Self::get_conversion_instrs(
+                    Src::Var(intermediate_var),
+                    Box::new(intermediate_type),
+                    dest,
+                    Box::new(dest_type),
+                    prog,
+                )?;
+                instrs.append(&mut convert_instrs);
+            }
+            (IrType::U8, dest_type) => {
+                let intermediate_var = prog.new_var(src.get_value_type());
+                let mut intermediate_type;
+                if dest_type.is_signed_integral() {
+                    instrs.push(Instruction::U8toI16(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::I16;
+                } else {
+                    // unsigned
+                    instrs.push(Instruction::U8toU16(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::U16;
+                }
+                let mut convert_instrs = Self::get_conversion_instrs(
+                    Src::Var(intermediate_var),
+                    Box::new(intermediate_type),
+                    dest,
+                    Box::new(dest_type),
+                    prog,
+                )?;
+                instrs.append(&mut convert_instrs);
+            }
+            (IrType::I16, dest_type) => {
+                let intermediate_var = prog.new_var(src.get_value_type());
+                let mut intermediate_type;
+                if dest_type.is_signed_integral() {
+                    instrs.push(Instruction::I16toI32(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::I32;
+                } else {
+                    // unsigned
+                    instrs.push(Instruction::I16toU32(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::U32;
+                }
+                let mut convert_instrs = Self::get_conversion_instrs(
+                    Src::Var(intermediate_var),
+                    Box::new(intermediate_type),
+                    dest,
+                    Box::new(dest_type),
+                    prog,
+                )?;
+                instrs.append(&mut convert_instrs);
+            }
+            (IrType::U16, dest_type) => {
+                let intermediate_var = prog.new_var(src.get_value_type());
+                let mut intermediate_type;
+                if dest_type.is_signed_integral() {
+                    instrs.push(Instruction::U16toI32(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::I32;
+                } else {
+                    // unsigned
+                    instrs.push(Instruction::U16toU32(intermediate_var.to_owned(), src));
+                    intermediate_type = IrType::U32;
+                }
+                let mut convert_instrs = Self::get_conversion_instrs(
+                    Src::Var(intermediate_var),
+                    Box::new(intermediate_type),
+                    dest,
+                    Box::new(dest_type),
+                    prog,
+                )?;
+                instrs.append(&mut convert_instrs);
+            }
+            (IrType::I32, IrType::U32) => {
+                instrs.push(Instruction::I32toU32(dest, src));
+            }
+            (IrType::I32, IrType::I64) => {
+                instrs.push(Instruction::I32toI64(dest, src));
+            }
+            (IrType::I32, IrType::U64) => {
+                instrs.push(Instruction::I32toU64(dest, src));
+            }
+            (IrType::I32, IrType::F32) => {
+                instrs.push(Instruction::I32toF32(dest, src));
+            }
+            (IrType::I32, IrType::F64) => {
+                instrs.push(Instruction::I32toF64(dest, src));
+            }
+
+            (IrType::U32, IrType::I64) => {
+                instrs.push(Instruction::U32toI64(dest, src));
+            }
+            (IrType::U32, IrType::U64) => {
+                instrs.push(Instruction::U32toU64(dest, src));
+            }
+            (IrType::U32, IrType::F32) => {
+                instrs.push(Instruction::U32toF32(dest, src));
+            }
+            (IrType::U32, IrType::F64) => {
+                instrs.push(Instruction::U32toF64(dest, src));
+            }
+
+            (IrType::I64, IrType::U64) => {
+                instrs.push(Instruction::I64toU64(dest, src));
+            }
+            (IrType::I64, IrType::F32) => {
+                instrs.push(Instruction::I64toF32(dest, src));
+            }
+            (IrType::I64, IrType::F64) => {
+                instrs.push(Instruction::I64toF64(dest, src));
+            }
+
+            (IrType::U64, IrType::F32) => {
+                instrs.push(Instruction::U64toF32(dest, src));
+            }
+            (IrType::U64, IrType::F64) => {
+                instrs.push(Instruction::U64toF64(dest, src));
+            }
+
+            (IrType::F32, IrType::F64) => {
+                instrs.push(Instruction::F32toF64(dest, src));
+            }
+
+            (IrType::Function(_, _), IrType::PointerTo(_)) => {
+                instrs.push(Instruction::AddressOf(dest, src))
+            }
+            (IrType::ArrayOf(_, _), IrType::PointerTo(_)) => {
+                instrs.push(Instruction::AddressOf(dest, src))
+            }
+            (s, d) => {
+                return Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
+                    "Cannot convert type",
+                    Box::new(s),
+                    Some(Box::new(d)),
+                )))
+            } // todo rest of types
         }
+        Ok(instrs)
     }
 }
 

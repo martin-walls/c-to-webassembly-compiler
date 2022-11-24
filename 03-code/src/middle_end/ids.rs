@@ -1,3 +1,4 @@
+use crate::middle_end::middle_end_error::MiddleEndError;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -12,18 +13,89 @@ pub trait Id {
     fn next_id(&self) -> Self;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ValueType {
+    ModifiableLValue,
+    NonModifiableLValue,
+    RValue,
+    None,
+}
+
+impl ValueType {
+    pub fn is_lvalue(&self) -> bool {
+        match self {
+            ValueType::ModifiableLValue | ValueType::NonModifiableLValue => true,
+            ValueType::RValue | ValueType::None => false,
+        }
+    }
+
+    pub fn is_modifiable_lvalue(&self) -> bool {
+        match self {
+            ValueType::ModifiableLValue => true,
+            ValueType::NonModifiableLValue | ValueType::RValue | ValueType::None => false,
+        }
+    }
+
+    pub fn is_rvalue(&self) -> bool {
+        match self {
+            ValueType::ModifiableLValue | ValueType::NonModifiableLValue | ValueType::None => false,
+            ValueType::RValue => true,
+        }
+    }
+}
+
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ValueType::ModifiableLValue => {
+                write!(f, "lvalue")
+            }
+            ValueType::NonModifiableLValue => {
+                write!(f, "const lvalue")
+            }
+            ValueType::RValue => {
+                write!(f, "rvalue")
+            }
+            ValueType::None => {
+                write!(f, "no value type")
+            }
+        }
+    }
+}
+
 /// A variable in the IR
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct VarId(u64);
+pub struct VarId(u64, ValueType);
 
 impl Id for VarId {
     fn initial_id() -> Self {
-        VarId(0)
+        VarId(0, ValueType::None)
     }
 
     fn next_id(&self) -> Self {
-        VarId(self.0 + 1)
+        VarId(self.0 + 1, self.1.to_owned())
     }
+}
+
+impl VarId {
+    pub fn set_value_type(&mut self, value_type: ValueType) {
+        self.1 = value_type;
+    }
+
+    pub fn get_value_type(&self) -> ValueType {
+        self.1.to_owned()
+    }
+
+    // pub fn set_lvalue(&mut self, modifiable: bool) {
+    //     match modifiable {
+    //         true => self.1 = Some(ValueType::ModifiableLValue),
+    //         false => self.1 = Some(ValueType::NonModifiableLValue),
+    //     }
+    // }
+    //
+    // pub fn set_rvalue(&mut self) {
+    //     self.1 = Some(ValueType::RValue);
+    // }
 }
 
 impl fmt::Display for VarId {

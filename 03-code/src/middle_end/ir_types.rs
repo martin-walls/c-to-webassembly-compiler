@@ -61,6 +61,42 @@ impl IrType {
         Box::new(IrType::Function(Box::new(self), params))
     }
 
+    pub fn is_signed_integral(&self) -> bool {
+        match self {
+            IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 => true,
+            IrType::U8
+            | IrType::U16
+            | IrType::U32
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::PointerTo(_)
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    pub fn is_unsigned_integral(&self) -> bool {
+        match self {
+            IrType::U8 | IrType::U16 | IrType::U32 | IrType::U64 => true,
+            IrType::I8
+            | IrType::I16
+            | IrType::I32
+            | IrType::I64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Struct(_)
+            | IrType::Union(_)
+            | IrType::Void
+            | IrType::PointerTo(_)
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
     pub fn smallest_signed_equivalent(&self) -> Result<Box<Self>, MiddleEndError> {
         match self {
             IrType::U8 => Ok(Box::new(IrType::I16)), // go up one size cos might be bigger than can fit

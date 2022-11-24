@@ -1,8 +1,8 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::{Context, LoopContext, SwitchContext};
-use crate::middle_end::ids::VarId;
-use crate::middle_end::instructions::Instruction;
+use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::{Constant, Src};
+use crate::middle_end::instructions::{Dest, Instruction};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
@@ -155,7 +155,7 @@ fn convert_statement_to_ir(
             // condition
             let cond_var = match cond {
                 None => {
-                    let temp = prog.new_var();
+                    let temp = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::SimpleAssignment(
                         temp.to_owned(),
                         Src::Constant(Constant::Int(1)),
@@ -236,7 +236,7 @@ fn convert_statement_to_ir(
             let switch_var = match switch_src {
                 Src::Var(var) => var,
                 Src::Constant(c) => {
-                    let temp = prog.new_var();
+                    let temp = prog.new_var(ValueType::RValue);
                     prog.add_var_type(temp.to_owned(), c.get_type())?;
                     instrs.push(Instruction::SimpleAssignment(
                         temp.to_owned(),
@@ -308,7 +308,7 @@ fn convert_statement_to_ir(
                             }
                             Some((type_info, name, _params)) => match name {
                                 Some(name) => {
-                                    let var = prog.new_var();
+                                    let var = prog.new_var(ValueType::ModifiableLValue);
                                     context.add_variable_to_scope(
                                         name,
                                         var.to_owned(),
@@ -334,7 +334,7 @@ fn convert_statement_to_ir(
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
-                                let var =
+                                let mut src =
                                     match *init_expr {
                                         Initialiser::Expr(e) => {
                                             let (mut expr_instrs, expr_var) =
@@ -342,17 +342,18 @@ fn convert_statement_to_ir(
                                             instrs.append(&mut expr_instrs);
                                             // todo convert var type if necessary
                                             match expr_var {
-                                                Src::Var(var) => var,
+                                                Src::Var(var) => Src::Var(var),
                                                 Src::Constant(c) => {
-                                                    let v = prog.new_var();
-                                                    let constant_type = c.get_type();
-                                                    // todo check if constant type is compatible with declared variable type
-                                                    prog.add_var_type(v.to_owned(), c.get_type())?;
-                                                    instrs.push(Instruction::SimpleAssignment(
-                                                        v.to_owned(),
-                                                        Src::Constant(c),
-                                                    ));
-                                                    v
+                                                    // let v = prog.new_var(ValueType::RValue);
+                                                    // let constant_type = c.get_type();
+                                                    // // todo check if constant type is compatible with declared variable type
+                                                    // prog.add_var_type(v.to_owned(), c.get_type())?;
+                                                    // instrs.push(Instruction::SimpleAssignment(
+                                                    //     v.to_owned(),
+                                                    //     Src::Constant(c),
+                                                    // ));
+                                                    // Src::Var(v)
+                                                    Src::Constant(c)
                                                 }
                                                 Src::Fun(_) => return Err(
                                                     MiddleEndError::InvalidInitialiserExpression,
@@ -363,9 +364,26 @@ fn convert_statement_to_ir(
                                             todo!("struct/union/array initialiser")
                                         }
                                     };
+                                // convert src to dest type
+                                let src_type = src.get_type(prog)?;
+                                if src_type != type_info {
+                                    let (mut convert_instrs, converted_var) =
+                                        convert_type_for_assignment(
+                                            src.to_owned(),
+                                            src_type,
+                                            type_info.to_owned(),
+                                            prog,
+                                        )?;
+                                    instrs.append(&mut convert_instrs);
+                                    src = Src::Var(converted_var);
+                                }
+
+                                let dest = prog.new_var(ValueType::ModifiableLValue);
+                                prog.add_var_type(dest.to_owned(), src.get_type(prog)?)?;
+                                instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
                                 context.add_variable_to_scope(
                                     name,
-                                    var.to_owned(),
+                                    dest.to_owned(),
                                     type_info.to_owned(),
                                 )?;
                                 // todo check that the type of the initialiser matches the declared type
@@ -417,7 +435,7 @@ fn convert_statement_to_ir(
             // put parameter names into scope
             if let Some(param_bindings) = param_bindings {
                 for (param_name, param_type) in param_bindings {
-                    let param_var = prog.new_var();
+                    let param_var = prog.new_var(ValueType::ModifiableLValue);
                     param_var_mappings.push(param_var.to_owned());
                     context.add_variable_to_scope(
                         param_name,
@@ -464,7 +482,7 @@ fn convert_expression_to_ir(
         },
         Expression::StringLiteral(s) => {
             let string_id = prog.new_string_literal(s);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::ModifiableLValue);
             instrs.push(Instruction::PointerToStringLiteral(
                 dest.to_owned(),
                 string_id,
@@ -493,10 +511,10 @@ fn convert_expression_to_ir(
             index_var_type.require_pointer_type()?;
 
             // array variable is a pointer to the start of the array
-            let ptr = prog.new_var();
+            let ptr = prog.new_var(ValueType::None);
             prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
             instrs.push(Instruction::Add(ptr.to_owned(), arr_var, index_var));
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::ModifiableLValue);
             if let IrType::PointerTo(inner_type) = *arr_var_type {
                 // always true because we already asserted arr_var_type is a pointer type
                 prog.add_var_type(dest.to_owned(), inner_type)?;
@@ -539,7 +557,7 @@ fn convert_expression_to_ir(
                 instrs.append(&mut param_instrs);
                 param_srcs.push(param_var);
             }
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), dest_type)?;
             instrs.push(Instruction::Call(dest.to_owned(), fun_var, param_srcs));
             Ok((instrs, Src::Var(dest)))
@@ -551,7 +569,7 @@ fn convert_expression_to_ir(
             obj_var_type.require_struct_or_union_type()?;
 
             // obj_ptr = &obj_var
-            let obj_ptr = prog.new_var();
+            let obj_ptr = prog.new_var(obj_var.get_value_type());
             prog.add_var_type(
                 obj_ptr.to_owned(),
                 Box::new(IrType::PointerTo(obj_var_type.to_owned())),
@@ -564,7 +582,7 @@ fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var();
+                    let ptr = prog.new_var(ValueType::None);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -576,7 +594,7 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
                     ));
 
-                    let dest = prog.new_var();
+                    let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *ptr
                     instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
@@ -586,7 +604,7 @@ fn convert_expression_to_ir(
                     let union_type = prog.get_union_type(&union_id)?;
                     let member_type = union_type.get_member_type(&member_name)?;
 
-                    let dest = prog.new_var();
+                    let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *obj_ptr
                     instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(obj_ptr)));
@@ -608,7 +626,7 @@ fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var();
+                    let ptr = prog.new_var(ValueType::None);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -620,7 +638,7 @@ fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
                     ));
 
-                    let dest = prog.new_var();
+                    let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *ptr
                     instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
@@ -630,7 +648,7 @@ fn convert_expression_to_ir(
                     let union_type = prog.get_union_type(&union_id)?;
                     let member_type = union_type.get_member_type(&member_name)?;
 
-                    let dest = prog.new_var();
+                    let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *obj_ptr
                     instrs.push(Instruction::Dereference(dest.to_owned(), obj_var));
@@ -642,7 +660,7 @@ fn convert_expression_to_ir(
         Expression::PostfixIncrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             // propagate the type of dest: same as src
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
@@ -675,7 +693,7 @@ fn convert_expression_to_ir(
         Expression::PostfixDecrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             // propagate the type of dest: same as src
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
@@ -708,7 +726,9 @@ fn convert_expression_to_ir(
         Expression::PrefixIncrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
-            // expr_var is the variable returned, after incrementing - no need to store a new type in prog
+            // make sure the result is an rvalue
+            let dest = prog.new_var(ValueType::RValue);
+            // expr_var is the variable returned, after incrementing
             // check type is valid to be incremented
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
@@ -725,15 +745,22 @@ fn convert_expression_to_ir(
                         Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
-                    Ok((instrs, Src::Var(var)))
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(var),
+                    ));
                 }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::PrefixDecrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
-            // expr_var is the variable returned, after decrementing - no need to store a new type in prog
+            // make sure the result is an rvalue
+            let dest = prog.new_var(ValueType::RValue);
+            // expr_var is the variable returned, after decrementing
             // check type is valid to be incremented
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
@@ -750,26 +777,33 @@ fn convert_expression_to_ir(
                         Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
-                    Ok((instrs, Src::Var(var)))
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(var),
+                    ));
                 }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::UnaryOp(op, expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
-            let dest = prog.new_var();
             // unary convert type if necessary
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             match op {
                 UnaryOperator::AddressOf => {
+                    let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
                     // store type of dest
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
+                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::Dereference => {
+                    let dest = prog.new_var(ValueType::ModifiableLValue);
                     instrs.push(Instruction::Dereference(dest.to_owned(), expr_var));
                     // check whether the var is allowed to be dereferenced;
                     // if so, store the type of dest
@@ -783,8 +817,10 @@ fn convert_expression_to_ir(
                             ))
                         }
                     }
+                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::Plus => {
+                    let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::Add(
                         dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
@@ -797,8 +833,10 @@ fn convert_expression_to_ir(
                     }
                     // type of dest is same as type of src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::Minus => {
+                    let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::Sub(
                         dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
@@ -811,8 +849,10 @@ fn convert_expression_to_ir(
                     }
                     let dest_type = expr_var_type.smallest_signed_equivalent()?;
                     prog.add_var_type(dest.to_owned(), dest_type)?;
+                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::BitwiseNot => {
+                    let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::BitwiseNot(dest.to_owned(), expr_var));
                     if !expr_var_type.is_integral_type() {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
@@ -821,8 +861,10 @@ fn convert_expression_to_ir(
                     }
                     // dest type is same as src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::LogicalNot => {
+                    let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::LogicalNot(dest.to_owned(), expr_var));
                     if !expr_var_type.is_scalar_type() {
                         return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
@@ -831,16 +873,16 @@ fn convert_expression_to_ir(
                     }
                     // dest type is same as src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                    Ok((instrs, Src::Var(dest)))
                 }
             }
-            Ok((instrs, Src::Var(dest)))
         }
         Expression::SizeOfExpr(e) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             let byte_size = expr_var_type.get_byte_size(prog);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
             instrs.push(Instruction::SimpleAssignment(
                 dest.to_owned(),
@@ -854,7 +896,7 @@ fn convert_expression_to_ir(
                 Some(x) => x,
             };
             let byte_size = type_info.get_byte_size(prog);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
             instrs.push(Instruction::SimpleAssignment(
                 dest.to_owned(),
@@ -867,7 +909,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut left_instrs);
             let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
             instrs.append(&mut right_instrs);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             let left_var_type = left_var.get_type(prog)?;
             let right_var_type = right_var.get_type(prog)?;
             match op {
@@ -1164,7 +1206,7 @@ fn convert_expression_to_ir(
         Expression::Ternary(cond, true_expr, false_expr) => {
             let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
-            let dest = prog.new_var();
+            let dest = prog.new_var(ValueType::RValue);
             let false_label = prog.new_label();
             let end_label = prog.new_label();
             // if condition false, execute the false instructions
@@ -1202,7 +1244,36 @@ fn convert_expression_to_ir(
         Expression::Assignment(dest_expr, src_expr, op) => {
             // todo can dest_expr be anything other than an identifier?
             //      pointers and array access i guess
-            todo!()
+            let (mut src_expr_instrs, mut src_var) =
+                convert_expression_to_ir(src_expr, prog, context)?;
+            instrs.append(&mut src_expr_instrs);
+            let src_var_type = src_var.get_type(prog)?;
+
+            let (mut dest_expr_instrs, dest_var) =
+                convert_expression_to_ir(dest_expr, prog, context)?;
+            instrs.append(&mut dest_expr_instrs);
+            let dest_var_type = dest_var.get_type(prog)?;
+
+            // check that we're assigning to an lvalue
+            if !dest_var.get_value_type().is_modifiable_lvalue() {
+                return Err(MiddleEndError::AttemptToModifyNonLValue);
+            }
+
+            if src_var_type != dest_var_type {
+                let (mut convert_instrs, converted_var) =
+                    convert_type_for_assignment(src_var, src_var_type, dest_var_type, prog)?;
+                instrs.append(&mut convert_instrs);
+                src_var = Src::Var(converted_var);
+                //todo other options of possible type combinations
+            }
+
+            let dest = match dest_var {
+                Src::Var(var) => var,
+                Src::Constant(_) | Src::Fun(_) => return Err(MiddleEndError::InvalidAssignment),
+            };
+
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src_var));
+            Ok((instrs, Src::Var(dest)))
         }
         Expression::Cast(_, _) => {
             todo!()
@@ -1412,13 +1483,14 @@ fn unary_convert(
     let src_type = src.get_type(prog)?;
     let unary_converted_type = src_type.unary_convert();
     if src_type != unary_converted_type {
-        let converted_var = prog.new_var();
-        let instrs = vec![Instruction::get_conversion_instr(
+        let converted_var = prog.new_var(src.get_value_type());
+        let instrs = Instruction::get_conversion_instrs(
             src,
             src_type,
             converted_var.to_owned(),
             unary_converted_type.to_owned(),
-        )?];
+            prog,
+        )?;
         prog.add_var_type(converted_var.to_owned(), unary_converted_type)?;
         return Ok((instrs, Src::Var(converted_var)));
     }
@@ -1446,7 +1518,7 @@ fn binary_convert(
 
     // if one operand is a double
     if *left_type == IrType::F64 {
-        let right_dest = prog.new_var();
+        let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
             IrType::I32 => instrs.push(Instruction::I32toF64(right_dest.to_owned(), unary_right)),
             IrType::U32 => instrs.push(Instruction::U32toF64(right_dest.to_owned(), unary_right)),
@@ -1459,7 +1531,7 @@ fn binary_convert(
         return Ok((instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::F64 {
-        let left_dest = prog.new_var();
+        let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
             IrType::I32 => instrs.push(Instruction::I32toF64(left_dest.to_owned(), unary_left)),
             IrType::U32 => instrs.push(Instruction::U32toF64(left_dest.to_owned(), unary_left)),
@@ -1474,7 +1546,7 @@ fn binary_convert(
 
     // if one operand is a float
     if *left_type == IrType::F32 {
-        let right_dest = prog.new_var();
+        let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
             IrType::I32 => instrs.push(Instruction::I32toF32(right_dest.to_owned(), unary_right)),
             IrType::U32 => instrs.push(Instruction::U32toF32(right_dest.to_owned(), unary_right)),
@@ -1486,7 +1558,7 @@ fn binary_convert(
         return Ok((instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::F32 {
-        let left_dest = prog.new_var();
+        let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
             IrType::I32 => instrs.push(Instruction::I32toF32(left_dest.to_owned(), unary_left)),
             IrType::U32 => instrs.push(Instruction::U32toF32(left_dest.to_owned(), unary_left)),
@@ -1500,7 +1572,7 @@ fn binary_convert(
 
     // if one operand is an unsigned long
     if *left_type == IrType::U64 {
-        let right_dest = prog.new_var();
+        let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
             IrType::I32 => instrs.push(Instruction::I32toU64(right_dest.to_owned(), unary_right)),
             IrType::U32 => instrs.push(Instruction::U32toU64(right_dest.to_owned(), unary_right)),
@@ -1511,7 +1583,7 @@ fn binary_convert(
         return Ok((instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::U64 {
-        let left_dest = prog.new_var();
+        let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
             IrType::I32 => instrs.push(Instruction::I32toU64(left_dest.to_owned(), unary_left)),
             IrType::U32 => instrs.push(Instruction::U32toU64(left_dest.to_owned(), unary_left)),
@@ -1524,7 +1596,7 @@ fn binary_convert(
 
     // if one operand is a long
     if *left_type == IrType::I64 {
-        let right_dest = prog.new_var();
+        let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
             IrType::I32 => instrs.push(Instruction::I32toI64(right_dest.to_owned(), unary_right)),
             IrType::U32 => instrs.push(Instruction::U32toI64(right_dest.to_owned(), unary_right)),
@@ -1534,7 +1606,7 @@ fn binary_convert(
         return Ok((instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::I64 {
-        let left_dest = prog.new_var();
+        let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
             IrType::I32 => instrs.push(Instruction::I32toI64(left_dest.to_owned(), unary_left)),
             IrType::U32 => instrs.push(Instruction::U32toI64(left_dest.to_owned(), unary_left)),
@@ -1546,7 +1618,7 @@ fn binary_convert(
 
     // if one operand is an unsigned int
     if *left_type == IrType::U32 {
-        let right_dest = prog.new_var();
+        let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
             IrType::I32 => instrs.push(Instruction::I32toU32(right_dest.to_owned(), unary_right)),
             _ => unreachable!(),
@@ -1555,7 +1627,7 @@ fn binary_convert(
         return Ok((instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::U32 {
-        let left_dest = prog.new_var();
+        let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
             IrType::I32 => instrs.push(Instruction::I32toU32(left_dest.to_owned(), unary_left)),
             _ => unreachable!(),
@@ -1579,3 +1651,24 @@ fn binary_convert(
 //     }
 //     // let convert_instr = Instruction::get_conversion_instr(src, src_type, )
 // }
+
+fn convert_type_for_assignment(
+    src: Src,
+    src_type: Box<IrType>,
+    dest_type: Box<IrType>,
+    prog: &mut Box<Program>,
+) -> Result<(Vec<Instruction>, Dest), MiddleEndError> {
+    if src_type.is_arithmetic_type() && dest_type.is_arithmetic_type() {
+        let converted_var = prog.new_var(src.get_value_type());
+        prog.add_var_type(converted_var.to_owned(), dest_type.to_owned())?;
+        let convert_instrs = Instruction::get_conversion_instrs(
+            src,
+            src_type,
+            converted_var.to_owned(),
+            dest_type,
+            prog,
+        )?;
+        return Ok((convert_instrs, converted_var));
+    }
+    todo!("other options of possible type combinations")
+}
