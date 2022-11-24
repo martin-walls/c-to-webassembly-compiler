@@ -1,8 +1,7 @@
 use crate::middle_end::ids::{FunId, Id, LabelId, StringLiteralId, StructId, UnionId, VarId};
 use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir_types::{IrType, StructType};
+use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::MiddleEndError;
-use crate::parser::ast::UnionType;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -252,6 +251,34 @@ impl Program {
             Some(t) => Ok(t.to_owned()),
         }
     }
+
+    fn new_union_id(&mut self) -> UnionId {
+        let new_union_id = match &self.max_union_id {
+            None => UnionId::initial_id(),
+            Some(union_id) => union_id.next_id(),
+        };
+        self.max_union_id = Some(new_union_id.to_owned());
+        new_union_id
+    }
+
+    pub fn add_union_type(&mut self, union_type: UnionType) -> Result<UnionId, MiddleEndError> {
+        // check if the same union type has already been stored in program
+        for (existing_union_id, existing_union_type) in &self.unions {
+            if existing_union_type == &union_type {
+                return Ok(existing_union_id.to_owned());
+            }
+        }
+        let union_id = self.new_union_id();
+        self.unions.insert(union_id.to_owned(), union_type);
+        Ok(union_id)
+    }
+
+    pub fn get_union_type(&self, union_id: &UnionId) -> Result<UnionType, MiddleEndError> {
+        match self.unions.get(union_id) {
+            None => Err(MiddleEndError::TypeNotFound),
+            Some(t) => Ok(t.to_owned()),
+        }
+    }
 }
 
 impl fmt::Display for Program {
@@ -280,6 +307,10 @@ impl fmt::Display for Program {
         }
         write!(f, "\nStruct types:")?;
         for (id, type_info) in &self.structs {
+            write!(f, "\n  {}: {}", id, type_info)?;
+        }
+        write!(f, "\nUnion types:")?;
+        for (id, type_info) in &self.unions {
             write!(f, "\n  {}: {}", id, type_info)?;
         }
         write!(f, "\n}}")

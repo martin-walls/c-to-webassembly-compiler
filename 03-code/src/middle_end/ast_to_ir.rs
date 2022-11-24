@@ -4,14 +4,14 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
-use crate::middle_end::ir_types::{IrType, StructType};
+use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
     ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement, ParameterTypeList,
     Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
-    StructType as AstStructType, TypeSpecifier, UnaryOperator,
+    StructType as AstStructType, TypeSpecifier, UnaryOperator, UnionType as AstUnionType,
 };
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
@@ -583,7 +583,14 @@ fn convert_expression_to_ir(
                     Ok((instrs, Src::Var(dest)))
                 }
                 IrType::Union(union_id) => {
-                    todo!()
+                    let union_type = prog.get_union_type(&union_id)?;
+                    let member_type = union_type.get_member_type(&member_name)?;
+
+                    let dest = prog.new_var();
+                    prog.add_var_type(dest.to_owned(), member_type)?;
+                    // dest = *obj_ptr
+                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(obj_ptr)));
+                    Ok((instrs, Src::Var(dest)))
                 }
                 _ => unreachable!(),
             }
@@ -620,7 +627,14 @@ fn convert_expression_to_ir(
                     Ok((instrs, Src::Var(dest)))
                 }
                 IrType::Union(union_id) => {
-                    todo!()
+                    let union_type = prog.get_union_type(&union_id)?;
+                    let member_type = union_type.get_member_type(&member_name)?;
+
+                    let dest = prog.new_var();
+                    prog.add_var_type(dest.to_owned(), member_type)?;
+                    // dest = *obj_ptr
+                    instrs.push(Instruction::Dereference(dest.to_owned(), obj_var));
+                    Ok((instrs, Src::Var(dest)))
                 }
                 _ => unreachable!(),
             }
@@ -1240,9 +1254,37 @@ fn get_type_info(
                 Box::new(IrType::Struct(struct_type_id))
             }
         },
-        TypeSpecifier::Union(_) => {
-            todo!("get_type_info for union")
-        }
+        TypeSpecifier::Union(union_type) => match union_type {
+            AstUnionType::Declaration(Identifier(union_name)) => {
+                let union_type_id = prog.add_union_type(UnionType::named(union_name.to_owned()))?;
+                Box::new(IrType::Union(union_type_id))
+            }
+            AstUnionType::Definition(union_name, members) => {
+                let mut union_type = match union_name {
+                    Some(Identifier(name)) => UnionType::named(name.to_owned()),
+                    None => UnionType::unnamed(),
+                };
+                for member in members {
+                    for decl in &member.1 {
+                        let (member_type_info, member_name, _params) = match get_type_info(
+                            &member.0,
+                            Some(Box::new(*decl.to_owned())),
+                            prog,
+                            context,
+                        )? {
+                            None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                            Some(x) => x,
+                        };
+                        if member_name == None {
+                            return Err(MiddleEndError::UnnamedUnionMember);
+                        }
+                        union_type.push_member(member_name.unwrap(), member_type_info, prog)?;
+                    }
+                }
+                let union_type_id = prog.add_union_type(union_type)?;
+                Box::new(IrType::Union(union_type_id))
+            }
+        },
         TypeSpecifier::Enum(_) => {
             todo!("get_type_info for enum")
         }

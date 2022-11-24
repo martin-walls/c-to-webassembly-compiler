@@ -398,7 +398,7 @@ impl StructType {
         prog: &Box<Program>,
     ) -> Result<(), MiddleEndError> {
         // check if member with same name already exists
-        if self.member_types.contains_key(&member_name) {
+        if self.has_member(&member_name) {
             return Err(MiddleEndError::DuplicateStructMember);
         }
         let byte_size = member_type.get_byte_size(prog);
@@ -452,6 +452,80 @@ impl fmt::Display for StructType {
                 "\n\"{}\" at byte {}: {}",
                 member_name, byte_offset, member_type
             )?;
+        }
+        write!(f, "\nTotal byte size: {}", self.total_byte_size)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnionType {
+    pub name: Option<String>,
+    /// store members' names and types
+    pub member_types: HashMap<String, Box<IrType>>,
+    pub total_byte_size: u64,
+}
+
+impl UnionType {
+    pub fn named(name: String) -> Self {
+        UnionType {
+            name: Some(name),
+            member_types: HashMap::new(),
+            total_byte_size: 0,
+        }
+    }
+
+    pub fn unnamed() -> Self {
+        UnionType {
+            name: None,
+            member_types: HashMap::new(),
+            total_byte_size: 0,
+        }
+    }
+
+    pub fn push_member(
+        &mut self,
+        member_name: String,
+        member_type: Box<IrType>,
+        prog: &Box<Program>,
+    ) -> Result<(), MiddleEndError> {
+        // check if another member with same name already exists
+        if self.has_member(&member_name) {
+            return Err(MiddleEndError::DuplicateUnionMember);
+        }
+        let byte_size = member_type.get_byte_size(prog);
+        self.member_types.insert(member_name, member_type);
+        // total size of union is the size of the largest member
+        if byte_size > self.total_byte_size {
+            self.total_byte_size = byte_size;
+        }
+        Ok(())
+    }
+
+    pub fn has_member(&self, member_name: &str) -> bool {
+        self.member_types.contains_key(member_name)
+    }
+
+    pub fn get_member_type(&self, member_name: &str) -> Result<Box<IrType>, MiddleEndError> {
+        match self.member_types.get(member_name) {
+            None => Err(MiddleEndError::UnionMemberNotFound(format!(
+                "{}.{}",
+                self.name.to_owned().unwrap_or("".to_owned()),
+                member_name
+            ))),
+            Some(t) => Ok(t.to_owned()),
+        }
+    }
+}
+
+impl fmt::Display for UnionType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            None => write!(f, "unnamed union")?,
+            Some(name) => write!(f, "union \"{}\"", name)?,
+        }
+        write!(f, "\nMembers:")?;
+        for (member_name, member_type) in &self.member_types {
+            write!(f, "\n\"{}\": {}", member_name, member_type)?;
         }
         write!(f, "\nTotal byte size: {}", self.total_byte_size)
     }
