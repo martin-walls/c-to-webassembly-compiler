@@ -28,6 +28,7 @@ pub enum MiddleEndError {
     InvalidInitialiserExpression,
     UnnamedStructMember,
     DuplicateStructMember,
+    StructMemberNotFound(String),
     /// in theory this should never occur because of global scope
     ScopeError,
     /// in theory shouldn't happen

@@ -243,6 +243,36 @@ impl IrType {
         }
     }
 
+    pub fn is_struct_or_union_type(&self) -> bool {
+        match self {
+            IrType::Struct(_) | IrType::Union(_) => true,
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::I64
+            | IrType::U64
+            | IrType::F32
+            | IrType::F64
+            | IrType::Void
+            | IrType::PointerTo(_)
+            | IrType::ArrayOf(_, _)
+            | IrType::Function(_, _) => false,
+        }
+    }
+
+    /// Returns an error if self isn't a struct or union type
+    pub fn require_struct_or_union_type(&self) -> Result<(), MiddleEndError> {
+        match self.is_struct_or_union_type() {
+            true => Ok(()),
+            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require struct/union type failed",
+            ))),
+        }
+    }
+
     /// ISO C standard unary type conversions
     pub fn unary_convert(&self) -> Box<Self> {
         match self {
@@ -260,6 +290,16 @@ impl IrType {
             | IrType::Void => Box::new(self.to_owned()),
             IrType::ArrayOf(t, _) => Box::new(IrType::PointerTo(t.to_owned())),
             IrType::Function(_, _) => Box::new(IrType::PointerTo(Box::new(self.to_owned()))),
+        }
+    }
+
+    /// Return the type that this type points to, or an error if not a pointer type
+    pub fn dereference_pointer_type(&self) -> Result<Box<Self>, MiddleEndError> {
+        match self {
+            IrType::PointerTo(t) => Ok(t.to_owned()),
+            t => Err(MiddleEndError::TypeError(
+                TypeError::DereferenceNonPointerType(Box::new(t.to_owned())),
+            )),
         }
     }
 }
@@ -369,6 +409,32 @@ impl StructType {
             .insert(member_name, self.total_byte_size);
         self.total_byte_size += byte_size;
         Ok(())
+    }
+
+    pub fn has_member(&self, member_name: &str) -> bool {
+        self.member_types.contains_key(member_name)
+    }
+
+    pub fn get_member_type(&self, member_name: &str) -> Result<Box<IrType>, MiddleEndError> {
+        match self.member_types.get(member_name) {
+            None => Err(MiddleEndError::StructMemberNotFound(format!(
+                "{}.{}",
+                self.name.to_owned().unwrap_or("".to_owned()),
+                member_name
+            ))),
+            Some(t) => Ok(t.to_owned()),
+        }
+    }
+
+    pub fn get_member_byte_offset(&self, member_name: &str) -> Result<u64, MiddleEndError> {
+        match self.member_byte_offsets.get(member_name) {
+            None => Err(MiddleEndError::StructMemberNotFound(format!(
+                "{}.{}",
+                self.name.to_owned().unwrap_or("".to_owned()),
+                member_name
+            ))),
+            Some(offset) => Ok(offset.to_owned()),
+        }
     }
 }
 

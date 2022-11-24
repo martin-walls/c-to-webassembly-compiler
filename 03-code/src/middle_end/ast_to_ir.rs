@@ -340,10 +340,13 @@ fn convert_statement_to_ir(
                                             let (mut expr_instrs, expr_var) =
                                                 convert_expression_to_ir(e, prog, context)?;
                                             instrs.append(&mut expr_instrs);
+                                            // todo convert var type if necessary
                                             match expr_var {
                                                 Src::Var(var) => var,
                                                 Src::Constant(c) => {
                                                     let v = prog.new_var();
+                                                    let constant_type = c.get_type();
+                                                    // todo check if constant type is compatible with declared variable type
                                                     prog.add_var_type(v.to_owned(), c.get_type())?;
                                                     instrs.push(Instruction::SimpleAssignment(
                                                         v.to_owned(),
@@ -541,11 +544,86 @@ fn convert_expression_to_ir(
             instrs.push(Instruction::Call(dest.to_owned(), fun_var, param_srcs));
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::DirectMemberSelection(_, _) => {
-            todo!()
+        Expression::DirectMemberSelection(obj, Identifier(member_name)) => {
+            let (mut obj_instrs, obj_var) = convert_expression_to_ir(obj, prog, context)?;
+            instrs.append(&mut obj_instrs);
+            let obj_var_type = obj_var.get_type(prog)?;
+            obj_var_type.require_struct_or_union_type()?;
+
+            // obj_ptr = &obj_var
+            let obj_ptr = prog.new_var();
+            prog.add_var_type(
+                obj_ptr.to_owned(),
+                Box::new(IrType::PointerTo(obj_var_type.to_owned())),
+            )?;
+            instrs.push(Instruction::AddressOf(obj_ptr.to_owned(), obj_var));
+
+            match *obj_var_type {
+                IrType::Struct(struct_id) => {
+                    let struct_type = prog.get_struct_type(&struct_id)?;
+                    let member_type = struct_type.get_member_type(&member_name)?;
+                    let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
+
+                    let ptr = prog.new_var();
+                    prog.add_var_type(
+                        ptr.to_owned(),
+                        Box::new(IrType::PointerTo(member_type.to_owned())),
+                    )?;
+                    // ptr = obj_ptr + (byte offset)
+                    instrs.push(Instruction::Add(
+                        ptr.to_owned(),
+                        Src::Var(obj_ptr),
+                        Src::Constant(Constant::Int(member_byte_offset as i128)),
+                    ));
+
+                    let dest = prog.new_var();
+                    prog.add_var_type(dest.to_owned(), member_type)?;
+                    // dest = *ptr
+                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
+                    Ok((instrs, Src::Var(dest)))
+                }
+                IrType::Union(union_id) => {
+                    todo!()
+                }
+                _ => unreachable!(),
+            }
         }
-        Expression::IndirectMemberSelection(_, _) => {
-            todo!()
+        Expression::IndirectMemberSelection(obj, Identifier(member_name)) => {
+            let (mut obj_instrs, obj_var) = convert_expression_to_ir(obj, prog, context)?;
+            instrs.append(&mut obj_instrs);
+            let obj_var_type = obj_var.get_type(prog)?;
+            obj_var_type.require_pointer_type()?;
+            let inner_type = obj_var_type.dereference_pointer_type()?;
+            inner_type.require_struct_or_union_type()?;
+            match *inner_type {
+                IrType::Struct(struct_id) => {
+                    let struct_type = prog.get_struct_type(&struct_id)?;
+                    let member_type = struct_type.get_member_type(&member_name)?;
+                    let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
+
+                    let ptr = prog.new_var();
+                    prog.add_var_type(
+                        ptr.to_owned(),
+                        Box::new(IrType::PointerTo(member_type.to_owned())),
+                    )?;
+                    // ptr = (address of struct) + (byte offset)
+                    instrs.push(Instruction::Add(
+                        ptr.to_owned(),
+                        obj_var,
+                        Src::Constant(Constant::Int(member_byte_offset as i128)),
+                    ));
+
+                    let dest = prog.new_var();
+                    prog.add_var_type(dest.to_owned(), member_type)?;
+                    // dest = *ptr
+                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
+                    Ok((instrs, Src::Var(dest)))
+                }
+                IrType::Union(union_id) => {
+                    todo!()
+                }
+                _ => unreachable!(),
+            }
         }
         Expression::PostfixIncrement(expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
@@ -1425,3 +1503,16 @@ fn binary_convert(
 
     unreachable!("No other possible combinations of types left");
 }
+
+// fn fit_to_type(
+//     src: Src,
+//     dest_type: Box<IrType>,
+//     prog: &mut Box<Program>,
+// ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
+//     let src_type = src.get_type(prog)?;
+//     let instrs = Vec::new();
+//     if src_type == dest_type {
+//         return Ok((instrs, src));
+//     }
+//     // let convert_instr = Instruction::get_conversion_instr(src, src_type, )
+// }
