@@ -39,9 +39,7 @@ impl IrType {
             IrType::F32 => 4,
             IrType::F64 => 8,
             IrType::Struct(struct_id) => prog.get_struct_type(struct_id).unwrap().total_byte_size,
-            IrType::Union(union_id) => {
-                todo!("get union from prog")
-            }
+            IrType::Union(union_id) => prog.get_union_type(union_id).unwrap().total_byte_size,
             IrType::Void => 0,
             IrType::PointerTo(_) => POINTER_SIZE,
             IrType::ArrayOf(t, count) => t.get_byte_size(prog) * count,

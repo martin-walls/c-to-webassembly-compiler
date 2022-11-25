@@ -1,4 +1,3 @@
-use crate::middle_end::middle_end_error::MiddleEndError;
 use std::fmt;
 use std::fmt::Formatter;
 

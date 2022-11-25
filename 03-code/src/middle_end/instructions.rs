@@ -47,6 +47,7 @@ pub type Dest = VarId;
 #[derive(Debug, Clone)]
 pub enum Src {
     Var(VarId),
+    StoreAddressVar(VarId),
     Constant(Constant),
     Fun(FunId),
 }
@@ -54,7 +55,7 @@ pub enum Src {
 impl Src {
     pub fn get_type(&self, prog: &Box<Program>) -> Result<Box<IrType>, MiddleEndError> {
         match self {
-            Src::Var(var) => prog.get_var_type(var),
+            Src::Var(var) | Src::StoreAddressVar(var) => prog.get_var_type(var),
             Src::Constant(c) => Ok(c.get_type()),
             Src::Fun(fun_id) => prog.get_fun_type(fun_id),
         }
@@ -62,7 +63,7 @@ impl Src {
 
     pub fn get_value_type(&self) -> ValueType {
         match self {
-            Src::Var(var) => var.get_value_type(),
+            Src::Var(var) | Src::StoreAddressVar(var) => var.get_value_type(),
             Src::Constant(c) => ValueType::RValue,
             Src::Fun(_) => ValueType::RValue,
         }
@@ -72,7 +73,7 @@ impl Src {
 impl fmt::Display for Src {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Src::Var(var) => {
+            Src::Var(var) | Src::StoreAddressVar(var) => {
                 write!(f, "{}", var)
             }
             Src::Constant(c) => {
@@ -89,10 +90,14 @@ impl fmt::Display for Src {
 pub enum Instruction {
     // t = a
     SimpleAssignment(Dest, Src),
+
+    LoadFromAddress(Dest, Src),
+    // addr <- x
+    StoreToAddress(Dest, Src),
+
     // Unary operations
     // t = <op> a
     AddressOf(Dest, Src),
-    Dereference(Dest, Src),
     BitwiseNot(Dest, Src),
     LogicalNot(Dest, Src),
     // Binary operations
@@ -177,14 +182,13 @@ impl Instruction {
     pub fn get_conversion_instrs(
         src: Src,
         src_type: Box<IrType>,
-        dest: Dest,
         dest_type: Box<IrType>,
         prog: &mut Box<Program>,
-    ) -> Result<Vec<Self>, MiddleEndError> {
+    ) -> Result<(Vec<Self>, Src), MiddleEndError> {
         println!("convert {} to {}", src_type, dest_type);
         let mut instrs = Vec::new();
         if src_type == dest_type {
-            return Ok(instrs);
+            return Ok((instrs, src));
         }
         match (*src_type, *dest_type) {
             // char promotions
@@ -199,14 +203,18 @@ impl Instruction {
                     instrs.push(Instruction::I8toU16(intermediate_var.to_owned(), src));
                     intermediate_type = IrType::U16;
                 }
-                let mut convert_instrs = Self::get_conversion_instrs(
+                prog.add_var_type(
+                    intermediate_var.to_owned(),
+                    Box::new(intermediate_type.to_owned()),
+                )?;
+                let (mut convert_instrs, dest) = Self::get_conversion_instrs(
                     Src::Var(intermediate_var),
                     Box::new(intermediate_type),
-                    dest,
                     Box::new(dest_type),
                     prog,
                 )?;
                 instrs.append(&mut convert_instrs);
+                Ok((instrs, dest))
             }
             (IrType::U8, dest_type) => {
                 let intermediate_var = prog.new_var(src.get_value_type());
@@ -219,14 +227,18 @@ impl Instruction {
                     instrs.push(Instruction::U8toU16(intermediate_var.to_owned(), src));
                     intermediate_type = IrType::U16;
                 }
-                let mut convert_instrs = Self::get_conversion_instrs(
+                prog.add_var_type(
+                    intermediate_var.to_owned(),
+                    Box::new(intermediate_type.to_owned()),
+                )?;
+                let (mut convert_instrs, dest) = Self::get_conversion_instrs(
                     Src::Var(intermediate_var),
                     Box::new(intermediate_type),
-                    dest,
                     Box::new(dest_type),
                     prog,
                 )?;
                 instrs.append(&mut convert_instrs);
+                Ok((instrs, dest))
             }
             (IrType::I16, dest_type) => {
                 let intermediate_var = prog.new_var(src.get_value_type());
@@ -239,14 +251,18 @@ impl Instruction {
                     instrs.push(Instruction::I16toU32(intermediate_var.to_owned(), src));
                     intermediate_type = IrType::U32;
                 }
-                let mut convert_instrs = Self::get_conversion_instrs(
+                prog.add_var_type(
+                    intermediate_var.to_owned(),
+                    Box::new(intermediate_type.to_owned()),
+                )?;
+                let (mut convert_instrs, dest) = Self::get_conversion_instrs(
                     Src::Var(intermediate_var),
                     Box::new(intermediate_type),
-                    dest,
                     Box::new(dest_type),
                     prog,
                 )?;
                 instrs.append(&mut convert_instrs);
+                Ok((instrs, dest))
             }
             (IrType::U16, dest_type) => {
                 let intermediate_var = prog.new_var(src.get_value_type());
@@ -259,70 +275,120 @@ impl Instruction {
                     instrs.push(Instruction::U16toU32(intermediate_var.to_owned(), src));
                     intermediate_type = IrType::U32;
                 }
-                let mut convert_instrs = Self::get_conversion_instrs(
+                prog.add_var_type(
+                    intermediate_var.to_owned(),
+                    Box::new(intermediate_type.to_owned()),
+                )?;
+                let (mut convert_instrs, dest) = Self::get_conversion_instrs(
                     Src::Var(intermediate_var),
                     Box::new(intermediate_type),
-                    dest,
                     Box::new(dest_type),
                     prog,
                 )?;
                 instrs.append(&mut convert_instrs);
+                Ok((instrs, dest))
             }
             (IrType::I32, IrType::U32) => {
-                instrs.push(Instruction::I32toU32(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::U32))?;
+                instrs.push(Instruction::I32toU32(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I32, IrType::I64) => {
-                instrs.push(Instruction::I32toI64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
+                instrs.push(Instruction::I32toI64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I32, IrType::U64) => {
-                instrs.push(Instruction::I32toU64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
+                instrs.push(Instruction::I32toU64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I32, IrType::F32) => {
-                instrs.push(Instruction::I32toF32(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
+                instrs.push(Instruction::I32toF32(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I32, IrType::F64) => {
-                instrs.push(Instruction::I32toF64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
+                instrs.push(Instruction::I32toF64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
 
             (IrType::U32, IrType::I64) => {
-                instrs.push(Instruction::U32toI64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
+                instrs.push(Instruction::U32toI64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::U32, IrType::U64) => {
-                instrs.push(Instruction::U32toU64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
+                instrs.push(Instruction::U32toU64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::U32, IrType::F32) => {
-                instrs.push(Instruction::U32toF32(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
+                instrs.push(Instruction::U32toF32(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::U32, IrType::F64) => {
-                instrs.push(Instruction::U32toF64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
+                instrs.push(Instruction::U32toF64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
 
             (IrType::I64, IrType::U64) => {
-                instrs.push(Instruction::I64toU64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
+                instrs.push(Instruction::I64toU64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I64, IrType::F32) => {
-                instrs.push(Instruction::I64toF32(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
+                instrs.push(Instruction::I64toF32(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::I64, IrType::F64) => {
-                instrs.push(Instruction::I64toF64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
+                instrs.push(Instruction::I64toF64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
 
             (IrType::U64, IrType::F32) => {
-                instrs.push(Instruction::U64toF32(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
+                instrs.push(Instruction::U64toF32(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (IrType::U64, IrType::F64) => {
-                instrs.push(Instruction::U64toF64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
+                instrs.push(Instruction::U64toF64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
 
             (IrType::F32, IrType::F64) => {
-                instrs.push(Instruction::F32toF64(dest, src));
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
+                instrs.push(Instruction::F32toF64(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
 
-            (IrType::Function(_, _), IrType::PointerTo(_)) => {
-                instrs.push(Instruction::AddressOf(dest, src))
-            }
-            (IrType::ArrayOf(_, _), IrType::PointerTo(_)) => {
-                instrs.push(Instruction::AddressOf(dest, src))
+            (IrType::Function(_, _), IrType::PointerTo(t))
+            | (IrType::ArrayOf(_, _), IrType::PointerTo(t)) => {
+                let dest = prog.new_var(src.get_value_type());
+                prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t)))?;
+                instrs.push(Instruction::AddressOf(dest.to_owned(), src));
+                Ok((instrs, Src::Var(dest)))
             }
             (s, d) => {
                 return Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
@@ -332,7 +398,6 @@ impl Instruction {
                 )))
             } // todo rest of types
         }
-        Ok(instrs)
     }
 }
 
@@ -345,8 +410,11 @@ impl fmt::Display for Instruction {
             Instruction::AddressOf(dest, src) => {
                 write!(f, "{} = &{}", dest, src)
             }
-            Instruction::Dereference(dest, src) => {
+            Instruction::LoadFromAddress(dest, src) => {
                 write!(f, "{} = *{}", dest, src)
+            }
+            Instruction::StoreToAddress(dest, src) => {
+                write!(f, "*{} <- {}", dest, src)
             }
             Instruction::BitwiseNot(dest, src) => {
                 write!(f, "{} = ~{}", dest, src)

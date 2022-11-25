@@ -10,6 +10,7 @@ pub struct Context {
     scope_stack: Vec<Scope>,
     pub in_function_name_expr: bool,
     function_names: HashMap<String, FunId>,
+    pub directly_on_lhs_of_assignment: bool,
 }
 
 impl Context {
@@ -19,6 +20,7 @@ impl Context {
             scope_stack: vec![Scope::new()], // start with a global scope
             in_function_name_expr: false,
             function_names: HashMap::new(),
+            directly_on_lhs_of_assignment: false,
         }
     }
 

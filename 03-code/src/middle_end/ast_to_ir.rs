@@ -244,7 +244,7 @@ fn convert_statement_to_ir(
                     ));
                     temp
                 }
-                Src::Fun(_) => unreachable!(),
+                Src::Fun(_) | Src::StoreAddressVar(_) => unreachable!(),
             };
             context.push_switch(SwitchContext::new(switch_end_label.to_owned(), switch_var));
             // switch body
@@ -355,7 +355,7 @@ fn convert_statement_to_ir(
                                                     // Src::Var(v)
                                                     Src::Constant(c)
                                                 }
-                                                Src::Fun(_) => return Err(
+                                                Src::Fun(_) | Src::StoreAddressVar(_) => return Err(
                                                     MiddleEndError::InvalidInitialiserExpression,
                                                 ),
                                             }
@@ -367,6 +367,15 @@ fn convert_statement_to_ir(
                                 // convert src to dest type
                                 let src_type = src.get_type(prog)?;
                                 if src_type != type_info {
+                                    if let Src::Constant(c) = &src {
+                                        let temp = prog.new_var(ValueType::RValue);
+                                        prog.add_var_type(temp.to_owned(), c.get_type())?;
+                                        instrs.push(Instruction::SimpleAssignment(
+                                            temp.to_owned(),
+                                            src,
+                                        ));
+                                        src = Src::Var(temp);
+                                    }
                                     let (mut convert_instrs, converted_var) =
                                         convert_type_for_assignment(
                                             src.to_owned(),
@@ -375,7 +384,7 @@ fn convert_statement_to_ir(
                                             prog,
                                         )?;
                                     instrs.append(&mut convert_instrs);
-                                    src = Src::Var(converted_var);
+                                    src = converted_var;
                                 }
 
                                 let dest = prog.new_var(ValueType::ModifiableLValue);
@@ -465,6 +474,9 @@ fn convert_expression_to_ir(
     context: &mut Box<Context>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
     let mut instrs: Vec<Instruction> = Vec::new();
+    // this flag should only ever persist one level deep
+    let this_expr_directly_on_lhs_of_assignment = context.directly_on_lhs_of_assignment;
+    context.directly_on_lhs_of_assignment = false;
     match *src_expr {
         Expression::Identifier(Identifier(name)) => {
             if context.in_function_name_expr {
@@ -519,7 +531,7 @@ fn convert_expression_to_ir(
                 // always true because we already asserted arr_var_type is a pointer type
                 prog.add_var_type(dest.to_owned(), inner_type)?;
             }
-            instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
+            instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::FunctionCall(fun, params) => {
@@ -597,7 +609,7 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *ptr
-                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
+                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
                     Ok((instrs, Src::Var(dest)))
                 }
                 IrType::Union(union_id) => {
@@ -607,7 +619,10 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *obj_ptr
-                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(obj_ptr)));
+                    instrs.push(Instruction::LoadFromAddress(
+                        dest.to_owned(),
+                        Src::Var(obj_ptr),
+                    ));
                     Ok((instrs, Src::Var(dest)))
                 }
                 _ => unreachable!(),
@@ -641,7 +656,7 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *ptr
-                    instrs.push(Instruction::Dereference(dest.to_owned(), Src::Var(ptr)));
+                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
                     Ok((instrs, Src::Var(dest)))
                 }
                 IrType::Union(union_id) => {
@@ -651,7 +666,7 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(dest.to_owned(), member_type)?;
                     // dest = *obj_ptr
-                    instrs.push(Instruction::Dereference(dest.to_owned(), obj_var));
+                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), obj_var));
                     Ok((instrs, Src::Var(dest)))
                 }
                 _ => unreachable!(),
@@ -803,21 +818,38 @@ fn convert_expression_to_ir(
                     Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::Dereference => {
-                    let dest = prog.new_var(ValueType::ModifiableLValue);
-                    instrs.push(Instruction::Dereference(dest.to_owned(), expr_var));
-                    // check whether the var is allowed to be dereferenced;
-                    // if so, store the type of dest
-                    match *expr_var_type {
-                        IrType::PointerTo(inner_type) => {
-                            prog.add_var_type(dest.to_owned(), inner_type)?;
+                    if this_expr_directly_on_lhs_of_assignment {
+                        // store to memory address
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        match *expr_var_type {
+                            IrType::PointerTo(_) => {
+                                prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                            }
+                            _ => {
+                                return Err(MiddleEndError::TypeError(
+                                    TypeError::DereferenceNonPointerType(expr_var_type),
+                                ))
+                            }
                         }
-                        _ => {
-                            return Err(MiddleEndError::TypeError(
-                                TypeError::DereferenceNonPointerType(expr_var_type),
-                            ))
+                        Ok((instrs, Src::StoreAddressVar(dest)))
+                    } else {
+                        // dereference load from memory address
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
+                        // check whether the var is allowed to be dereferenced;
+                        // if so, store the type of dest
+                        match *expr_var_type {
+                            IrType::PointerTo(inner_type) => {
+                                prog.add_var_type(dest.to_owned(), inner_type)?;
+                            }
+                            _ => {
+                                return Err(MiddleEndError::TypeError(
+                                    TypeError::DereferenceNonPointerType(expr_var_type),
+                                ))
+                            }
                         }
+                        Ok((instrs, Src::Var(dest)))
                     }
-                    Ok((instrs, Src::Var(dest)))
                 }
                 UnaryOperator::Plus => {
                     let dest = prog.new_var(ValueType::RValue);
@@ -1242,44 +1274,59 @@ fn convert_expression_to_ir(
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Assignment(dest_expr, src_expr, op) => {
-            // todo can dest_expr be anything other than an identifier?
-            //      pointers and array access i guess
             let (mut src_expr_instrs, mut src_var) =
                 convert_expression_to_ir(src_expr, prog, context)?;
             instrs.append(&mut src_expr_instrs);
             let src_var_type = src_var.get_type(prog)?;
 
+            context.directly_on_lhs_of_assignment = true;
             let (mut dest_expr_instrs, dest_var) =
                 convert_expression_to_ir(dest_expr, prog, context)?;
+            context.directly_on_lhs_of_assignment = false;
             instrs.append(&mut dest_expr_instrs);
-            let dest_var_type = dest_var.get_type(prog)?;
 
             // check that we're assigning to an lvalue
             if !dest_var.get_value_type().is_modifiable_lvalue() {
                 return Err(MiddleEndError::AttemptToModifyNonLValue);
             }
 
+            let mut dest_var_type = dest_var.get_type(prog)?;
+            match dest_var {
+                Src::Var(_) => {}
+                Src::StoreAddressVar(_) => {
+                    dest_var_type = dest_var_type.dereference_pointer_type()?
+                }
+                Src::Constant(_) | Src::Fun(_) => return Err(MiddleEndError::InvalidAssignment),
+            }
+
             if src_var_type != dest_var_type {
                 let (mut convert_instrs, converted_var) =
                     convert_type_for_assignment(src_var, src_var_type, dest_var_type, prog)?;
                 instrs.append(&mut convert_instrs);
-                src_var = Src::Var(converted_var);
+                src_var = converted_var;
                 //todo other options of possible type combinations
             }
 
-            let dest = match dest_var {
-                Src::Var(var) => var,
+            let (dest, is_store_to_address) = match dest_var {
+                Src::Var(var) => (var, false),
+                Src::StoreAddressVar(var) => (var, true),
                 Src::Constant(_) | Src::Fun(_) => return Err(MiddleEndError::InvalidAssignment),
             };
 
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src_var));
+            // either store to the memory address given by the pointer dest,
+            // or store into the local var dest
+            if is_store_to_address {
+                instrs.push(Instruction::StoreToAddress(dest.to_owned(), src_var));
+            } else {
+                instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src_var));
+            }
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Cast(_, _) => {
-            todo!()
+            todo!("cast expressions")
         }
         Expression::ExpressionList(_, _) => {
-            todo!()
+            todo!("expression lists")
         }
     }
 }
@@ -1390,16 +1437,16 @@ fn get_type_info(
             is_typedef = true;
         }
         Some(StorageClassSpecifier::Auto) => {
-            todo!()
+            todo!("storage class specifiers")
         }
         Some(StorageClassSpecifier::Extern) => {
-            todo!()
+            todo!("storage class specifiers")
         }
         Some(StorageClassSpecifier::Register) => {
-            todo!()
+            todo!("storage class specifiers")
         }
         Some(StorageClassSpecifier::Static) => {
-            todo!()
+            todo!("storage class specifiers")
         }
     }
 
@@ -1483,16 +1530,13 @@ fn unary_convert(
     let src_type = src.get_type(prog)?;
     let unary_converted_type = src_type.unary_convert();
     if src_type != unary_converted_type {
-        let converted_var = prog.new_var(src.get_value_type());
-        let instrs = Instruction::get_conversion_instrs(
+        let (instrs, converted_var) = Instruction::get_conversion_instrs(
             src,
             src_type,
-            converted_var.to_owned(),
             unary_converted_type.to_owned(),
             prog,
         )?;
-        prog.add_var_type(converted_var.to_owned(), unary_converted_type)?;
-        return Ok((instrs, Src::Var(converted_var)));
+        return Ok((instrs, converted_var));
     }
     Ok((Vec::new(), src))
 }
@@ -1639,35 +1683,15 @@ fn binary_convert(
     unreachable!("No other possible combinations of types left");
 }
 
-// fn fit_to_type(
-//     src: Src,
-//     dest_type: Box<IrType>,
-//     prog: &mut Box<Program>,
-// ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
-//     let src_type = src.get_type(prog)?;
-//     let instrs = Vec::new();
-//     if src_type == dest_type {
-//         return Ok((instrs, src));
-//     }
-//     // let convert_instr = Instruction::get_conversion_instr(src, src_type, )
-// }
-
 fn convert_type_for_assignment(
     src: Src,
     src_type: Box<IrType>,
     dest_type: Box<IrType>,
     prog: &mut Box<Program>,
-) -> Result<(Vec<Instruction>, Dest), MiddleEndError> {
+) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
     if src_type.is_arithmetic_type() && dest_type.is_arithmetic_type() {
-        let converted_var = prog.new_var(src.get_value_type());
-        prog.add_var_type(converted_var.to_owned(), dest_type.to_owned())?;
-        let convert_instrs = Instruction::get_conversion_instrs(
-            src,
-            src_type,
-            converted_var.to_owned(),
-            dest_type,
-            prog,
-        )?;
+        let (convert_instrs, converted_var) =
+            Instruction::get_conversion_instrs(src, src_type, dest_type, prog)?;
         return Ok((convert_instrs, converted_var));
     }
     todo!("other options of possible type combinations")

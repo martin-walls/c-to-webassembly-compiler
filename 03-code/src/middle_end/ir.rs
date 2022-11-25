@@ -139,7 +139,6 @@ impl Program {
             max_var: None,
             string_literals: HashMap::new(),
             max_string_literal_id: None,
-            // declarations: HashMap::new(), todo remove
             var_types: HashMap::new(),
             structs: HashMap::new(),
             max_struct_id: None,
