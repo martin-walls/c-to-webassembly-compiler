@@ -1,8 +1,8 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::{Context, LoopContext, SwitchContext};
 use crate::middle_end::ids::{ValueType, VarId};
+use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
-use crate::middle_end::instructions::{Dest, Instruction};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
@@ -1270,7 +1270,7 @@ fn convert_expression_to_ir(
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), false_var));
             instrs.push(Instruction::Label(end_label));
-            //todo binary conversion, dest var type
+            todo!("ternary: binary conversion, dest var type");
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Assignment(dest_expr, src_expr, op) => {
@@ -1313,6 +1313,7 @@ fn convert_expression_to_ir(
                 Src::Constant(_) | Src::Fun(_) => return Err(MiddleEndError::InvalidAssignment),
             };
 
+            todo!("assignment: optional binary operator");
             // either store to the memory address given by the pointer dest,
             // or store into the local var dest
             if is_store_to_address {
@@ -1721,7 +1722,7 @@ fn get_type_conversion_instrs(
         // char promotions
         (IrType::I8, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
-            let mut intermediate_type;
+            let intermediate_type;
             if dest_type.is_signed_integral() {
                 instrs.push(Instruction::I8toI16(intermediate_var.to_owned(), src));
                 intermediate_type = IrType::I16;
@@ -1745,7 +1746,7 @@ fn get_type_conversion_instrs(
         }
         (IrType::U8, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
-            let mut intermediate_type;
+            let intermediate_type;
             if dest_type.is_signed_integral() {
                 instrs.push(Instruction::U8toI16(intermediate_var.to_owned(), src));
                 intermediate_type = IrType::I16;
@@ -1769,7 +1770,7 @@ fn get_type_conversion_instrs(
         }
         (IrType::I16, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
-            let mut intermediate_type;
+            let intermediate_type;
             if dest_type.is_signed_integral() {
                 instrs.push(Instruction::I16toI32(intermediate_var.to_owned(), src));
                 intermediate_type = IrType::I32;
@@ -1793,7 +1794,7 @@ fn get_type_conversion_instrs(
         }
         (IrType::U16, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
-            let mut intermediate_type;
+            let intermediate_type;
             if dest_type.is_signed_integral() {
                 instrs.push(Instruction::U16toI32(intermediate_var.to_owned(), src));
                 intermediate_type = IrType::I32;

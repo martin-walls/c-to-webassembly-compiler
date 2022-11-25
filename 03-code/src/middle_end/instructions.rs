@@ -1,7 +1,7 @@
 use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
-use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
+use crate::middle_end::middle_end_error::MiddleEndError;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -64,7 +64,7 @@ impl Src {
     pub fn get_value_type(&self) -> ValueType {
         match self {
             Src::Var(var) | Src::StoreAddressVar(var) => var.get_value_type(),
-            Src::Constant(c) => ValueType::RValue,
+            Src::Constant(_) => ValueType::RValue,
             Src::Fun(_) => ValueType::RValue,
         }
     }
