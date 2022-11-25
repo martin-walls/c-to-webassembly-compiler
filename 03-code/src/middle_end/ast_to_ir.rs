@@ -1322,8 +1322,21 @@ fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::Cast(_, _) => {
-            todo!("cast expressions")
+        Expression::Cast(cast_type_decl, expr) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            // get type to cast into
+            let (cast_type, _, _) =
+                match get_type_info(&cast_type_decl.0, cast_type_decl.1, prog, context)? {
+                    None => return Err(MiddleEndError::InvalidTypedefDeclaration),
+                    Some(x) => x,
+                };
+            // get conversion instrs into cast type
+            let expr_var_type = expr_var.get_type(prog)?;
+            let (mut cast_instrs, dest) =
+                Instruction::get_conversion_instrs(expr_var, expr_var_type, cast_type, prog)?;
+            instrs.append(&mut cast_instrs);
+            Ok((instrs, dest))
         }
         Expression::ExpressionList(_, _) => {
             todo!("expression lists")
