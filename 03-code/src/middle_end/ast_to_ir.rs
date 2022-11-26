@@ -1251,26 +1251,46 @@ fn convert_expression_to_ir(
             let (mut true_instrs, true_var) = convert_expression_to_ir(true_expr, prog, context)?;
             instrs.append(&mut true_instrs);
             // unary convert result of the expression
-            let (mut unary_convert_true_instrs, true_var) = unary_convert(true_var, prog)?;
+            let (mut unary_convert_true_instrs, mut true_var) = unary_convert(true_var, prog)?;
             instrs.append(&mut unary_convert_true_instrs);
             let true_var_type = true_var.get_type(prog)?;
+
+            // convert the false expr already, so we can do type checking and conversion, but don't insert
+            // the instructions just yet
+            let (mut false_instrs, false_var) =
+                convert_expression_to_ir(false_expr, prog, context)?;
+            // unary convert result of the expression
+            let (mut unary_convert_false_instrs, mut false_var) = unary_convert(false_var, prog)?;
+            let false_var_type = false_var.get_type(prog)?;
+
+            let mut false_binary_convert_instrs = Vec::new();
+            if true_var_type != false_var_type {
+                let (
+                    mut true_binary_convert_instrs,
+                    false_convert_instrs,
+                    converted_true_var,
+                    converted_false_var,
+                ) = binary_convert_separately(true_var, false_var, prog)?;
+                true_var = converted_true_var;
+                false_var = converted_false_var;
+                false_binary_convert_instrs = false_convert_instrs;
+                instrs.append(&mut true_binary_convert_instrs);
+            }
+            prog.add_var_type(dest.to_owned(), true_var.get_type(prog)?)?;
+
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), true_var));
             // jump over the false instructions
             instrs.push(Instruction::Br(end_label.to_owned()));
             // false instructions
             instrs.push(Instruction::Label(false_label));
-            // unary convert result of the expression
-            let (mut false_instrs, false_var) =
-                convert_expression_to_ir(false_expr, prog, context)?;
             instrs.append(&mut false_instrs);
-            let (mut unary_convert_false_instrs, false_var) = unary_convert(false_var, prog)?;
             instrs.append(&mut unary_convert_false_instrs);
-            let false_var_type = false_var.get_type(prog)?;
+            instrs.append(&mut false_binary_convert_instrs);
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), false_var));
             instrs.push(Instruction::Label(end_label));
-            todo!("ternary: binary conversion, dest var type");
+
             Ok((instrs, Src::Var(dest)))
         }
         Expression::Assignment(dest_expr, src_expr, op) => {
@@ -1556,138 +1576,210 @@ fn binary_convert(
     right: Src,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src, Src), MiddleEndError> {
-    let mut instrs = Vec::new();
+    let (mut left_convert_instrs, mut right_convert_instrs, left_result, right_result) =
+        binary_convert_separately(left, right, prog)?;
+    left_convert_instrs.append(&mut right_convert_instrs);
+    Ok((left_convert_instrs, left_result, right_result))
+}
+
+fn binary_convert_separately(
+    left: Src,
+    right: Src,
+    prog: &mut Box<Program>,
+) -> Result<(Vec<Instruction>, Vec<Instruction>, Src, Src), MiddleEndError> {
+    let mut left_instrs = Vec::new();
+    let mut right_instrs = Vec::new();
     let (mut left_unary_convert_instrs, unary_left) = unary_convert(left, prog)?;
-    instrs.append(&mut left_unary_convert_instrs);
+    left_instrs.append(&mut left_unary_convert_instrs);
     let (mut right_unary_convert_instrs, unary_right) = unary_convert(right, prog)?;
-    instrs.append(&mut right_unary_convert_instrs);
+    right_instrs.append(&mut right_unary_convert_instrs);
     let left_type = unary_left.get_type(prog)?;
     let right_type = unary_right.get_type(prog)?;
     if left_type == right_type
         || !left_type.is_arithmetic_type()
         || !right_type.is_arithmetic_type()
     {
-        return Ok((instrs, unary_left, unary_right));
+        return Ok((left_instrs, right_instrs, unary_left, unary_right));
     }
 
     // if one operand is a double
     if *left_type == IrType::F64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => instrs.push(Instruction::I32toF64(right_dest.to_owned(), unary_right)),
-            IrType::U32 => instrs.push(Instruction::U32toF64(right_dest.to_owned(), unary_right)),
-            IrType::I64 => instrs.push(Instruction::I64toF64(right_dest.to_owned(), unary_right)),
-            IrType::U64 => instrs.push(Instruction::U64toF64(right_dest.to_owned(), unary_right)),
-            IrType::F32 => instrs.push(Instruction::F32toF64(right_dest.to_owned(), unary_right)),
+            IrType::I32 => {
+                right_instrs.push(Instruction::I32toF64(right_dest.to_owned(), unary_right))
+            }
+            IrType::U32 => {
+                right_instrs.push(Instruction::U32toF64(right_dest.to_owned(), unary_right))
+            }
+            IrType::I64 => {
+                right_instrs.push(Instruction::I64toF64(right_dest.to_owned(), unary_right))
+            }
+            IrType::U64 => {
+                right_instrs.push(Instruction::U64toF64(right_dest.to_owned(), unary_right))
+            }
+            IrType::F32 => {
+                right_instrs.push(Instruction::F32toF64(right_dest.to_owned(), unary_right))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F64))?;
-        return Ok((instrs, unary_left, Src::Var(right_dest)));
+        return Ok((left_instrs, right_instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::F64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => instrs.push(Instruction::I32toF64(left_dest.to_owned(), unary_left)),
-            IrType::U32 => instrs.push(Instruction::U32toF64(left_dest.to_owned(), unary_left)),
-            IrType::I64 => instrs.push(Instruction::I64toF64(left_dest.to_owned(), unary_left)),
-            IrType::U64 => instrs.push(Instruction::U64toF64(left_dest.to_owned(), unary_left)),
-            IrType::F32 => instrs.push(Instruction::F32toF64(left_dest.to_owned(), unary_left)),
+            IrType::I32 => {
+                left_instrs.push(Instruction::I32toF64(left_dest.to_owned(), unary_left))
+            }
+            IrType::U32 => {
+                left_instrs.push(Instruction::U32toF64(left_dest.to_owned(), unary_left))
+            }
+            IrType::I64 => {
+                left_instrs.push(Instruction::I64toF64(left_dest.to_owned(), unary_left))
+            }
+            IrType::U64 => {
+                left_instrs.push(Instruction::U64toF64(left_dest.to_owned(), unary_left))
+            }
+            IrType::F32 => {
+                left_instrs.push(Instruction::F32toF64(left_dest.to_owned(), unary_left))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F64))?;
-        return Ok((instrs, Src::Var(left_dest), unary_right));
+        return Ok((left_instrs, right_instrs, Src::Var(left_dest), unary_right));
     }
 
     // if one operand is a float
     if *left_type == IrType::F32 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => instrs.push(Instruction::I32toF32(right_dest.to_owned(), unary_right)),
-            IrType::U32 => instrs.push(Instruction::U32toF32(right_dest.to_owned(), unary_right)),
-            IrType::I64 => instrs.push(Instruction::I64toF32(right_dest.to_owned(), unary_right)),
-            IrType::U64 => instrs.push(Instruction::U64toF32(right_dest.to_owned(), unary_right)),
+            IrType::I32 => {
+                right_instrs.push(Instruction::I32toF32(right_dest.to_owned(), unary_right))
+            }
+            IrType::U32 => {
+                right_instrs.push(Instruction::U32toF32(right_dest.to_owned(), unary_right))
+            }
+            IrType::I64 => {
+                right_instrs.push(Instruction::I64toF32(right_dest.to_owned(), unary_right))
+            }
+            IrType::U64 => {
+                right_instrs.push(Instruction::U64toF32(right_dest.to_owned(), unary_right))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F32))?;
-        return Ok((instrs, unary_left, Src::Var(right_dest)));
+        return Ok((left_instrs, right_instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::F32 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => instrs.push(Instruction::I32toF32(left_dest.to_owned(), unary_left)),
-            IrType::U32 => instrs.push(Instruction::U32toF32(left_dest.to_owned(), unary_left)),
-            IrType::I64 => instrs.push(Instruction::I64toF32(left_dest.to_owned(), unary_left)),
-            IrType::U64 => instrs.push(Instruction::U64toF32(left_dest.to_owned(), unary_left)),
+            IrType::I32 => {
+                left_instrs.push(Instruction::I32toF32(left_dest.to_owned(), unary_left))
+            }
+            IrType::U32 => {
+                left_instrs.push(Instruction::U32toF32(left_dest.to_owned(), unary_left))
+            }
+            IrType::I64 => {
+                left_instrs.push(Instruction::I64toF32(left_dest.to_owned(), unary_left))
+            }
+            IrType::U64 => {
+                left_instrs.push(Instruction::U64toF32(left_dest.to_owned(), unary_left))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F32))?;
-        return Ok((instrs, Src::Var(left_dest), unary_right));
+        return Ok((left_instrs, right_instrs, Src::Var(left_dest), unary_right));
     }
 
     // if one operand is an unsigned long
     if *left_type == IrType::U64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => instrs.push(Instruction::I32toU64(right_dest.to_owned(), unary_right)),
-            IrType::U32 => instrs.push(Instruction::U32toU64(right_dest.to_owned(), unary_right)),
-            IrType::I64 => instrs.push(Instruction::I64toU64(right_dest.to_owned(), unary_right)),
+            IrType::I32 => {
+                right_instrs.push(Instruction::I32toU64(right_dest.to_owned(), unary_right))
+            }
+            IrType::U32 => {
+                right_instrs.push(Instruction::U32toU64(right_dest.to_owned(), unary_right))
+            }
+            IrType::I64 => {
+                right_instrs.push(Instruction::I64toU64(right_dest.to_owned(), unary_right))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U64))?;
-        return Ok((instrs, unary_left, Src::Var(right_dest)));
+        return Ok((left_instrs, right_instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::U64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => instrs.push(Instruction::I32toU64(left_dest.to_owned(), unary_left)),
-            IrType::U32 => instrs.push(Instruction::U32toU64(left_dest.to_owned(), unary_left)),
-            IrType::I64 => instrs.push(Instruction::I64toU64(left_dest.to_owned(), unary_left)),
+            IrType::I32 => {
+                left_instrs.push(Instruction::I32toU64(left_dest.to_owned(), unary_left))
+            }
+            IrType::U32 => {
+                left_instrs.push(Instruction::U32toU64(left_dest.to_owned(), unary_left))
+            }
+            IrType::I64 => {
+                left_instrs.push(Instruction::I64toU64(left_dest.to_owned(), unary_left))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U64))?;
-        return Ok((instrs, Src::Var(left_dest), unary_right));
+        return Ok((left_instrs, right_instrs, Src::Var(left_dest), unary_right));
     }
 
     // if one operand is a long
     if *left_type == IrType::I64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => instrs.push(Instruction::I32toI64(right_dest.to_owned(), unary_right)),
-            IrType::U32 => instrs.push(Instruction::U32toI64(right_dest.to_owned(), unary_right)),
+            IrType::I32 => {
+                right_instrs.push(Instruction::I32toI64(right_dest.to_owned(), unary_right))
+            }
+            IrType::U32 => {
+                right_instrs.push(Instruction::U32toI64(right_dest.to_owned(), unary_right))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::I64))?;
-        return Ok((instrs, unary_left, Src::Var(right_dest)));
+        return Ok((left_instrs, right_instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::I64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => instrs.push(Instruction::I32toI64(left_dest.to_owned(), unary_left)),
-            IrType::U32 => instrs.push(Instruction::U32toI64(left_dest.to_owned(), unary_left)),
+            IrType::I32 => {
+                left_instrs.push(Instruction::I32toI64(left_dest.to_owned(), unary_left))
+            }
+            IrType::U32 => {
+                left_instrs.push(Instruction::U32toI64(left_dest.to_owned(), unary_left))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::I64))?;
-        return Ok((instrs, Src::Var(left_dest), unary_right));
+        return Ok((left_instrs, right_instrs, Src::Var(left_dest), unary_right));
     }
 
     // if one operand is an unsigned int
     if *left_type == IrType::U32 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => instrs.push(Instruction::I32toU32(right_dest.to_owned(), unary_right)),
+            IrType::I32 => {
+                right_instrs.push(Instruction::I32toU32(right_dest.to_owned(), unary_right))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U32))?;
-        return Ok((instrs, unary_left, Src::Var(right_dest)));
+        return Ok((left_instrs, right_instrs, unary_left, Src::Var(right_dest)));
     }
     if *right_type == IrType::U32 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => instrs.push(Instruction::I32toU32(left_dest.to_owned(), unary_left)),
+            IrType::I32 => {
+                left_instrs.push(Instruction::I32toU32(left_dest.to_owned(), unary_left))
+            }
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U32))?;
-        return Ok((instrs, Src::Var(left_dest), unary_right));
+        return Ok((left_instrs, right_instrs, Src::Var(left_dest), unary_right));
     }
 
     unreachable!("No other possible combinations of types left");

@@ -1,5 +1,5 @@
 int main(int argc, char* argv) {
     int x = 300;
-    char y = (char) x;
+    long y = (long) x;
     return 0;
 }
