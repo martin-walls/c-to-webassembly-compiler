@@ -304,6 +304,6 @@ fn eval(
         | Expression::PostfixDecrement(_)
         | Expression::PrefixIncrement(_)
         | Expression::PrefixDecrement(_)
-        | Expression::Assignment(_, _, _) => Err(MiddleEndError::InvalidConstantExpression),
+        | Expression::Assignment(_, _) => Err(MiddleEndError::InvalidConstantExpression),
     }
 }

@@ -246,7 +246,7 @@ pub enum Expression {
     SizeOfType(TypeName),
     BinaryOp(BinaryOperator, Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
-    Assignment(Box<Expression>, Box<Expression>, Option<BinaryOperator>),
+    Assignment(Box<Expression>, Box<Expression>),
     Cast(TypeName, Box<Expression>),
     ExpressionList(Box<Expression>, Box<Expression>),
 }
@@ -299,15 +299,9 @@ impl AstNode for Expression {
                 t.reconstruct_source(),
                 f.reconstruct_source()
             ),
-            Expression::Assignment(l, r, op) => match op {
-                None => format!("{} = {}", l.reconstruct_source(), r.reconstruct_source()),
-                Some(op) => format!(
-                    "{} {}= {}",
-                    l.reconstruct_source(),
-                    op.reconstruct_source(),
-                    r.reconstruct_source()
-                ),
-            },
+            Expression::Assignment(l, r) => {
+                format!("{} = {}", l.reconstruct_source(), r.reconstruct_source())
+            }
             Expression::Cast(t, e) => {
                 format!("({}) {}", t.reconstruct_source(), e.reconstruct_source())
             }

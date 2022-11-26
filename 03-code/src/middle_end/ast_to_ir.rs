@@ -1293,7 +1293,7 @@ fn convert_expression_to_ir(
 
             Ok((instrs, Src::Var(dest)))
         }
-        Expression::Assignment(dest_expr, src_expr, op) => {
+        Expression::Assignment(dest_expr, src_expr) => {
             let (mut src_expr_instrs, mut src_var) =
                 convert_expression_to_ir(src_expr, prog, context)?;
             instrs.append(&mut src_expr_instrs);
@@ -1333,7 +1333,6 @@ fn convert_expression_to_ir(
                 Src::Constant(_) | Src::Fun(_) => return Err(MiddleEndError::InvalidAssignment),
             };
 
-            todo!("assignment: optional binary operator");
             // either store to the memory address given by the pointer dest,
             // or store into the local var dest
             if is_store_to_address {
