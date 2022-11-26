@@ -1,16 +1,16 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
-use crate::middle_end::context::{Context, LoopContext, SwitchContext};
+use crate::middle_end::context::{Context, IdentifierResolveResult, LoopContext, SwitchContext};
 use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
-use crate::middle_end::ir_types::{IrType, StructType, UnionType};
+use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use crate::parser::ast;
 use crate::parser::ast::{
-    ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, Expression,
-    ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement, ParameterTypeList,
-    Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
+    ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, EnumType, Enumerator,
+    Expression, ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement,
+    ParameterTypeList, Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
     StructType as AstStructType, TypeSpecifier, UnaryOperator, UnionType as AstUnionType,
 };
 
@@ -299,10 +299,11 @@ fn convert_statement_to_ir(
             instrs.append(&mut expr_instrs);
         }
         Statement::Declaration(sq, declarators) => {
+            let mut is_initial_declarator = true;
             for declarator in declarators {
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
-                        match get_type_info(&sq, Some(d), prog, context)? {
+                        match get_type_info(&sq, Some(d), !is_initial_declarator, prog, context)? {
                             None => {
                                 // typedef declaration, so no need to do anything more here
                             }
@@ -326,8 +327,13 @@ fn convert_statement_to_ir(
                         };
                     }
                     DeclaratorInitialiser::Init(d, init_expr) => {
-                        let (type_info, name, _) = match get_type_info(&sq, Some(d), prog, context)?
-                        {
+                        let (type_info, name, _) = match get_type_info(
+                            &sq,
+                            Some(d),
+                            !is_initial_declarator,
+                            prog,
+                            context,
+                        )? {
                             None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                             Some(x) => x,
                         };
@@ -401,10 +407,11 @@ fn convert_statement_to_ir(
                         }
                     }
                 }
+                is_initial_declarator = false;
             }
         }
         Statement::EmptyDeclaration(sq) => {
-            match get_type_info(&sq, None, prog, context)? {
+            match get_type_info(&sq, None, false, prog, context)? {
                 None => {
                     // typedef declaration is invalid without a name
                     return Err(MiddleEndError::InvalidTypedefDeclaration);
@@ -414,7 +421,6 @@ fn convert_statement_to_ir(
                     | IrType::U8
                     | IrType::I16
                     | IrType::U16
-                    | IrType::I32
                     | IrType::U32
                     | IrType::I64
                     | IrType::U64
@@ -424,13 +430,17 @@ fn convert_statement_to_ir(
                     | IrType::ArrayOf(_, _)
                     | IrType::PointerTo(_)
                     | IrType::Function(_, _) => return Err(MiddleEndError::InvalidDeclaration),
+                    IrType::I32 => match &sq.type_specifier {
+                        TypeSpecifier::Enum(_) => {}
+                        _ => return Err(MiddleEndError::InvalidDeclaration),
+                    },
                     IrType::Struct(_) | IrType::Union(_) => {}
                 },
             }
         }
         Statement::FunctionDeclaration(sq, decl, body) => {
             let (type_info, name, param_bindings) =
-                match get_type_info(&sq, Some(decl), prog, context)? {
+                match get_type_info(&sq, Some(decl), false, prog, context)? {
                     None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                     Some(x) => x,
                 };
@@ -483,8 +493,12 @@ fn convert_expression_to_ir(
                 let fun = context.resolve_identifier_to_fun(&name)?;
                 Ok((instrs, Src::Fun(fun)))
             } else {
-                let var = context.resolve_identifier_to_var(&name)?;
-                Ok((instrs, Src::Var(var)))
+                match context.resolve_identifier_to_var_or_const(&name)? {
+                    IdentifierResolveResult::Var(var) => Ok((instrs, Src::Var(var))),
+                    IdentifierResolveResult::EnumConst(c) => {
+                        Ok((instrs, Src::Constant(Constant::Int(c as i128))))
+                    }
+                }
             }
         }
         Expression::Constant(c) => match c {
@@ -923,7 +937,7 @@ fn convert_expression_to_ir(
             Ok((instrs, Src::Var(dest)))
         }
         Expression::SizeOfType(t) => {
-            let (type_info, _, _) = match get_type_info(&t.0, t.1, prog, context)? {
+            let (type_info, _, _) = match get_type_info(&t.0, t.1, false, prog, context)? {
                 None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                 Some(x) => x,
             };
@@ -1347,7 +1361,7 @@ fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             // get type to cast into
             let (cast_type, _, _) =
-                match get_type_info(&cast_type_decl.0, cast_type_decl.1, prog, context)? {
+                match get_type_info(&cast_type_decl.0, cast_type_decl.1, false, prog, context)? {
                     None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                     Some(x) => x,
                 };
@@ -1369,6 +1383,7 @@ type FunctionParameterBindings = Vec<(String, Box<IrType>)>;
 fn get_type_info(
     specifier: &SpecifierQualifier,
     declarator: Option<Box<Declarator>>,
+    is_duplicate_specifier: bool,
     prog: &mut Box<Program>,
     context: &mut Box<Context>,
 ) -> Result<
@@ -1410,6 +1425,7 @@ fn get_type_info(
                         let (member_type_info, member_name, _params) = match get_type_info(
                             &member.0,
                             Some(Box::new(*decl.to_owned())),
+                            false,
                             prog,
                             context,
                         )? {
@@ -1441,6 +1457,7 @@ fn get_type_info(
                         let (member_type_info, member_name, _params) = match get_type_info(
                             &member.0,
                             Some(Box::new(*decl.to_owned())),
+                            false,
                             prog,
                             context,
                         )? {
@@ -1457,8 +1474,49 @@ fn get_type_info(
                 Box::new(IrType::Union(union_type_id))
             }
         },
-        TypeSpecifier::Enum(_) => {
-            todo!("get_type_info for enum")
+        TypeSpecifier::Enum(enum_type) => {
+            match enum_type {
+                EnumType::Declaration(Identifier(enum_name)) => {
+                    context.resolve_identifier_to_enum_tag(&enum_name)?;
+                    // enums are just integers
+                    Box::new(IrType::I32)
+                }
+                EnumType::Definition(enum_name, enum_constants) => {
+                    let mut skip_constant_definition = false;
+                    if let Some(Identifier(enum_name)) = enum_name {
+                        if is_duplicate_specifier {
+                            context.resolve_identifier_to_enum_tag(&enum_name)?;
+                            skip_constant_definition = true;
+                        } else {
+                            context.add_enum_tag(enum_name.to_owned())?;
+                        }
+                    }
+                    if !skip_constant_definition {
+                        let mut next_constant_value = 0;
+                        for enum_constant in enum_constants {
+                            match enum_constant {
+                                Enumerator::Simple(Identifier(name)) => {
+                                    context
+                                        .add_enum_constant(name.to_owned(), next_constant_value)?;
+                                    next_constant_value += 1;
+                                }
+                                Enumerator::WithValue(Identifier(name), value_expr) => {
+                                    let value = eval_integral_constant_expression(
+                                        value_expr.to_owned(),
+                                        prog,
+                                    )?
+                                        as EnumConstant;
+                                    context.add_enum_constant(name.to_owned(), value)?;
+                                    // value of next constant without explicit value is one more than
+                                    // the last constant
+                                    next_constant_value = value + 1;
+                                }
+                            }
+                        }
+                    }
+                    Box::new(IrType::I32)
+                }
+            }
         }
         TypeSpecifier::CustomType(Identifier(name)) => context.resolve_typedef(&name)?,
     };
@@ -1535,7 +1593,7 @@ fn add_type_info_from_declarator(
             let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
                 let (param_type, param_name, _sub_param_bindings) =
-                    match get_type_info(&p.0, p.1, prog, context)? {
+                    match get_type_info(&p.0, p.1, false, prog, context)? {
                         None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                         Some(x) => x,
                     };

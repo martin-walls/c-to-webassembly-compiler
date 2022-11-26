@@ -1,6 +1,6 @@
 use crate::middle_end::ids::{FunId, LabelId, VarId};
 use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir_types::IrType;
+use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use std::collections::HashMap;
 
@@ -11,6 +11,11 @@ pub struct Context {
     pub in_function_name_expr: bool,
     function_names: HashMap<String, FunId>,
     pub directly_on_lhs_of_assignment: bool,
+}
+
+pub enum IdentifierResolveResult {
+    Var(VarId),
+    EnumConst(EnumConstant),
 }
 
 impl Context {
@@ -136,28 +141,99 @@ impl Context {
         }
     }
 
-    pub fn resolve_identifier_to_var(
+    // pub fn resolve_identifier_to_var(
+    //     &self,
+    //     identifier_name: &str,
+    // ) -> Result<VarId, MiddleEndError> {
+    //     if self.scope_stack.is_empty() {
+    //         return Err(MiddleEndError::ScopeError);
+    //     }
+    //     let mut i = self.scope_stack.len() - 1;
+    //     loop {
+    //         match self.scope_stack.get(i) {
+    //             None => {
+    //                 return Err(MiddleEndError::UndeclaredIdentifier(
+    //                     identifier_name.to_owned(),
+    //                 ))
+    //             }
+    //             Some(scope) => match scope.resolve_identifier_to_var(identifier_name) {
+    //                 None => {}
+    //                 Some(var) => return Ok(var),
+    //             },
+    //         }
+    //         if i == 0 {
+    //             return Err(MiddleEndError::UndeclaredIdentifier(
+    //                 identifier_name.to_owned(),
+    //             ));
+    //         }
+    //         i -= 1;
+    //     }
+    // }
+
+    pub fn resolve_identifier_to_var_or_const(
         &self,
         identifier_name: &str,
-    ) -> Result<VarId, MiddleEndError> {
+    ) -> Result<IdentifierResolveResult, MiddleEndError> {
         if self.scope_stack.is_empty() {
             return Err(MiddleEndError::ScopeError);
         }
         let mut i = self.scope_stack.len() - 1;
         loop {
             match self.scope_stack.get(i) {
-                None => {
-                    return Err(MiddleEndError::UndeclaredIdentifier(
-                        identifier_name.to_owned(),
-                    ))
-                }
+                None => return Err(MiddleEndError::ScopeError),
                 Some(scope) => match scope.resolve_identifier_to_var(identifier_name) {
-                    None => {}
-                    Some(var) => return Ok(var),
+                    None => match scope.resolve_identifier_to_enum_constant(identifier_name) {
+                        None => {}
+                        Some(c) => return Ok(IdentifierResolveResult::EnumConst(c)),
+                    },
+                    Some(var) => return Ok(IdentifierResolveResult::Var(var)),
                 },
             }
             if i == 0 {
                 return Err(MiddleEndError::UndeclaredIdentifier(
+                    identifier_name.to_owned(),
+                ));
+            }
+            i -= 1;
+        }
+    }
+
+    pub fn add_enum_constant(
+        &mut self,
+        name: String,
+        value: EnumConstant,
+    ) -> Result<(), MiddleEndError> {
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_enum_constant(name, value),
+        }
+    }
+
+    pub fn add_enum_tag(&mut self, name: String) -> Result<(), MiddleEndError> {
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_enum_tag(name),
+        }
+    }
+
+    pub fn resolve_identifier_to_enum_tag(
+        &self,
+        identifier_name: &str,
+    ) -> Result<(), MiddleEndError> {
+        if self.scope_stack.is_empty() {
+            return Err(MiddleEndError::ScopeError);
+        }
+        let mut i = self.scope_stack.len() - 1;
+        loop {
+            match self.scope_stack.get(i) {
+                None => return Err(MiddleEndError::ScopeError),
+                Some(scope) => match scope.resolve_identifier_to_enum_tag(identifier_name) {
+                    true => return Ok(()),
+                    false => {}
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::UndeclaredEnumTag(
                     identifier_name.to_owned(),
                 ));
             }
@@ -240,6 +316,10 @@ pub struct Scope {
     variable_types: HashMap<VarId, Box<IrType>>,
     /// map typedef names to their types
     typedef_types: HashMap<String, Box<IrType>>,
+    /// map enum constants to their integer values
+    enum_constants: HashMap<String, EnumConstant>,
+    /// List of the names of enum types that are declared
+    enum_tags: Vec<String>,
 }
 
 impl Scope {
@@ -248,6 +328,8 @@ impl Scope {
             variable_names: HashMap::new(),
             variable_types: HashMap::new(),
             typedef_types: HashMap::new(),
+            enum_constants: HashMap::new(),
+            enum_tags: Vec::new(),
         }
     }
 
@@ -283,6 +365,38 @@ impl Scope {
             None => None,
             Some(t) => Some(t.to_owned()),
         }
+    }
+
+    fn add_enum_constant(
+        &mut self,
+        name: String,
+        value: EnumConstant,
+    ) -> Result<(), MiddleEndError> {
+        if self.enum_constants.contains_key(&name) {
+            return Err(MiddleEndError::DuplicateEnumConstantDeclaration(name));
+        }
+        println!("Setting enum constant {} = {}", name, value);
+        self.enum_constants.insert(name, value);
+        Ok(())
+    }
+
+    fn add_enum_tag(&mut self, name: String) -> Result<(), MiddleEndError> {
+        if self.enum_tags.contains(&name) {
+            return Err(MiddleEndError::DuplicateTypeDeclaration(name));
+        }
+        self.enum_tags.push(name);
+        Ok(())
+    }
+
+    fn resolve_identifier_to_enum_constant(&self, identifier_name: &str) -> Option<EnumConstant> {
+        match self.enum_constants.get(identifier_name) {
+            None => None,
+            Some(c) => Some(c.to_owned()),
+        }
+    }
+
+    fn resolve_identifier_to_enum_tag(&self, identifier_name: &str) -> bool {
+        self.enum_tags.contains(&identifier_name.to_owned())
     }
 }
 

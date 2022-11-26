@@ -7,6 +7,9 @@ use std::fmt::Formatter;
 
 const POINTER_SIZE: u64 = 4; // bytes
 
+// enum constants are represented as ints
+pub type EnumConstant = i32;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum IrType {
     I8,  // signed char
