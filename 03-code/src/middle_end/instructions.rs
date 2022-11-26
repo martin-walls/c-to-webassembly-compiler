@@ -302,6 +302,44 @@ impl fmt::Display for Instruction {
             Instruction::PointerToStringLiteral(dest, string_id) => {
                 write!(f, "{} = pointer to string literal {}", dest, string_id)
             }
+            Instruction::I8toI16(dest, src) | Instruction::U8toI16(dest, src) => {
+                write!(f, "{} = (I16) {}", dest, src)
+            }
+            Instruction::I8toU16(dest, src) | Instruction::U8toU16(dest, src) => {
+                write!(f, "{} = (U16) {}", dest, src)
+            }
+            Instruction::I16toI32(dest, src) | Instruction::U16toI32(dest, src) => {
+                write!(f, "{} = (I32) {}", dest, src)
+            }
+            Instruction::I16toU32(dest, src)
+            | Instruction::U16toU32(dest, src)
+            | Instruction::I32toU32(dest, src) => {
+                write!(f, "{} = (U32) {}", dest, src)
+            }
+            Instruction::I32toI64(dest, src) | Instruction::U32toI64(dest, src) => {
+                write!(f, "{} = (I64) {}", dest, src)
+            }
+            Instruction::I32toU64(dest, src)
+            | Instruction::U32toU64(dest, src)
+            | Instruction::I64toU64(dest, src) => {
+                write!(f, "{} = (U64) {}", dest, src)
+            }
+            Instruction::U32toF32(dest, src)
+            | Instruction::I32toF32(dest, src)
+            | Instruction::U64toF32(dest, src)
+            | Instruction::I64toF32(dest, src) => {
+                write!(f, "{} = (F32) {}", dest, src)
+            }
+            Instruction::U32toF64(dest, src)
+            | Instruction::I32toF64(dest, src)
+            | Instruction::U64toF64(dest, src)
+            | Instruction::I64toF64(dest, src)
+            | Instruction::F32toF64(dest, src) => {
+                write!(f, "{} = (F64) {}", dest, src)
+            }
+            Instruction::Nop => {
+                write!(f, "Nop")
+            }
             _ => {
                 write!(f, "{:?}", self)
             }
