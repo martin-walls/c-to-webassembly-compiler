@@ -237,7 +237,7 @@ fn convert_statement_to_ir(
                 Src::Var(var) => var,
                 Src::Constant(c) => {
                     let temp = prog.new_var(ValueType::RValue);
-                    prog.add_var_type(temp.to_owned(), c.get_type())?;
+                    prog.add_var_type(temp.to_owned(), c.get_type(None))?;
                     instrs.push(Instruction::SimpleAssignment(
                         temp.to_owned(),
                         Src::Constant(c),
@@ -372,10 +372,14 @@ fn convert_statement_to_ir(
                                     };
                                 // convert src to dest type
                                 let src_type = src.get_type(prog)?;
+                                println!("src type: {}, dest type: {}", src_type, type_info);
                                 if src_type != type_info {
                                     if let Src::Constant(c) = &src {
                                         let temp = prog.new_var(ValueType::RValue);
-                                        prog.add_var_type(temp.to_owned(), c.get_type())?;
+                                        prog.add_var_type(
+                                            temp.to_owned(),
+                                            c.get_type(Some(type_info.to_owned())),
+                                        )?;
                                         instrs.push(Instruction::SimpleAssignment(
                                             temp.to_owned(),
                                             src,
@@ -385,7 +389,7 @@ fn convert_statement_to_ir(
                                     let (mut convert_instrs, converted_var) =
                                         convert_type_for_assignment(
                                             src.to_owned(),
-                                            src_type,
+                                            src.get_type(prog)?,
                                             type_info.to_owned(),
                                             prog,
                                         )?;
@@ -1893,6 +1897,12 @@ fn get_type_conversion_instrs(
             instrs.append(&mut convert_instrs);
             Ok((instrs, dest))
         }
+        // (IrType::U8, IrType::I8) => {
+        //     let dest = prog.new_var(src.get_value_type());
+        //     instrs.push(Instruction::U8toI8(dest.to_owned(), src));
+        //     prog.add_var_type(dest.to_owned, Box::new(dest.to_owned()))?;
+        //     Ok((instrs, dest))
+        // }
         (IrType::U8, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
             let intermediate_type;

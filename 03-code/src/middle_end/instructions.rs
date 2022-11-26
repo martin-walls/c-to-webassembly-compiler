@@ -12,18 +12,25 @@ pub enum Constant {
 }
 
 impl Constant {
-    pub fn get_type(&self) -> Box<IrType> {
+    pub fn get_type(&self, expected: Option<Box<IrType>>) -> Box<IrType> {
         match self {
-            Constant::Int(i) => match i {
-                0..=255 => Box::new(IrType::U8),
-                -128..=127 => Box::new(IrType::I8),
-                0..=65535 => Box::new(IrType::U16),
-                -32_768..=32_767 => Box::new(IrType::I16),
-                0..=4_294_967_296 => Box::new(IrType::U32),
-                -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
-                0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
-                _ => Box::new(IrType::I64),
-            },
+            Constant::Int(i) => {
+                if let Some(t) = expected {
+                    if t.is_integral_type() {
+                        return t;
+                    }
+                }
+                match i {
+                    0..=255 => Box::new(IrType::U8),
+                    -128..=127 => Box::new(IrType::I8),
+                    0..=65535 => Box::new(IrType::U16),
+                    -32_768..=32_767 => Box::new(IrType::I16),
+                    0..=4_294_967_296 => Box::new(IrType::U32),
+                    -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
+                    0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
+                    _ => Box::new(IrType::I64),
+                }
+            }
             Constant::Float(_) => Box::new(IrType::F64),
         }
     }
@@ -56,7 +63,7 @@ impl Src {
     pub fn get_type(&self, prog: &Box<Program>) -> Result<Box<IrType>, MiddleEndError> {
         match self {
             Src::Var(var) | Src::StoreAddressVar(var) => prog.get_var_type(var),
-            Src::Constant(c) => Ok(c.get_type()),
+            Src::Constant(c) => Ok(c.get_type(None)),
             Src::Fun(fun_id) => prog.get_fun_type(fun_id),
         }
     }
