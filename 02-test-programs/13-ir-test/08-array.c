@@ -27,3 +27,10 @@ struct st1 {
     char y[3];
     struct st2 {double a; int c;} z;
 } s = {1, "ab", {1.1, 2} };
+
+union U {
+    int x;
+    double y;
+};
+
+union U u1 = 42;

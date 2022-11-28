@@ -1506,13 +1506,14 @@ fn get_type_info(
                 // check if this is referencing a previous struct declaration
                 match context.resolve_struct_tag_to_struct_id(&struct_name) {
                     Ok(struct_id) => Box::new(IrType::Struct(struct_id)),
-                    Err(_) => {
+                    Err(MiddleEndError::UndeclaredStructTag(_)) => {
                         let struct_type_id =
                             prog.add_struct_type(StructType::named(struct_name.to_owned()))?;
                         context
                             .add_struct_tag(struct_name.to_owned(), struct_type_id.to_owned())?;
                         Box::new(IrType::Struct(struct_type_id))
                     }
+                    Err(e) => return Err(e),
                 }
             }
             AstStructType::Definition(struct_name, members) => {
@@ -1547,8 +1548,17 @@ fn get_type_info(
         },
         TypeSpecifier::Union(union_type) => match union_type {
             AstUnionType::Declaration(Identifier(union_name)) => {
-                let union_type_id = prog.add_union_type(UnionType::named(union_name.to_owned()))?;
-                Box::new(IrType::Union(union_type_id))
+                // check if this is referencing a previous union declaration
+                match context.resolve_union_tag_to_union_id(&union_name) {
+                    Ok(union_id) => Box::new(IrType::Union(union_id)),
+                    Err(MiddleEndError::UndeclaredUnionTag(_)) => {
+                        let union_type_id =
+                            prog.add_union_type(UnionType::named(union_name.to_owned()))?;
+                        context.add_union_tag(union_name.to_owned(), union_type_id.to_owned())?;
+                        Box::new(IrType::Union(union_type_id))
+                    }
+                    Err(e) => return Err(e),
+                }
             }
             AstUnionType::Definition(union_name, members) => {
                 let mut union_type = match union_name {
@@ -1574,6 +1584,9 @@ fn get_type_info(
                     }
                 }
                 let union_type_id = prog.add_union_type(union_type)?;
+                if let Some(Identifier(name)) = union_name {
+                    context.add_union_tag(name.to_owned(), union_type_id.to_owned())?;
+                }
                 Box::new(IrType::Union(union_type_id))
             }
         },

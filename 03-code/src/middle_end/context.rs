@@ -1,4 +1,4 @@
-use crate::middle_end::ids::{FunId, LabelId, StructId, VarId};
+use crate::middle_end::ids::{FunId, LabelId, StructId, UnionId, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
@@ -278,6 +278,38 @@ impl Context {
         }
     }
 
+    pub fn add_union_tag(&mut self, name: String, union_id: UnionId) -> Result<(), MiddleEndError> {
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_union_tag(name, union_id),
+        }
+    }
+
+    pub fn resolve_union_tag_to_union_id(
+        &self,
+        identifier_name: &str,
+    ) -> Result<UnionId, MiddleEndError> {
+        if self.scope_stack.is_empty() {
+            return Err(MiddleEndError::ScopeError);
+        }
+        let mut i = self.scope_stack.len() - 1;
+        loop {
+            match self.scope_stack.get(i) {
+                None => return Err(MiddleEndError::ScopeError),
+                Some(scope) => match scope.resolve_union_tag_to_union_id(identifier_name) {
+                    Ok(id) => return Ok(id),
+                    Err(_) => {}
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::UndeclaredUnionTag(
+                    identifier_name.to_owned(),
+                ));
+            }
+            i -= 1;
+        }
+    }
+
     pub fn add_function_declaration(
         &mut self,
         name: String,
@@ -365,6 +397,8 @@ pub struct Scope {
     enum_tags: Vec<String>,
     /// List of the names of struct types that are declared
     struct_tags: HashMap<String, StructId>,
+    /// List of the names of union types that are declared
+    union_tags: HashMap<String, UnionId>,
 }
 
 impl Scope {
@@ -376,6 +410,7 @@ impl Scope {
             enum_constants: HashMap::new(),
             enum_tags: Vec::new(),
             struct_tags: HashMap::new(),
+            union_tags: HashMap::new(),
         }
     }
 
@@ -459,6 +494,26 @@ impl Scope {
     ) -> Result<StructId, MiddleEndError> {
         match self.struct_tags.get(identifier_name) {
             None => Err(MiddleEndError::UndeclaredStructTag(
+                identifier_name.to_owned(),
+            )),
+            Some(id) => Ok(id.to_owned()),
+        }
+    }
+
+    fn add_union_tag(&mut self, name: String, union_id: UnionId) -> Result<(), MiddleEndError> {
+        if self.union_tags.contains_key(&name) {
+            return Err(MiddleEndError::DuplicateTypeDeclaration(name));
+        }
+        self.union_tags.insert(name, union_id);
+        Ok(())
+    }
+
+    fn resolve_union_tag_to_union_id(
+        &self,
+        identifier_name: &str,
+    ) -> Result<UnionId, MiddleEndError> {
+        match self.union_tags.get(identifier_name) {
+            None => Err(MiddleEndError::UndeclaredUnionTag(
                 identifier_name.to_owned(),
             )),
             Some(id) => Ok(id.to_owned()),
