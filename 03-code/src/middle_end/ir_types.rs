@@ -1,6 +1,7 @@
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
+use crate::parser::ast::Initialiser;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -362,6 +363,23 @@ impl IrType {
             t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
                 Box::new(t.to_owned()),
             ))),
+        }
+    }
+
+    /// take the initialiser list and fill in any implicit array sizes
+    pub fn resolve_array_size(
+        &self,
+        initialiser: &Box<Initialiser>,
+    ) -> Result<Box<Self>, MiddleEndError> {
+        match (self, *initialiser.to_owned()) {
+            (IrType::ArrayOf(t, mut size), Initialiser::List(initialisers)) => {
+                if size == 0 {
+                    size = initialisers.len() as u64;
+                }
+                let resolved_member_type = t.resolve_array_size(initialisers.first().unwrap())?;
+                Ok(Box::new(IrType::ArrayOf(resolved_member_type, size)))
+            }
+            (t, _) => Ok(Box::new(t.to_owned())),
         }
     }
 }

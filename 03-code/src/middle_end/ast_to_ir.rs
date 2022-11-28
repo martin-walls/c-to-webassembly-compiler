@@ -357,6 +357,8 @@ fn convert_statement_to_ir(
                             None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                             Some(x) => x,
                         };
+                        // if array type, get array size from number of initialisers (recursively)
+                        let dest_type_info = dest_type_info.resolve_array_size(&init_expr)?;
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
@@ -366,7 +368,6 @@ fn convert_statement_to_ir(
                                         let (mut expr_instrs, expr_var) =
                                             convert_expression_to_ir(e, prog, context)?;
                                         instrs.append(&mut expr_instrs);
-                                        // todo convert var type if necessary
                                         let mut src = match expr_var {
                                             Src::Var(var) => Src::Var(var),
                                             Src::Constant(c) => Src::Constant(c),
@@ -418,46 +419,38 @@ fn convert_statement_to_ir(
                                             dest.to_owned(),
                                             dest_type_info.to_owned(),
                                         )?;
-                                        // todo check that the type of the initialiser matches the declared type
                                     }
-                                    Initialiser::List(initialisers) => {
-                                        match *dest_type_info {
-                                            IrType::ArrayOf(member_type, mut size) => {
-                                                // get array size from number of initialisers, if not explicitly set
-                                                if size == 0 {
-                                                    size = initialisers.len() as u64;
-                                                }
-                                                let dest =
-                                                    prog.new_var(ValueType::ModifiableLValue);
-                                                let dest_type = IrType::ArrayOf(member_type, size);
-                                                prog.add_var_type(
-                                                    dest.to_owned(),
-                                                    Box::new(dest_type.to_owned()),
-                                                )?;
-                                                instrs.push(Instruction::AllocateVariable(
-                                                    dest.to_owned(),
-                                                    dest_type.get_byte_size(prog),
-                                                ));
+                                    Initialiser::List(initialisers) => match *dest_type_info {
+                                        IrType::ArrayOf(member_type, size) => {
+                                            let dest = prog.new_var(ValueType::ModifiableLValue);
+                                            let dest_type = IrType::ArrayOf(member_type, size);
+                                            prog.add_var_type(
+                                                dest.to_owned(),
+                                                Box::new(dest_type.to_owned()),
+                                            )?;
+                                            instrs.push(Instruction::AllocateVariable(
+                                                dest.to_owned(),
+                                                dest_type.get_byte_size(prog),
+                                            ));
 
-                                                let mut init_instrs = array_initialiser(
-                                                    dest,
-                                                    Box::new(dest_type),
-                                                    initialisers,
-                                                    prog,
-                                                    context,
-                                                )?;
-                                                instrs.append(&mut init_instrs);
-                                            }
-                                            IrType::Struct(_) => {
-                                                todo!("struct initialiser")
-                                            }
-                                            _ => {
-                                                return Err(
-                                                    MiddleEndError::InvalidInitialiserExpression,
-                                                )
-                                            }
+                                            let mut init_instrs = array_initialiser(
+                                                dest,
+                                                Box::new(dest_type),
+                                                initialisers,
+                                                prog,
+                                                context,
+                                            )?;
+                                            instrs.append(&mut init_instrs);
                                         }
-                                    }
+                                        IrType::Struct(_) => {
+                                            todo!("struct initialiser")
+                                        }
+                                        _ => {
+                                            return Err(
+                                                MiddleEndError::InvalidInitialiserExpression,
+                                            )
+                                        }
+                                    },
                                 };
                             }
                         }
@@ -2227,17 +2220,30 @@ fn array_initialiser(
                     member_ptr_var.to_owned(),
                     expr_var,
                 ));
-                // increment pointer to the next member
-                instrs.push(Instruction::Add(
-                    member_ptr_var.to_owned(),
-                    Src::Var(member_ptr_var.to_owned()),
-                    Src::Constant(Constant::Int(array_member_byte_size as i128)),
-                ));
             }
-            Initialiser::List(_) => {
-                todo!("aggregate array member initialiser")
-            }
+            Initialiser::List(sub_array_initialisers) => match *array_member_type.to_owned() {
+                IrType::ArrayOf(sub_member_type, size) => {
+                    let mut init_instrs = array_initialiser(
+                        member_ptr_var.to_owned(),
+                        Box::new(IrType::ArrayOf(sub_member_type, size)),
+                        sub_array_initialisers,
+                        prog,
+                        context,
+                    )?;
+                    instrs.append(&mut init_instrs);
+                }
+                IrType::Struct(_) => {
+                    todo!()
+                }
+                _ => return Err(MiddleEndError::InvalidInitialiserExpression),
+            },
         }
+        // increment pointer to the next member
+        instrs.push(Instruction::Add(
+            member_ptr_var.to_owned(),
+            Src::Var(member_ptr_var.to_owned()),
+            Src::Constant(Constant::Int(array_member_byte_size as i128)),
+        ));
     }
 
     Ok(instrs)
