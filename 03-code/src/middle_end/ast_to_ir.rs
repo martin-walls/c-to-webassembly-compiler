@@ -1,6 +1,6 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::{Context, IdentifierResolveResult, LoopContext, SwitchContext};
-use crate::middle_end::ids::{ValueType, VarId};
+use crate::middle_end::ids::{StructId, ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
@@ -1503,9 +1503,17 @@ fn get_type_info(
         TypeSpecifier::Void => Box::new(IrType::Void),
         TypeSpecifier::Struct(struct_type) => match struct_type {
             AstStructType::Declaration(Identifier(struct_name)) => {
-                let struct_type_id =
-                    prog.add_struct_type(StructType::named(struct_name.to_owned()))?;
-                Box::new(IrType::Struct(struct_type_id))
+                // check if this is referencing a previous struct declaration
+                match context.resolve_struct_tag_to_struct_id(&struct_name) {
+                    Ok(struct_id) => Box::new(IrType::Struct(struct_id)),
+                    Err(_) => {
+                        let struct_type_id =
+                            prog.add_struct_type(StructType::named(struct_name.to_owned()))?;
+                        context
+                            .add_struct_tag(struct_name.to_owned(), struct_type_id.to_owned())?;
+                        Box::new(IrType::Struct(struct_type_id))
+                    }
+                }
             }
             AstStructType::Definition(struct_name, members) => {
                 let mut struct_type = match struct_name {
@@ -1531,6 +1539,9 @@ fn get_type_info(
                     }
                 }
                 let struct_type_id = prog.add_struct_type(struct_type)?;
+                if let Some(Identifier(name)) = struct_name {
+                    context.add_struct_tag(name.to_owned(), struct_type_id.to_owned())?;
+                }
                 Box::new(IrType::Struct(struct_type_id))
             }
         },

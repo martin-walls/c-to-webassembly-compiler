@@ -1,4 +1,4 @@
-use crate::middle_end::ids::{FunId, LabelId, VarId};
+use crate::middle_end::ids::{FunId, LabelId, StructId, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
@@ -242,6 +242,42 @@ impl Context {
         }
     }
 
+    pub fn add_struct_tag(
+        &mut self,
+        name: String,
+        struct_id: StructId,
+    ) -> Result<(), MiddleEndError> {
+        match self.scope_stack.last_mut() {
+            None => Err(MiddleEndError::ScopeError),
+            Some(scope) => scope.add_struct_tag(name, struct_id),
+        }
+    }
+
+    pub fn resolve_struct_tag_to_struct_id(
+        &self,
+        identifier_name: &str,
+    ) -> Result<StructId, MiddleEndError> {
+        if self.scope_stack.is_empty() {
+            return Err(MiddleEndError::ScopeError);
+        }
+        let mut i = self.scope_stack.len() - 1;
+        loop {
+            match self.scope_stack.get(i) {
+                None => return Err(MiddleEndError::ScopeError),
+                Some(scope) => match scope.resolve_struct_tag_to_struct_id(identifier_name) {
+                    Ok(id) => return Ok(id),
+                    Err(_) => {}
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::UndeclaredStructTag(
+                    identifier_name.to_owned(),
+                ));
+            }
+            i -= 1;
+        }
+    }
+
     pub fn add_function_declaration(
         &mut self,
         name: String,
@@ -327,6 +363,8 @@ pub struct Scope {
     enum_constants: HashMap<String, EnumConstant>,
     /// List of the names of enum types that are declared
     enum_tags: Vec<String>,
+    /// List of the names of struct types that are declared
+    struct_tags: HashMap<String, StructId>,
 }
 
 impl Scope {
@@ -337,6 +375,7 @@ impl Scope {
             typedef_types: HashMap::new(),
             enum_constants: HashMap::new(),
             enum_tags: Vec::new(),
+            struct_tags: HashMap::new(),
         }
     }
 
@@ -404,6 +443,26 @@ impl Scope {
 
     fn resolve_identifier_to_enum_tag(&self, identifier_name: &str) -> bool {
         self.enum_tags.contains(&identifier_name.to_owned())
+    }
+
+    fn add_struct_tag(&mut self, name: String, struct_id: StructId) -> Result<(), MiddleEndError> {
+        if self.struct_tags.contains_key(&name) {
+            return Err(MiddleEndError::DuplicateTypeDeclaration(name));
+        }
+        self.struct_tags.insert(name, struct_id);
+        Ok(())
+    }
+
+    fn resolve_struct_tag_to_struct_id(
+        &self,
+        identifier_name: &str,
+    ) -> Result<StructId, MiddleEndError> {
+        match self.struct_tags.get(identifier_name) {
+            None => Err(MiddleEndError::UndeclaredStructTag(
+                identifier_name.to_owned(),
+            )),
+            Some(id) => Ok(id.to_owned()),
+        }
     }
 }
 

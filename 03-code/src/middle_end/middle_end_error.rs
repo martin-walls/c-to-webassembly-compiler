@@ -16,6 +16,7 @@ pub enum MiddleEndError {
     UndeclaredIdentifier(String),
     UndeclaredType(String),
     UndeclaredEnumTag(String),
+    UndeclaredStructTag(String),
     InvalidLValue,
     InvalidFunctionCall,
     DuplicateDeclaration(String),
