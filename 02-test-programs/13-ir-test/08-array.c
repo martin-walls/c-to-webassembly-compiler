@@ -9,6 +9,17 @@
 //int a4[2][] = { {1, 2, 3},
 //                {4, 5, 6} };
 
-char s[] = "hello world";
+//char s[] = "hello world";
+//
+//char s2[] = { "goodbye world" };
 
-char s2[] = { "goodbye world" };
+//struct st {
+//    int x;
+//    int y;
+//};
+
+struct st {int x; int y;} a5[] = { {1, 2},
+            {3, 4},
+            {5, 6} };
+
+struct st1 {int x; int y;} s = {1, 2};

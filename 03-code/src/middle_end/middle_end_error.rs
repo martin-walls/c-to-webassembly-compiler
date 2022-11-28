@@ -147,6 +147,7 @@ pub enum TypeError {
     TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
     MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
     UnwrapNonArrayType(Box<IrType>),
+    UnwrapNonStructType(Box<IrType>),
     AssignNonAggregateValueToAggregateType,
     AssignAggregateValueToNonAggregateType,
     MismatchedArrayInitialiserLength,

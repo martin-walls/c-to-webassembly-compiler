@@ -357,6 +357,15 @@ impl IrType {
         }
     }
 
+    pub fn unwrap_struct_type(&self, prog: &Box<Program>) -> Result<StructType, MiddleEndError> {
+        match self {
+            IrType::Struct(struct_id) => Ok(prog.get_struct_type(struct_id)?),
+            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonStructType(
+                Box::new(t.to_owned()),
+            ))),
+        }
+    }
+
     pub fn get_array_size(&self) -> Result<u64, MiddleEndError> {
         match self {
             IrType::ArrayOf(_t, size) => Ok(size.to_owned()),
@@ -449,6 +458,8 @@ pub struct StructType {
     /// store members' names and types
     pub member_types: HashMap<String, Box<IrType>>,
     pub member_byte_offsets: HashMap<String, u64>,
+    // to store the order of members
+    members: Vec<String>,
     pub total_byte_size: u64,
 }
 
@@ -458,6 +469,7 @@ impl StructType {
             name: Some(name),
             member_types: HashMap::new(),
             member_byte_offsets: HashMap::new(),
+            members: Vec::new(),
             total_byte_size: 0,
         }
     }
@@ -467,6 +479,7 @@ impl StructType {
             name: None,
             member_types: HashMap::new(),
             member_byte_offsets: HashMap::new(),
+            members: Vec::new(),
             total_byte_size: 0,
         }
     }
@@ -482,6 +495,8 @@ impl StructType {
             return Err(MiddleEndError::DuplicateStructMember);
         }
         let byte_size = member_type.get_byte_size(prog);
+        println!("pushing member {}", member_name);
+        self.members.push(member_name.to_owned());
         self.member_types
             .insert(member_name.to_owned(), member_type);
         // store byte offset of this member and update total byte size of struct
@@ -489,6 +504,10 @@ impl StructType {
             .insert(member_name, self.total_byte_size);
         self.total_byte_size += byte_size;
         Ok(())
+    }
+
+    pub fn member_count(&self) -> usize {
+        self.members.len()
     }
 
     pub fn has_member(&self, member_name: &str) -> bool {
@@ -506,6 +525,17 @@ impl StructType {
         }
     }
 
+    pub fn get_member_type_by_index(&self, index: usize) -> Result<Box<IrType>, MiddleEndError> {
+        match self.members.get(index) {
+            None => Err(MiddleEndError::StructMemberNotFound(format!(
+                "{}.[{}]",
+                self.name.to_owned().unwrap_or("".to_owned()),
+                index
+            ))),
+            Some(member_name) => self.get_member_type(member_name),
+        }
+    }
+
     pub fn get_member_byte_offset(&self, member_name: &str) -> Result<u64, MiddleEndError> {
         match self.member_byte_offsets.get(member_name) {
             None => Err(MiddleEndError::StructMemberNotFound(format!(
@@ -514,6 +544,17 @@ impl StructType {
                 member_name
             ))),
             Some(offset) => Ok(offset.to_owned()),
+        }
+    }
+
+    pub fn get_member_byte_offset_by_index(&self, index: usize) -> Result<u64, MiddleEndError> {
+        match self.members.get(index) {
+            None => Err(MiddleEndError::StructMemberNotFound(format!(
+                "{}.[{}]",
+                self.name.to_owned().unwrap_or("".to_owned()),
+                index
+            ))),
+            Some(member_name) => self.get_member_byte_offset(member_name),
         }
     }
 }

@@ -384,6 +384,7 @@ fn convert_statement_to_ir(
 
                         // if array type, get array size from number of initialisers (recursively)
                         let dest_type_info = dest_type_info.resolve_array_size(&init_expr)?;
+
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
@@ -466,8 +467,26 @@ fn convert_statement_to_ir(
                                             )?;
                                             instrs.append(&mut init_instrs);
                                         }
-                                        IrType::Struct(_) => {
-                                            todo!("struct initialiser")
+                                        IrType::Struct(struct_id) => {
+                                            let dest = prog.new_var(ValueType::ModifiableLValue);
+                                            let dest_type = IrType::Struct(struct_id);
+                                            prog.add_var_type(
+                                                dest.to_owned(),
+                                                Box::new(dest_type.to_owned()),
+                                            )?;
+                                            instrs.push(Instruction::AllocateVariable(
+                                                dest.to_owned(),
+                                                dest_type.get_byte_size(prog),
+                                            ));
+
+                                            let mut init_instrs = struct_initialiser(
+                                                dest,
+                                                Box::new(dest_type),
+                                                initialisers,
+                                                prog,
+                                                context,
+                                            )?;
+                                            instrs.append(&mut init_instrs);
                                         }
                                         _ => {
                                             return Err(
@@ -2245,19 +2264,28 @@ fn array_initialiser(
                     expr_var,
                 ));
             }
-            Initialiser::List(sub_array_initialisers) => match *array_member_type.to_owned() {
+            Initialiser::List(sub_member_initialisers) => match *array_member_type.to_owned() {
                 IrType::ArrayOf(sub_member_type, size) => {
+                    // initialise nested array
                     let mut init_instrs = array_initialiser(
                         member_ptr_var.to_owned(),
                         Box::new(IrType::ArrayOf(sub_member_type, size)),
-                        sub_array_initialisers,
+                        sub_member_initialisers,
                         prog,
                         context,
                     )?;
                     instrs.append(&mut init_instrs);
                 }
-                IrType::Struct(_) => {
-                    todo!()
+                IrType::Struct(struct_id) => {
+                    // initialise nested struct
+                    let mut init_instrs = struct_initialiser(
+                        member_ptr_var.to_owned(),
+                        Box::new(IrType::Struct(struct_id)),
+                        sub_member_initialisers,
+                        prog,
+                        context,
+                    )?;
+                    instrs.append(&mut init_instrs);
                 }
                 _ => return Err(MiddleEndError::InvalidInitialiserExpression),
             },
@@ -2268,6 +2296,95 @@ fn array_initialiser(
             Src::Var(member_ptr_var.to_owned()),
             Src::Constant(Constant::Int(array_member_byte_size as i128)),
         ));
+    }
+
+    Ok(instrs)
+}
+
+fn struct_initialiser(
+    dest: VarId,
+    dest_type_info: Box<IrType>,
+    initialiser_list: Vec<Box<Initialiser>>,
+    prog: &mut Box<Program>,
+    context: &mut Box<Context>,
+) -> Result<Vec<Instruction>, MiddleEndError> {
+    let mut instrs = Vec::new();
+
+    let struct_type = dest_type_info.unwrap_struct_type(prog)?;
+
+    // check that the number of initialisers matches the number of struct members
+    if struct_type.member_count() != initialiser_list.len() {
+        println!(
+            "struct member count: {}, initialiser count: {}",
+            struct_type.member_count(),
+            initialiser_list.len()
+        );
+        return Err(MiddleEndError::TypeError(
+            TypeError::MismatchedArrayInitialiserLength,
+        ));
+    }
+
+    for member_index in 0..struct_type.member_count() {
+        let member_initialiser = initialiser_list.get(member_index).unwrap().to_owned();
+        let member_type = struct_type.get_member_type_by_index(member_index)?;
+        let member_byte_offset = struct_type.get_member_byte_offset_by_index(member_index)?;
+
+        // pointer to the struct member we're currently initialising
+        let member_ptr_var = prog.new_var(ValueType::ModifiableLValue);
+        prog.add_var_type(
+            member_ptr_var.to_owned(),
+            Box::new(IrType::PointerTo(member_type.to_owned())),
+        )?;
+        // member_ptr_var = &dest + byte_offset
+        instrs.push(Instruction::AddressOf(
+            member_ptr_var.to_owned(),
+            Src::Var(dest.to_owned()),
+        ));
+        instrs.push(Instruction::Add(
+            member_ptr_var.to_owned(),
+            Src::Var(member_ptr_var.to_owned()),
+            Src::Constant(Constant::Int(member_byte_offset as i128)),
+        ));
+
+        match *member_initialiser {
+            Initialiser::Expr(e) => {
+                if member_type.is_aggregate_type() {
+                    return Err(MiddleEndError::TypeError(
+                        TypeError::AssignNonAggregateValueToAggregateType,
+                    ));
+                }
+
+                let (mut expr_instrs, mut expr_var) = convert_expression_to_ir(e, prog, context)?;
+                instrs.append(&mut expr_instrs);
+
+                // check type of the expression and convert if necessary
+                let expr_var_type = expr_var.get_type(prog)?;
+                if expr_var_type != member_type {
+                    if let Src::Constant(c) = &expr_var {
+                        let temp = prog.new_var(ValueType::RValue);
+                        prog.add_var_type(
+                            temp.to_owned(),
+                            c.get_type(Some(member_type.to_owned())),
+                        )?;
+                        instrs.push(Instruction::SimpleAssignment(temp.to_owned(), expr_var));
+                        expr_var = Src::Var(temp);
+                    }
+                    let (mut convert_instrs, converted_var) = convert_type_for_assignment(
+                        expr_var.to_owned(),
+                        expr_var.get_type(prog)?,
+                        member_type.to_owned(),
+                        prog,
+                    )?;
+                    instrs.append(&mut convert_instrs);
+                    expr_var = converted_var;
+                }
+
+                instrs.push(Instruction::StoreToAddress(member_ptr_var, expr_var));
+            }
+            Initialiser::List(_) => {
+                todo!("aggregate struct member type")
+            }
+        }
     }
 
     Ok(instrs)
