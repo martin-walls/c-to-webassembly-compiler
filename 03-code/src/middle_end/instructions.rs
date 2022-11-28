@@ -182,6 +182,9 @@ pub enum Instruction {
     // float promotion
     F32toF64(Dest, Src),
 
+    // integer truncation
+    I32toI8(Dest, Src),
+
     Nop,
 }
 

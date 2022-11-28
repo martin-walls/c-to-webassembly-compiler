@@ -14,6 +14,7 @@ pub struct Function {
     pub type_info: Box<IrType>,
     // for each parameter, store which var it maps to
     pub param_var_mappings: Vec<VarId>,
+    body_is_defined: bool,
 }
 
 impl Function {
@@ -26,6 +27,16 @@ impl Function {
             instrs,
             type_info,
             param_var_mappings,
+            body_is_defined: true,
+        }
+    }
+
+    pub fn declaration(type_info: Box<IrType>) -> Self {
+        Function {
+            instrs: Vec::new(),
+            type_info,
+            param_var_mappings: Vec::new(),
+            body_is_defined: false,
         }
     }
 }
@@ -35,15 +46,17 @@ impl fmt::Display for Function {
         write!(f, "{{")?;
         write!(f, "\n  Function type:\n    {}", self.type_info)?;
         write!(f, "\n  Parameters: ")?;
-        for i in 0..self.param_var_mappings.len() - 1 {
-            write!(f, "{} => {}, ", i, self.param_var_mappings[i])?;
+        if !self.param_var_mappings.is_empty() {
+            for i in 0..self.param_var_mappings.len() - 1 {
+                write!(f, "{} => {}, ", i, self.param_var_mappings[i])?;
+            }
+            write!(
+                f,
+                "{} => {}",
+                self.param_var_mappings.len() - 1,
+                self.param_var_mappings[self.param_var_mappings.len() - 1]
+            )?;
         }
-        write!(
-            f,
-            "{} => {}",
-            self.param_var_mappings.len() - 1,
-            self.param_var_mappings[self.param_var_mappings.len() - 1]
-        )?;
         write!(f, "\n  Body instructions:")?;
         for instr in &self.instrs {
             write!(f, "\n    {}", instr)?;
@@ -173,10 +186,40 @@ impl Program {
         new_fun_id
     }
 
-    pub fn new_fun(&mut self, name: String, fun: Function) -> FunId {
+    pub fn new_fun_declaration(
+        &mut self,
+        name: String,
+        fun: Function,
+    ) -> Result<FunId, MiddleEndError> {
+        match self.function_ids.get(&name) {
+            None => {}
+            Some(_) => return Err(MiddleEndError::DuplicateFunctionDeclaration(name)),
+        }
         let fun_id = self.new_fun_id(name);
         self.functions.insert(fun_id.to_owned(), fun);
-        fun_id
+        Ok(fun_id)
+    }
+
+    pub fn new_fun_body(&mut self, name: String, fun: Function) -> Result<FunId, MiddleEndError> {
+        match self.function_ids.get(&name) {
+            None => {
+                // new function declaration
+                let fun_id = self.new_fun_id(name);
+                self.functions.insert(fun_id.to_owned(), fun);
+                Ok(fun_id)
+            }
+            Some(fun_id) => {
+                // body definition of existing function declaration
+                // check whether this definition matches the earlier declaration
+                let existing_fun = self.functions.get(fun_id).unwrap();
+                if existing_fun.type_info != fun.type_info {
+                    return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
+                }
+                println!("Adding fun body: {}", name);
+                self.functions.insert(fun_id.to_owned(), fun);
+                Ok(fun_id.to_owned())
+            }
+        }
     }
 
     pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {

@@ -345,34 +345,34 @@ impl fmt::Display for IrType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             IrType::I8 => {
-                write!(f, "signed char")
+                write!(f, "I8")
             }
             IrType::U8 => {
-                write!(f, "unsigned char")
+                write!(f, "U8")
             }
             IrType::I16 => {
-                write!(f, "signed short")
+                write!(f, "I16")
             }
             IrType::U16 => {
-                write!(f, "unsigned short")
+                write!(f, "U16")
             }
             IrType::I32 => {
-                write!(f, "signed int")
+                write!(f, "I32")
             }
             IrType::U32 => {
-                write!(f, "unsigned int")
+                write!(f, "U32")
             }
             IrType::I64 => {
-                write!(f, "signed long")
+                write!(f, "I64")
             }
             IrType::U64 => {
-                write!(f, "unsigned long")
+                write!(f, "U64")
             }
             IrType::F32 => {
-                write!(f, "float")
+                write!(f, "F32")
             }
             IrType::F64 => {
-                write!(f, "double")
+                write!(f, "F64")
             }
             IrType::Struct(struct_id) => {
                 write!(f, "struct {}", struct_id)

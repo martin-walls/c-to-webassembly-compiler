@@ -7,4 +7,6 @@ typedef unsigned long size_t;
 
 //TODO
 
+size_t strlen(const char *s);
+
 #endif

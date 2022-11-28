@@ -303,12 +303,37 @@ fn convert_statement_to_ir(
             for declarator in declarators {
                 match declarator {
                     DeclaratorInitialiser::NoInit(d) => {
-                        match get_type_info(&sq, Some(d), !is_initial_declarator, prog, context)? {
+                        match get_type_info(
+                            &sq,
+                            Some(d.to_owned()),
+                            !is_initial_declarator,
+                            prog,
+                            context,
+                        )? {
                             None => {
                                 // typedef declaration, so no need to do anything more here
                             }
-                            Some((type_info, name, _params)) => match name {
+                            Some((type_info, name, Some(_params))) => match name {
+                                // function declaration
                                 Some(name) => {
+                                    println!("Function declaration: {}", name);
+                                    let fun_declaration =
+                                        Function::declaration(type_info.to_owned());
+                                    let fun_id =
+                                        prog.new_fun_declaration(name.to_owned(), fun_declaration)?;
+                                    context.add_function_declaration(name, fun_id)?;
+                                }
+                                None => {
+                                    // If declarator has no name, it should be a
+                                    // Statement::EmptyDeclaration, so this case should never
+                                    // be reached
+                                    unreachable!()
+                                }
+                            },
+                            Some((type_info, name, None)) => match name {
+                                // non-function declaration (normal variable)
+                                Some(name) => {
+                                    println!("Variable declaration: {}", name);
                                     let var = prog.new_var(ValueType::ModifiableLValue);
                                     context.add_variable_to_scope(
                                         name,
@@ -317,12 +342,7 @@ fn convert_statement_to_ir(
                                     )?;
                                     prog.add_var_type(var, type_info)?;
                                 }
-                                None => {
-                                    // If declarator has no name, it should be a
-                                    // Statement::EmptyDeclaration, so this case should never
-                                    // be reached
-                                    unreachable!()
-                                }
+                                None => unreachable!(),
                             },
                         };
                     }
@@ -471,7 +491,7 @@ fn convert_statement_to_ir(
             // function body instructions
             let instrs = convert_statement_to_ir(body, prog, context)?;
             let fun = Function::new(instrs, type_info, param_var_mappings);
-            let fun_id = prog.new_fun(name.to_owned(), fun);
+            let fun_id = prog.new_fun_body(name.to_owned(), fun)?;
             context.add_function_declaration(name, fun_id)?;
             context.pop_scope()
         }
@@ -1532,16 +1552,20 @@ fn get_type_info(
             is_typedef = true;
         }
         Some(StorageClassSpecifier::Auto) => {
-            todo!("storage class specifiers")
+            // todo storage class specifiers
+            println!("ignoring storage class specifier: auto")
         }
         Some(StorageClassSpecifier::Extern) => {
-            todo!("storage class specifiers")
+            // todo storage class specifiers
+            println!("ignoring storage class specifier: extern")
         }
         Some(StorageClassSpecifier::Register) => {
-            todo!("storage class specifiers")
+            // todo storage class specifiers
+            println!("ignoring storage class specifier: register")
         }
         Some(StorageClassSpecifier::Static) => {
-            todo!("storage class specifiers")
+            // todo storage class specifiers
+            println!("ignoring storage class specifier: static")
         }
     }
 
@@ -1550,10 +1574,10 @@ fn get_type_info(
             let (ir_type, decl_name, param_bindings) =
                 add_type_info_from_declarator(decl, ir_type, prog, context)?;
             if is_typedef {
-                context.add_typedef(decl_name, ir_type)?;
+                context.add_typedef(decl_name.unwrap(), ir_type)?;
                 return Ok(None);
             }
-            Ok(Some((ir_type, Some(decl_name), param_bindings)))
+            Ok(Some((ir_type, decl_name, param_bindings)))
         }
         None => Ok(Some((ir_type, None, None))),
     }
@@ -1566,13 +1590,24 @@ fn add_type_info_from_declarator(
     type_info: Box<IrType>,
     prog: &mut Box<Program>,
     context: &mut Box<Context>,
-) -> Result<(Box<IrType>, String, Option<FunctionParameterBindings>), MiddleEndError> {
+) -> Result<
+    (
+        Box<IrType>,
+        Option<String>,
+        Option<FunctionParameterBindings>,
+    ),
+    MiddleEndError,
+> {
     match *decl {
-        Declarator::Identifier(Identifier(name)) => Ok((type_info, name, None)),
+        Declarator::Identifier(Identifier(name)) => Ok((type_info, Some(name), None)),
         Declarator::PointerDeclarator(d) => {
             add_type_info_from_declarator(d, type_info.wrap_with_pointer(), prog, context)
         }
-        Declarator::AbstractPointerDeclarator => Err(MiddleEndError::InvalidAbstractDeclarator),
+        Declarator::AbstractPointerDeclarator => {
+            // Err(MiddleEndError::InvalidAbstractDeclarator)
+            // todo handle abstract parameters in function declaration
+            Ok((type_info.wrap_with_pointer(), None, None))
+        }
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
                 None => 0, //todo maybe better way of handling this (get array size from initialiser)
@@ -1974,6 +2009,12 @@ fn get_type_conversion_instrs(
             )?;
             instrs.append(&mut convert_instrs);
             Ok((instrs, dest))
+        }
+        (IrType::I32, IrType::I8) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
+            instrs.push(Instruction::I32toI8(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::U32) => {
             let dest = prog.new_var(src.get_value_type());

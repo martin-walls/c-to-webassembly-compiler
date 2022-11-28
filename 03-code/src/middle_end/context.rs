@@ -135,6 +135,7 @@ impl Context {
         var: VarId,
         type_info: Box<IrType>,
     ) -> Result<(), MiddleEndError> {
+        println!("adding variable \"{}\" to scope", name);
         match self.scope_stack.last_mut() {
             None => Err(MiddleEndError::ScopeError),
             Some(scope) => scope.add_var(name, var, type_info),
@@ -248,7 +249,13 @@ impl Context {
     ) -> Result<(), MiddleEndError> {
         // check for duplicate declarations
         match self.resolve_identifier_to_fun(&name) {
-            Ok(_) => return Err(MiddleEndError::DuplicateFunctionDeclaration(name)),
+            Ok(existing_fun_id) => {
+                // if mapping already exists, don't do anything
+                if existing_fun_id == fun_id {
+                    return Ok(());
+                }
+                return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
+            }
             Err(_) => {}
         }
         self.function_names.insert(name, fun_id);

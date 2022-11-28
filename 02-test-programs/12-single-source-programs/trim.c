@@ -1,3 +1,6 @@
+#include <ctype.h>
+#include <string.h>
+
 char *
 trim(char *str)
 {
