@@ -102,6 +102,8 @@ pub enum Instruction {
     // addr <- x
     StoreToAddress(Dest, Src),
 
+    AllocateVariable(Dest, u64),
+
     // Unary operations
     // t = <op> a
     AddressOf(Dest, Src),
@@ -202,6 +204,9 @@ impl fmt::Display for Instruction {
             }
             Instruction::StoreToAddress(dest, src) => {
                 write!(f, "*{} <- {}", dest, src)
+            }
+            Instruction::AllocateVariable(dest, size) => {
+                write!(f, "allocate {} bytes for {}", size, dest)
             }
             Instruction::BitwiseNot(dest, src) => {
                 write!(f, "{} = ~{}", dest, src)

@@ -347,7 +347,7 @@ fn convert_statement_to_ir(
                         };
                     }
                     DeclaratorInitialiser::Init(d, init_expr) => {
-                        let (type_info, name, _) = match get_type_info(
+                        let (dest_type_info, name, _) = match get_type_info(
                             &sq,
                             Some(d),
                             !is_initial_declarator,
@@ -360,73 +360,105 @@ fn convert_statement_to_ir(
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
-                                let mut src =
-                                    match *init_expr {
-                                        Initialiser::Expr(e) => {
-                                            let (mut expr_instrs, expr_var) =
-                                                convert_expression_to_ir(e, prog, context)?;
-                                            instrs.append(&mut expr_instrs);
-                                            // todo convert var type if necessary
-                                            match expr_var {
-                                                Src::Var(var) => Src::Var(var),
-                                                Src::Constant(c) => {
-                                                    // let v = prog.new_var(ValueType::RValue);
-                                                    // let constant_type = c.get_type();
-                                                    // // todo check if constant type is compatible with declared variable type
-                                                    // prog.add_var_type(v.to_owned(), c.get_type())?;
-                                                    // instrs.push(Instruction::SimpleAssignment(
-                                                    //     v.to_owned(),
-                                                    //     Src::Constant(c),
-                                                    // ));
-                                                    // Src::Var(v)
-                                                    Src::Constant(c)
-                                                }
-                                                Src::Fun(_) | Src::StoreAddressVar(_) => return Err(
+                                println!("initialiser var type: {:?}", dest_type_info);
+                                match *init_expr {
+                                    Initialiser::Expr(e) => {
+                                        let (mut expr_instrs, expr_var) =
+                                            convert_expression_to_ir(e, prog, context)?;
+                                        instrs.append(&mut expr_instrs);
+                                        // todo convert var type if necessary
+                                        let mut src = match expr_var {
+                                            Src::Var(var) => Src::Var(var),
+                                            Src::Constant(c) => Src::Constant(c),
+                                            Src::Fun(_) | Src::StoreAddressVar(_) => {
+                                                return Err(
                                                     MiddleEndError::InvalidInitialiserExpression,
-                                                ),
+                                                )
                                             }
+                                        };
+
+                                        // convert src to dest type
+                                        let src_type = src.get_type(prog)?;
+                                        println!(
+                                            "src type: {}, dest type: {}",
+                                            src_type, dest_type_info
+                                        );
+                                        if src_type != dest_type_info {
+                                            if let Src::Constant(c) = &src {
+                                                let temp = prog.new_var(ValueType::RValue);
+                                                prog.add_var_type(
+                                                    temp.to_owned(),
+                                                    c.get_type(Some(dest_type_info.to_owned())),
+                                                )?;
+                                                instrs.push(Instruction::SimpleAssignment(
+                                                    temp.to_owned(),
+                                                    src,
+                                                ));
+                                                src = Src::Var(temp);
+                                            }
+                                            let (mut convert_instrs, converted_var) =
+                                                convert_type_for_assignment(
+                                                    src.to_owned(),
+                                                    src.get_type(prog)?,
+                                                    dest_type_info.to_owned(),
+                                                    prog,
+                                                )?;
+                                            instrs.append(&mut convert_instrs);
+                                            src = converted_var;
                                         }
-                                        Initialiser::List(_) => {
-                                            todo!("struct/union/array initialiser")
-                                        }
-                                    };
-                                // convert src to dest type
-                                let src_type = src.get_type(prog)?;
-                                println!("src type: {}, dest type: {}", src_type, type_info);
-                                if src_type != type_info {
-                                    if let Src::Constant(c) = &src {
-                                        let temp = prog.new_var(ValueType::RValue);
-                                        prog.add_var_type(
-                                            temp.to_owned(),
-                                            c.get_type(Some(type_info.to_owned())),
-                                        )?;
+
+                                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                                        prog.add_var_type(dest.to_owned(), src.get_type(prog)?)?;
                                         instrs.push(Instruction::SimpleAssignment(
-                                            temp.to_owned(),
+                                            dest.to_owned(),
                                             src,
                                         ));
-                                        src = Src::Var(temp);
-                                    }
-                                    let (mut convert_instrs, converted_var) =
-                                        convert_type_for_assignment(
-                                            src.to_owned(),
-                                            src.get_type(prog)?,
-                                            type_info.to_owned(),
-                                            prog,
+                                        context.add_variable_to_scope(
+                                            name,
+                                            dest.to_owned(),
+                                            dest_type_info.to_owned(),
                                         )?;
-                                    instrs.append(&mut convert_instrs);
-                                    src = converted_var;
-                                }
+                                        // todo check that the type of the initialiser matches the declared type
+                                    }
+                                    Initialiser::List(initialisers) => {
+                                        match *dest_type_info {
+                                            IrType::ArrayOf(member_type, mut size) => {
+                                                // get array size from number of initialisers, if not explicitly set
+                                                if size == 0 {
+                                                    size = initialisers.len() as u64;
+                                                }
+                                                let dest =
+                                                    prog.new_var(ValueType::ModifiableLValue);
+                                                let dest_type = IrType::ArrayOf(member_type, size);
+                                                prog.add_var_type(
+                                                    dest.to_owned(),
+                                                    Box::new(dest_type.to_owned()),
+                                                )?;
+                                                instrs.push(Instruction::AllocateVariable(
+                                                    dest.to_owned(),
+                                                    dest_type.get_byte_size(prog),
+                                                ));
 
-                                let dest = prog.new_var(ValueType::ModifiableLValue);
-                                prog.add_var_type(dest.to_owned(), src.get_type(prog)?)?;
-                                instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
-                                context.add_variable_to_scope(
-                                    name,
-                                    dest.to_owned(),
-                                    type_info.to_owned(),
-                                )?;
-                                // todo check that the type of the initialiser matches the declared type
-                                // prog.add_var_type(var, type_info)?;
+                                                let mut init_instrs = array_initialiser(
+                                                    dest,
+                                                    Box::new(dest_type),
+                                                    initialisers,
+                                                    prog,
+                                                    context,
+                                                )?;
+                                                instrs.append(&mut init_instrs);
+                                            }
+                                            IrType::Struct(_) => {
+                                                todo!("struct initialiser")
+                                            }
+                                            _ => {
+                                                return Err(
+                                                    MiddleEndError::InvalidInitialiserExpression,
+                                                )
+                                            }
+                                        }
+                                    }
+                                };
                             }
                         }
                     }
@@ -2126,4 +2158,87 @@ fn get_type_conversion_instrs(
             )))
         } // todo rest of types
     }
+}
+
+fn array_initialiser(
+    dest: VarId,
+    dest_type_info: Box<IrType>,
+    initialiser_list: Vec<Box<Initialiser>>,
+    prog: &mut Box<Program>,
+    context: &mut Box<Context>,
+) -> Result<Vec<Instruction>, MiddleEndError> {
+    let mut instrs = Vec::new();
+
+    let array_member_type = dest_type_info.unwrap_array_type()?;
+    let array_member_byte_size = array_member_type.get_byte_size(prog);
+
+    // pointer to the array member we're currently initialising
+    let member_ptr_var = prog.new_var(ValueType::ModifiableLValue);
+    prog.add_var_type(
+        member_ptr_var.to_owned(),
+        Box::new(IrType::PointerTo(array_member_type.to_owned())),
+    )?;
+    instrs.push(Instruction::AddressOf(
+        member_ptr_var.to_owned(),
+        Src::Var(dest),
+    ));
+
+    // check that the array length matches the number of initialisers
+    if dest_type_info.get_array_size()? as usize != initialiser_list.len() {
+        return Err(MiddleEndError::TypeError(
+            TypeError::MismatchedArrayInitialiserLength,
+        ));
+    }
+
+    for array_member_initialiser in initialiser_list {
+        match *array_member_initialiser {
+            Initialiser::Expr(e) => {
+                if array_member_type.is_aggregate_type() {
+                    return Err(MiddleEndError::TypeError(
+                        TypeError::AssignNonAggregateValueToAggregateType,
+                    ));
+                }
+                let (mut expr_instrs, mut expr_var) = convert_expression_to_ir(e, prog, context)?;
+                instrs.append(&mut expr_instrs);
+
+                // check type of the expression and convert if necessary
+                let expr_var_type = expr_var.get_type(prog)?;
+                if expr_var_type != array_member_type {
+                    if let Src::Constant(c) = &expr_var {
+                        let temp = prog.new_var(ValueType::RValue);
+                        prog.add_var_type(
+                            temp.to_owned(),
+                            c.get_type(Some(array_member_type.to_owned())),
+                        )?;
+                        instrs.push(Instruction::SimpleAssignment(temp.to_owned(), expr_var));
+                        expr_var = Src::Var(temp);
+                    }
+                    let (mut convert_instrs, converted_var) = convert_type_for_assignment(
+                        expr_var.to_owned(),
+                        expr_var.get_type(prog)?,
+                        array_member_type.to_owned(),
+                        prog,
+                    )?;
+                    instrs.append(&mut convert_instrs);
+                    expr_var = converted_var;
+                }
+
+                instrs.push(Instruction::StoreToAddress(
+                    member_ptr_var.to_owned(),
+                    expr_var,
+                ));
+                // increment pointer to the next member
+                instrs.push(Instruction::Add(
+                    member_ptr_var.to_owned(),
+                    Src::Var(member_ptr_var.to_owned()),
+                    Src::Constant(Constant::Int(array_member_byte_size as i128)),
+                ));
+            }
+            Initialiser::List(_) => {
+                todo!("aggregate array member initialiser")
+            }
+        }
+    }
+
+    Ok(instrs)
 }

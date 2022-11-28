@@ -146,6 +146,10 @@ pub enum TypeError {
     InvalidOperation(&'static str),
     TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
     MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
+    UnwrapNonArrayType(Box<IrType>),
+    AssignNonAggregateValueToAggregateType,
+    AssignAggregateValueToNonAggregateType,
+    MismatchedArrayInitialiserLength,
 }
 
 impl fmt::Display for TypeError {

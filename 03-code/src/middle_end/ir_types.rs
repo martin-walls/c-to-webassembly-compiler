@@ -310,6 +310,13 @@ impl IrType {
         }
     }
 
+    pub fn is_aggregate_type(&self) -> bool {
+        match self {
+            IrType::Struct(_) | IrType::ArrayOf(_, _) => true,
+            _ => false,
+        }
+    }
+
     /// ISO C standard unary type conversions
     pub fn unary_convert(&self) -> Box<Self> {
         match self {
@@ -337,6 +344,24 @@ impl IrType {
             t => Err(MiddleEndError::TypeError(
                 TypeError::DereferenceNonPointerType(Box::new(t.to_owned())),
             )),
+        }
+    }
+
+    pub fn unwrap_array_type(&self) -> Result<Box<Self>, MiddleEndError> {
+        match self {
+            IrType::ArrayOf(t, _size) => Ok(t.to_owned()),
+            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
+                Box::new(t.to_owned()),
+            ))),
+        }
+    }
+
+    pub fn get_array_size(&self) -> Result<u64, MiddleEndError> {
+        match self {
+            IrType::ArrayOf(_t, size) => Ok(size.to_owned()),
+            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
+                Box::new(t.to_owned()),
+            ))),
         }
     }
 }
