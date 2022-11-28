@@ -102,7 +102,7 @@ pub enum Instruction {
     // addr <- x
     StoreToAddress(Dest, Src),
 
-    AllocateVariable(Dest, u64),
+    AllocateVariable(Dest, Src),
 
     // Unary operations
     // t = <op> a
@@ -186,6 +186,12 @@ pub enum Instruction {
 
     // integer truncation
     I32toI8(Dest, Src),
+    U32toI8(Dest, Src),
+    I64toI8(Dest, Src),
+    U64toI8(Dest, Src),
+
+    I64toI32(Dest, Src),
+    U64toI32(Dest, Src),
 
     Nop,
 }

@@ -3,6 +3,8 @@
 
 #define NULL 0
 
+int atoi(const char *str);
+
 //TODO
 
 #endif

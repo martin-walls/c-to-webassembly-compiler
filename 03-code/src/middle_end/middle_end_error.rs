@@ -47,6 +47,11 @@ pub enum MiddleEndError {
     InvalidAssignment,
     ValueTypeNotSet(VarId),
     AttemptToModifyNonLValue,
+    UndefinedArraySize,
+    ArrayMemberSizeNotKnownAtCompileTime,
+    UndefinedStructMemberSize,
+    UndefinedUnionMemberSize,
+    CantEvaluateAtCompileTime,
 }
 
 impl fmt::Display for MiddleEndError {

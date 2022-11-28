@@ -1,7 +1,7 @@
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
-use crate::parser::ast::Initialiser;
+use crate::parser::ast::{BinaryOperator, Constant, Expression, Initialiser};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -10,6 +10,13 @@ const POINTER_SIZE: u64 = 4; // bytes
 
 // enum constants are represented as ints
 pub type EnumConstant = i32;
+
+/// An enum to represent a size that may or may not be known at compile time
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeSize {
+    CompileTime(u64),
+    Runtime(Box<Expression>),
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum IrType {
@@ -28,26 +35,48 @@ pub enum IrType {
     Void,
     PointerTo(Box<IrType>),
     /// array type, array size
-    ArrayOf(Box<IrType>, u64),
+    ArrayOf(Box<IrType>, Option<TypeSize>),
     /// return type, parameter types
     Function(Box<IrType>, Vec<Box<IrType>>),
 }
 
 impl IrType {
-    pub fn get_byte_size(&self, prog: &Box<Program>) -> u64 {
+    /// Get the size of this type in bytes, if known at compile time.
+    /// For arrays, the size may not be known until runtime.
+    ///
+    /// Returns Some(size) if size is known, and None if size isn't known at compile
+    /// time.
+    pub fn get_byte_size(&self, prog: &Box<Program>) -> TypeSize {
         match &self {
-            IrType::I8 | IrType::U8 => 1,
-            IrType::I16 | IrType::U16 => 2,
-            IrType::I32 | IrType::U32 => 4,
-            IrType::I64 | IrType::U64 => 8,
-            IrType::F32 => 4,
-            IrType::F64 => 8,
-            IrType::Struct(struct_id) => prog.get_struct_type(struct_id).unwrap().total_byte_size,
-            IrType::Union(union_id) => prog.get_union_type(union_id).unwrap().total_byte_size,
-            IrType::Void => 0,
-            IrType::PointerTo(_) => POINTER_SIZE,
-            IrType::ArrayOf(t, count) => t.get_byte_size(prog) * count,
-            IrType::Function(_, _) => POINTER_SIZE,
+            IrType::I8 | IrType::U8 => TypeSize::CompileTime(1),
+            IrType::I16 | IrType::U16 => TypeSize::CompileTime(2),
+            IrType::I32 | IrType::U32 => TypeSize::CompileTime(4),
+            IrType::I64 | IrType::U64 => TypeSize::CompileTime(8),
+            IrType::F32 => TypeSize::CompileTime(4),
+            IrType::F64 => TypeSize::CompileTime(8),
+            IrType::Struct(struct_id) => {
+                TypeSize::CompileTime(prog.get_struct_type(struct_id).unwrap().total_byte_size)
+            }
+            IrType::Union(union_id) => {
+                TypeSize::CompileTime(prog.get_union_type(union_id).unwrap().total_byte_size)
+            }
+            IrType::Void => TypeSize::CompileTime(0),
+            IrType::PointerTo(_) => TypeSize::CompileTime(POINTER_SIZE),
+            IrType::ArrayOf(t, count) => match count {
+                Some(TypeSize::CompileTime(count)) => match t.get_byte_size(prog) {
+                    TypeSize::CompileTime(t_size) => TypeSize::CompileTime(t_size * count),
+                    TypeSize::Runtime(t_size_expr) => {
+                        TypeSize::Runtime(Box::new(Expression::BinaryOp(
+                            BinaryOperator::Mult,
+                            t_size_expr,
+                            Box::new(Expression::Constant(Constant::Int(*count as u128))),
+                        )))
+                    }
+                },
+                Some(TypeSize::Runtime(e)) => TypeSize::Runtime(e.to_owned()),
+                None => TypeSize::CompileTime(0),
+            },
+            IrType::Function(_, _) => TypeSize::CompileTime(POINTER_SIZE),
         }
     }
 
@@ -55,7 +84,7 @@ impl IrType {
         Box::new(IrType::PointerTo(Box::new(self)))
     }
 
-    pub fn wrap_with_array(self, size: u64) -> Box<Self> {
+    pub fn wrap_with_array(self, size: Option<TypeSize>) -> Box<Self> {
         Box::new(IrType::ArrayOf(Box::new(self), size))
     }
 
@@ -366,9 +395,9 @@ impl IrType {
         }
     }
 
-    pub fn get_array_size(&self) -> Result<u64, MiddleEndError> {
+    pub fn get_array_size(&self) -> Result<TypeSize, MiddleEndError> {
         match self {
-            IrType::ArrayOf(_t, size) => Ok(size.to_owned()),
+            IrType::ArrayOf(_t, size) => Ok(size.to_owned().unwrap_or(TypeSize::CompileTime(0))),
             t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
                 Box::new(t.to_owned()),
             ))),
@@ -376,16 +405,17 @@ impl IrType {
     }
 
     /// take the initialiser list and fill in any implicit array sizes
-    pub fn resolve_array_size(
+    pub fn resolve_array_size_from_initialiser(
         &self,
         initialiser: &Box<Initialiser>,
     ) -> Result<Box<Self>, MiddleEndError> {
-        match (self, *initialiser.to_owned()) {
+        match (self.to_owned(), *initialiser.to_owned()) {
             (IrType::ArrayOf(t, mut size), Initialiser::List(initialisers)) => {
-                if size == 0 {
-                    size = initialisers.len() as u64;
+                if size == None {
+                    size = Some(TypeSize::CompileTime(initialisers.len() as u64));
                 }
-                let resolved_member_type = t.resolve_array_size(initialisers.first().unwrap())?;
+                let resolved_member_type =
+                    t.resolve_array_size_from_initialiser(initialisers.first().unwrap())?;
                 Ok(Box::new(IrType::ArrayOf(resolved_member_type, size)))
             }
             (t, _) => Ok(Box::new(t.to_owned())),
@@ -438,9 +468,10 @@ impl fmt::Display for IrType {
             IrType::PointerTo(t) => {
                 write!(f, "*({})", t)
             }
-            IrType::ArrayOf(t, size) => {
-                write!(f, "({})[{}]", t, size)
-            }
+            IrType::ArrayOf(t, size) => match size {
+                Some(TypeSize::CompileTime(size)) => write!(f, "({})[{}]", t, size),
+                _ => write!(f, "({})[runtime]", t),
+            },
             IrType::Function(ret, params) => {
                 write!(f, "({})(", ret)?;
                 for param in &params[..params.len() - 1] {
@@ -494,7 +525,10 @@ impl StructType {
         if self.has_member(&member_name) {
             return Err(MiddleEndError::DuplicateStructMember);
         }
-        let byte_size = member_type.get_byte_size(prog);
+        let byte_size = match member_type.get_byte_size(prog) {
+            TypeSize::CompileTime(size) => size,
+            TypeSize::Runtime(_) => return Err(MiddleEndError::UndefinedStructMemberSize),
+        };
         println!("pushing member {}", member_name);
         self.members.push(member_name.to_owned());
         self.member_types
@@ -613,7 +647,10 @@ impl UnionType {
         if self.has_member(&member_name) {
             return Err(MiddleEndError::DuplicateUnionMember);
         }
-        let byte_size = member_type.get_byte_size(prog);
+        let byte_size = match member_type.get_byte_size(prog) {
+            TypeSize::CompileTime(size) => size,
+            TypeSize::Runtime(_) => return Err(MiddleEndError::UndefinedUnionMemberSize),
+        };
         self.member_types.insert(member_name, member_type);
         // total size of union is the size of the largest member
         if byte_size > self.total_byte_size {

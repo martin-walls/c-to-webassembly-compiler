@@ -4,7 +4,7 @@ use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
-use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, UnionType};
+use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, TypeSize, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use crate::parser::ast;
 use crate::parser::ast::{
@@ -341,7 +341,20 @@ fn convert_statement_to_ir(
                                         var.to_owned(),
                                         type_info.to_owned(),
                                     )?;
-                                    prog.add_var_type(var, type_info)?;
+                                    prog.add_var_type(var.to_owned(), type_info.to_owned())?;
+                                    // allocate memory for the variable
+                                    let byte_size = match type_info.get_byte_size(prog) {
+                                        TypeSize::CompileTime(size) => {
+                                            Src::Constant(Constant::Int(size as i128))
+                                        }
+                                        TypeSize::Runtime(size_expr) => {
+                                            let (mut size_expr_instrs, size_var) =
+                                                convert_expression_to_ir(size_expr, prog, context)?;
+                                            instrs.append(&mut size_expr_instrs);
+                                            size_var
+                                        }
+                                    };
+                                    instrs.push(Instruction::AllocateVariable(var, byte_size));
                                 }
                                 None => unreachable!(),
                             },
@@ -383,7 +396,8 @@ fn convert_statement_to_ir(
                         }
 
                         // if array type, get array size from number of initialisers (recursively)
-                        let dest_type_info = dest_type_info.resolve_array_size(&init_expr)?;
+                        let dest_type_info =
+                            dest_type_info.resolve_array_size_from_initialiser(&init_expr)?;
 
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
@@ -453,9 +467,23 @@ fn convert_statement_to_ir(
                                                 dest.to_owned(),
                                                 Box::new(dest_type.to_owned()),
                                             )?;
+
+                                            let byte_size = match dest_type.get_byte_size(prog) {
+                                                TypeSize::CompileTime(size) => {
+                                                    Src::Constant(Constant::Int(size as i128))
+                                                }
+                                                TypeSize::Runtime(size_expr) => {
+                                                    let (mut size_expr_instrs, size_var) =
+                                                        convert_expression_to_ir(
+                                                            size_expr, prog, context,
+                                                        )?;
+                                                    instrs.append(&mut size_expr_instrs);
+                                                    size_var
+                                                }
+                                            };
                                             instrs.push(Instruction::AllocateVariable(
                                                 dest.to_owned(),
-                                                dest_type.get_byte_size(prog),
+                                                byte_size,
                                             ));
 
                                             let mut init_instrs = array_initialiser(
@@ -474,9 +502,23 @@ fn convert_statement_to_ir(
                                                 dest.to_owned(),
                                                 Box::new(dest_type.to_owned()),
                                             )?;
+
+                                            let byte_size = match dest_type.get_byte_size(prog) {
+                                                TypeSize::CompileTime(size) => {
+                                                    Src::Constant(Constant::Int(size as i128))
+                                                }
+                                                TypeSize::Runtime(size_expr) => {
+                                                    let (mut size_expr_instrs, size_var) =
+                                                        convert_expression_to_ir(
+                                                            size_expr, prog, context,
+                                                        )?;
+                                                    instrs.append(&mut size_expr_instrs);
+                                                    size_var
+                                                }
+                                            };
                                             instrs.push(Instruction::AllocateVariable(
                                                 dest.to_owned(),
-                                                dest_type.get_byte_size(prog),
+                                                byte_size,
                                             ));
 
                                             let mut init_instrs = struct_initialiser(
@@ -626,7 +668,7 @@ fn convert_expression_to_ir(
             let arr_var_type = arr_var.get_type(prog)?;
             arr_var_type.require_pointer_type()?;
             let index_var_type = index_var.get_type(prog)?;
-            index_var_type.require_pointer_type()?;
+            index_var_type.require_integral_type()?;
 
             // array variable is a pointer to the start of the array
             let ptr = prog.new_var(ValueType::None);
@@ -1019,13 +1061,18 @@ fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
-            let byte_size = expr_var_type.get_byte_size(prog);
+            let byte_size = match expr_var_type.get_byte_size(prog) {
+                TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
+                TypeSize::Runtime(size_expr) => {
+                    let (mut size_expr_instrs, size_var) =
+                        convert_expression_to_ir(size_expr, prog, context)?;
+                    instrs.append(&mut size_expr_instrs);
+                    size_var
+                }
+            };
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::SimpleAssignment(
-                dest.to_owned(),
-                Src::Constant(Constant::Int(byte_size as i128)),
-            ));
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), byte_size));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::SizeOfType(t) => {
@@ -1033,13 +1080,18 @@ fn convert_expression_to_ir(
                 None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                 Some(x) => x,
             };
-            let byte_size = type_info.get_byte_size(prog);
+            let byte_size = match type_info.get_byte_size(prog) {
+                TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
+                TypeSize::Runtime(size_expr) => {
+                    let (mut size_expr_instrs, size_var) =
+                        convert_expression_to_ir(size_expr, prog, context)?;
+                    instrs.append(&mut size_expr_instrs);
+                    size_var
+                }
+            };
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::SimpleAssignment(
-                dest.to_owned(),
-                Src::Constant(Constant::Int(byte_size as i128)),
-            ));
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), byte_size));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::BinaryOp(op, left, right) => {
@@ -1702,8 +1754,13 @@ fn add_type_info_from_declarator(
         }
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
-                None => 0, //todo maybe better way of handling this (get array size from initialiser)
-                Some(size_expr) => eval_integral_constant_expression(size_expr, prog)? as u64,
+                None => None,
+                Some(size_expr) => {
+                    match eval_integral_constant_expression(size_expr.to_owned(), prog) {
+                        Ok(size) => Some(TypeSize::CompileTime(size as u64)),
+                        Err(_) => Some(TypeSize::Runtime(size_expr)),
+                    }
+                }
             };
             add_type_info_from_declarator(d, type_info.wrap_with_array(size), prog, context)
         }
@@ -1984,6 +2041,7 @@ fn convert_type_for_assignment(
             get_type_conversion_instrs(src, src_type, dest_type, prog)?;
         return Ok((convert_instrs, converted_var));
     }
+    println!("convert {}: {} to {}", src, src_type, dest_type);
     todo!("other options of possible type combinations")
 }
 
@@ -2141,6 +2199,12 @@ fn get_type_conversion_instrs(
             Ok((instrs, Src::Var(dest)))
         }
 
+        (IrType::U32, IrType::I8) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
+            instrs.push(Instruction::U32toI8(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
         (IrType::U32, IrType::I64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
@@ -2166,6 +2230,18 @@ fn get_type_conversion_instrs(
             Ok((instrs, Src::Var(dest)))
         }
 
+        (IrType::I64, IrType::I8) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
+            instrs.push(Instruction::I64toI8(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
+        (IrType::I64, IrType::I32) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::I64toI32(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
         (IrType::I64, IrType::U64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
@@ -2185,6 +2261,18 @@ fn get_type_conversion_instrs(
             Ok((instrs, Src::Var(dest)))
         }
 
+        (IrType::U64, IrType::I8) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
+            instrs.push(Instruction::U64toI8(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
+        (IrType::U64, IrType::I32) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::U64toI32(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
         (IrType::U64, IrType::F32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
@@ -2232,7 +2320,11 @@ fn array_initialiser(
     let mut instrs = Vec::new();
 
     let array_member_type = dest_type_info.unwrap_array_type()?;
-    let array_member_byte_size = array_member_type.get_byte_size(prog);
+    // sizes of array members must be known at compile time
+    let array_member_byte_size = match array_member_type.get_byte_size(prog) {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => return Err(MiddleEndError::ArrayMemberSizeNotKnownAtCompileTime),
+    };
 
     // pointer to the array member we're currently initialising
     let member_ptr_var = prog.new_var(ValueType::ModifiableLValue);
@@ -2245,8 +2337,14 @@ fn array_initialiser(
         Src::Var(dest),
     ));
 
+    // array length should be known at compile time (either explicitly, or inferred
+    // from initialiser list)
+    let array_size = match dest_type_info.get_array_size()? {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => return Err(MiddleEndError::UndefinedArraySize),
+    };
     // check that the array length matches the number of initialisers
-    if dest_type_info.get_array_size()? as usize != initialiser_list.len() {
+    if array_size as usize != initialiser_list.len() {
         return Err(MiddleEndError::TypeError(
             TypeError::MismatchedArrayInitialiserLength,
         ));

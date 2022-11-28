@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
   for (int y = 0; y < yLen; y++) {
     char *ptr;
     unsigned long row = strtoul(argv[y + 3], &ptr, 2);
-    printf("row input: %u\n", row);
+    printf("row input: %lu\n", row);
     grid[y] = row;
   }
 

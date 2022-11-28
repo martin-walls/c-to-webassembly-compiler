@@ -37,7 +37,8 @@ fn eval(
 ) -> Result<ConstantExpressionType, MiddleEndError> {
     match *expr {
         Expression::Identifier(_) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::Constant(c) => match c {
             AstConstant::Int(i) => Ok(ConstantExpressionType::Int(i as i128)),
@@ -46,22 +47,27 @@ fn eval(
         },
         Expression::StringLiteral(_) => Err(MiddleEndError::InvalidConstantExpression),
         Expression::Index(_, _) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::DirectMemberSelection(_, _) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::IndirectMemberSelection(_, _) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::UnaryOp(op, expr) => {
             let expr_result = eval(expr, prog)?;
             match op {
                 UnaryOperator::AddressOf => {
-                    todo!()
+                    // todo
+                    Err(MiddleEndError::CantEvaluateAtCompileTime)
                 }
                 UnaryOperator::Dereference => {
-                    todo!()
+                    // todo
+                    Err(MiddleEndError::CantEvaluateAtCompileTime)
                 }
                 UnaryOperator::Plus => match expr_result {
                     ConstantExpressionType::Int(_) | ConstantExpressionType::Float(_) => {
@@ -87,10 +93,12 @@ fn eval(
             }
         }
         Expression::SizeOfExpr(_) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::SizeOfType(_) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::BinaryOp(op, left, right) => {
             let left_result = eval(left, prog)?;
@@ -295,7 +303,8 @@ fn eval(
             }
         }
         Expression::Cast(_, _) => {
-            todo!()
+            // todo
+            Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
 
         Expression::ExpressionList(_, _)
