@@ -1,6 +1,6 @@
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::{Context, IdentifierResolveResult, LoopContext, SwitchContext};
-use crate::middle_end::ids::{StructId, ValueType, VarId};
+use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
@@ -1993,12 +1993,14 @@ fn get_type_conversion_instrs(
     dest_type: Box<IrType>,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
-    println!("convert {} to {}", src_type, dest_type);
+    println!("convert {}: {} to {}", src, src_type, dest_type);
     let mut instrs = Vec::new();
     if src_type == dest_type {
         return Ok((instrs, src));
     }
     match (*src_type, *dest_type) {
+        // cast to void *
+        (_src_type, IrType::PointerTo(t)) if *t == IrType::Void => Ok((instrs, src)),
         // char promotions
         (IrType::I8, dest_type) => {
             let intermediate_var = prog.new_var(src.get_value_type());
