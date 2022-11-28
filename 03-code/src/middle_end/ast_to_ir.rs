@@ -2325,7 +2325,7 @@ fn struct_initialiser(
     }
 
     for member_index in 0..struct_type.member_count() {
-        let member_initialiser = initialiser_list.get(member_index).unwrap().to_owned();
+        let mut member_initialiser = initialiser_list.get(member_index).unwrap().to_owned();
         let member_type = struct_type.get_member_type_by_index(member_index)?;
         let member_byte_offset = struct_type.get_member_byte_offset_by_index(member_index)?;
 
@@ -2345,6 +2345,29 @@ fn struct_initialiser(
             Src::Var(member_ptr_var.to_owned()),
             Src::Constant(Constant::Int(member_byte_offset as i128)),
         ));
+
+        // check for case of initialising a char array with a string literal
+        if let IrType::ArrayOf(_, _) = *member_type {
+            match *member_initialiser.to_owned() {
+                Initialiser::Expr(e) => {
+                    if let Expression::StringLiteral(s) = *e.to_owned() {
+                        // convert string literal to array of chars
+                        member_initialiser = convert_string_literal_to_init_list_of_chars_ast(s);
+                    }
+                }
+                Initialiser::List(inits) => {
+                    if inits.len() == 1 {
+                        if let Initialiser::Expr(e) = &**inits.first().unwrap() {
+                            if let Expression::StringLiteral(s) = *e.to_owned() {
+                                // convert string literal in braces to array of chars
+                                member_initialiser =
+                                    convert_string_literal_to_init_list_of_chars_ast(s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         match *member_initialiser {
             Initialiser::Expr(e) => {
@@ -2381,9 +2404,31 @@ fn struct_initialiser(
 
                 instrs.push(Instruction::StoreToAddress(member_ptr_var, expr_var));
             }
-            Initialiser::List(_) => {
-                todo!("aggregate struct member type")
-            }
+            Initialiser::List(sub_member_initialisers) => match *member_type.to_owned() {
+                IrType::ArrayOf(sub_member_type, size) => {
+                    // initialise nested array
+                    let mut init_instrs = array_initialiser(
+                        member_ptr_var,
+                        Box::new(IrType::ArrayOf(sub_member_type, size)),
+                        sub_member_initialisers,
+                        prog,
+                        context,
+                    )?;
+                    instrs.append(&mut init_instrs);
+                }
+                IrType::Struct(struct_id) => {
+                    // initialise nested struct
+                    let mut init_instrs = struct_initialiser(
+                        member_ptr_var,
+                        Box::new(IrType::Struct(struct_id)),
+                        sub_member_initialisers,
+                        prog,
+                        context,
+                    )?;
+                    instrs.append(&mut init_instrs);
+                }
+                _ => return Err(MiddleEndError::InvalidInitialiserExpression),
+            },
         }
     }
 

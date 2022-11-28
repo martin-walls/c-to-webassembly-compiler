@@ -22,4 +22,8 @@ struct st {int x; int y;} a5[] = { {1, 2},
             {3, 4},
             {5, 6} };
 
-struct st1 {int x; int y;} s = {1, 2};
+struct st1 {
+    int x;
+    char y[3];
+    struct st2 {double a; int c;} z;
+} s = {1, "ab", {1.1, 2} };
