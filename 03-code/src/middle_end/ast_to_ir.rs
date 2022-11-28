@@ -8,10 +8,11 @@ use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use crate::parser::ast;
 use crate::parser::ast::{
-    ArithmeticType, BinaryOperator, Declarator, DeclaratorInitialiser, EnumType, Enumerator,
-    Expression, ExpressionOrDeclaration, Identifier, Initialiser, LabelledStatement,
-    ParameterTypeList, Program as AstProgram, SpecifierQualifier, Statement, StorageClassSpecifier,
-    StructType as AstStructType, TypeSpecifier, UnaryOperator, UnionType as AstUnionType,
+    ArithmeticType, BinaryOperator, Constant as AstConstant, Declarator, DeclaratorInitialiser,
+    EnumType, Enumerator, Expression, ExpressionOrDeclaration, Identifier, Initialiser,
+    LabelledStatement, ParameterTypeList, Program as AstProgram, SpecifierQualifier, Statement,
+    StorageClassSpecifier, StructType as AstStructType, TypeSpecifier, UnaryOperator,
+    UnionType as AstUnionType,
 };
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
@@ -346,7 +347,7 @@ fn convert_statement_to_ir(
                             },
                         };
                     }
-                    DeclaratorInitialiser::Init(d, init_expr) => {
+                    DeclaratorInitialiser::Init(d, mut init_expr) => {
                         let (dest_type_info, name, _) = match get_type_info(
                             &sq,
                             Some(d),
@@ -357,12 +358,35 @@ fn convert_statement_to_ir(
                             None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                             Some(x) => x,
                         };
+
+                        // check for case of initialising a char array with a string literal
+                        if let IrType::ArrayOf(_, _) = *dest_type_info {
+                            match *init_expr.to_owned() {
+                                Initialiser::Expr(e) => {
+                                    if let Expression::StringLiteral(s) = *e.to_owned() {
+                                        // convert string literal to array of chars
+                                        init_expr =
+                                            convert_string_literal_to_init_list_of_chars_ast(s);
+                                    }
+                                }
+                                Initialiser::List(inits) => {
+                                    if inits.len() == 1 {
+                                        if let Initialiser::Expr(e) = &**inits.first().unwrap() {
+                                            if let Expression::StringLiteral(s) = *e.to_owned() {
+                                                // convert string literal in braces to array of chars
+                                                init_expr = convert_string_literal_to_init_list_of_chars_ast(s);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // if array type, get array size from number of initialisers (recursively)
                         let dest_type_info = dest_type_info.resolve_array_size(&init_expr)?;
                         match name {
                             None => return Err(MiddleEndError::InvalidAbstractDeclarator),
                             Some(name) => {
-                                println!("initialiser var type: {:?}", dest_type_info);
                                 match *init_expr {
                                     Initialiser::Expr(e) => {
                                         let (mut expr_instrs, expr_var) =
@@ -2247,4 +2271,19 @@ fn array_initialiser(
     }
 
     Ok(instrs)
+}
+
+/// convert a string literal to an array of chars, for array initialiser
+fn convert_string_literal_to_init_list_of_chars_ast(s: String) -> Box<Initialiser> {
+    let mut char_initialisers = Vec::new();
+    for c in s.chars() {
+        char_initialisers.push(Box::new(Initialiser::Expr(Box::new(Expression::Constant(
+            AstConstant::Char(c),
+        )))));
+    }
+    // string terminating char
+    char_initialisers.push(Box::new(Initialiser::Expr(Box::new(Expression::Constant(
+        AstConstant::Char('\0'),
+    )))));
+    Box::new(Initialiser::List(char_initialisers))
 }
