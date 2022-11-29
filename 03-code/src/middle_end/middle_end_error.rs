@@ -52,6 +52,7 @@ pub enum MiddleEndError {
     UndefinedStructMemberSize,
     UndefinedUnionMemberSize,
     CantEvaluateAtCompileTime,
+    UnwrapNonFunctionType,
 }
 
 impl fmt::Display for MiddleEndError {

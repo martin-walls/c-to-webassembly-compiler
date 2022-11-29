@@ -353,17 +353,8 @@ impl IrType {
             IrType::I8 | IrType::U8 | IrType::U16 | IrType::I16 | IrType::I32 => {
                 Box::new(IrType::I32)
             }
-            IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::PointerTo(_)
-            | IrType::Void => Box::new(self.to_owned()),
             IrType::ArrayOf(t, _) => Box::new(IrType::PointerTo(t.to_owned())),
-            IrType::Function(_, _) => Box::new(IrType::PointerTo(Box::new(self.to_owned()))),
+            _ => Box::new(self.to_owned()),
         }
     }
 

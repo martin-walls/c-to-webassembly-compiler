@@ -1,7 +1,7 @@
 use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
-use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -75,6 +75,28 @@ impl Src {
             Src::Fun(_) => ValueType::RValue,
         }
     }
+
+    pub fn require_function_id(&self) -> Result<FunId, MiddleEndError> {
+        match self {
+            Src::Fun(fun_id) => Ok(fun_id.to_owned()),
+            _ => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                "Require function name failed",
+            ))),
+        }
+    }
+
+    pub fn get_function_return_type(
+        &self,
+        prog: &Box<Program>,
+    ) -> Result<Box<IrType>, MiddleEndError> {
+        match self {
+            Src::Fun(fun_id) => match *prog.get_fun_type(fun_id)? {
+                IrType::Function(ret_type, _) => Ok(ret_type),
+                _ => Err(MiddleEndError::UnwrapNonFunctionType),
+            },
+            _ => Err(MiddleEndError::UnwrapNonFunctionType),
+        }
+    }
 }
 
 impl fmt::Display for Src {
@@ -133,7 +155,7 @@ pub enum Instruction {
     NotEqual(Dest, Src, Src),
 
     // control flow
-    Call(Dest, Src, Vec<Src>), // probably will use call_indirect in wasm to call the function
+    Call(Dest, FunId, Vec<Src>),
     Ret(Option<Src>),
     Label(LabelId),
     Br(LabelId),

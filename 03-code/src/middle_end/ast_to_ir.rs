@@ -598,11 +598,15 @@ fn convert_statement_to_ir(
                     prog.add_var_type(param_var, param_type)?;
                 }
             }
+            // add function to context before converting body, because might be recursive
+            let fun_declaration = Function::declaration(type_info.to_owned());
+            let fun_id = prog.new_fun_declaration(name.to_owned(), fun_declaration)?;
+            context.add_function_declaration(name.to_owned(), fun_id)?;
             // function body instructions
             let instrs = convert_statement_to_ir(body, prog, context)?;
+            // update function in program with full body
             let fun = Function::new(instrs, type_info, param_var_mappings);
-            let fun_id = prog.new_fun_body(name.to_owned(), fun)?;
-            context.add_function_declaration(name, fun_id)?;
+            prog.new_fun_body(name.to_owned(), fun)?;
             context.pop_scope()
         }
         Statement::Empty => {}
@@ -691,25 +695,10 @@ fn convert_expression_to_ir(
             // unary conversion
             let (mut unary_convert_fun_instrs, fun_var) = unary_convert(fun_var, prog)?;
             instrs.append(&mut unary_convert_fun_instrs);
-            let fun_var_type = fun_var.get_type(prog)?;
-            // must be a function pointer type
-            fun_var_type.require_pointer_type()?;
-            let dest_type = match *fun_var_type {
-                IrType::PointerTo(t) => match *t {
-                    IrType::Function(res, _) => res,
-                    _ => {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
-                            "Attempt to call a non-function type",
-                        )))
-                    }
-                },
-                _ => unreachable!("already asserted it's a pointer type"),
-            };
+            // must be a function name to be able to be called
+            let fun_id = fun_var.require_function_id()?;
+            let dest_type = fun_var.get_function_return_type(prog)?;
 
-            // let fun_identifier = match fun_var {
-            //     Src::Var(_) | Src::Constant(_) => return Err(MiddleEndError::InvalidFunctionCall),
-            //     Src::Fun(f) => f,
-            // };
             let mut param_srcs: Vec<Src> = Vec::new();
             for param in params {
                 let (mut param_instrs, param_var) = convert_expression_to_ir(param, prog, context)?;
@@ -719,7 +708,7 @@ fn convert_expression_to_ir(
             }
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), dest_type)?;
-            instrs.push(Instruction::Call(dest.to_owned(), fun_var, param_srcs));
+            instrs.push(Instruction::Call(dest.to_owned(), fun_id, param_srcs));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::DirectMemberSelection(obj, Identifier(member_name)) => {
