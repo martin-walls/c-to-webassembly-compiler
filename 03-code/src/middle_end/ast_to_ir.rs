@@ -1154,11 +1154,11 @@ pub fn convert_expression_to_ir(
                     instrs.push(Instruction::Mod(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Add => {
-                    let (mut convert_instrs, left_var, right_var) =
+                    let (mut convert_instrs, mut left_var, mut right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let mut left_var_type = left_var.get_type(prog)?;
+                    let mut right_var_type = right_var.get_type(prog)?;
                     // must be either two arithmetic types, or a pointer and an integer
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_object_pointer_type()
@@ -1170,13 +1170,45 @@ pub fn convert_expression_to_ir(
                             "Invalid addition operand types",
                         ));
                     }
+
+                    // if adding int and pointer, make sure left_var is always the
+                    // pointer and right_var is the int
+                    if right_var_type.is_object_pointer_type() {
+                        let temp = right_var;
+                        right_var = left_var;
+                        left_var = temp;
+                        let temp_type = right_var_type;
+                        right_var_type = left_var_type;
+                        left_var_type = temp_type;
+                    }
+
                     if left_var_type.is_arithmetic_type() {
                         prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    } else if left_var_type.is_object_pointer_type() {
-                        // result is the pointer type
-                        prog.add_var_type(dest.to_owned(), left_var_type)?;
                     } else {
-                        prog.add_var_type(dest.to_owned(), right_var_type)?;
+                        // pointer + int
+                        // result is the pointer type
+                        prog.add_var_type(dest.to_owned(), left_var_type.to_owned())?;
+                        // add to pointer in multiples of the byte size of the type it points to
+                        let temp = prog.new_var(right_var.get_value_type());
+                        prog.add_var_type(temp.to_owned(), right_var_type)?;
+                        let ptr_object_byte_size =
+                            match left_var_type.get_pointer_object_byte_size(prog)? {
+                                TypeSize::CompileTime(size) => {
+                                    Src::Constant(Constant::Int(size as i128))
+                                }
+                                TypeSize::Runtime(size_expr) => {
+                                    let (mut size_expr_instrs, size_var) =
+                                        convert_expression_to_ir(size_expr, prog, context)?;
+                                    instrs.append(&mut size_expr_instrs);
+                                    size_var
+                                }
+                            };
+                        instrs.push(Instruction::Mult(
+                            temp.to_owned(),
+                            right_var,
+                            ptr_object_byte_size,
+                        ));
+                        right_var = Src::Var(temp);
                     }
                     instrs.push(Instruction::Add(dest.to_owned(), left_var, right_var));
                 }

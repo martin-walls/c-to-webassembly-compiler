@@ -136,7 +136,7 @@ pub enum Instruction {
     Mult(Dest, Src, Src),
     Div(Dest, Src, Src),
     Mod(Dest, Src, Src),
-    Add(Dest, Src, Src), // todo if adding to a pointer, add by the size of the object it points to
+    Add(Dest, Src, Src),
     Sub(Dest, Src, Src),
     LeftShift(Dest, Src, Src),
     RightShift(Dest, Src, Src),

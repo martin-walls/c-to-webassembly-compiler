@@ -80,6 +80,18 @@ impl IrType {
         }
     }
 
+    pub fn get_pointer_object_byte_size(
+        &self,
+        prog: &Box<Program>,
+    ) -> Result<TypeSize, MiddleEndError> {
+        match self {
+            IrType::PointerTo(inner_type) => Ok(inner_type.get_byte_size(prog)),
+            t => Err(MiddleEndError::DereferenceNonPointerType(Box::new(
+                t.to_owned(),
+            ))),
+        }
+    }
+
     pub fn wrap_with_pointer(self) -> Box<Self> {
         Box::new(IrType::PointerTo(Box::new(self)))
     }
