@@ -33,4 +33,4 @@ union U {
     double y;
 };
 
-union U u1 = 42;
+//union U u1 = 42;
