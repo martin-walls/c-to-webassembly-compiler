@@ -7,4 +7,6 @@ int atoi(const char *str);
 
 //TODO
 
+unsigned long strtoul(const char *nptr, char **endptr, int base);
+
 #endif

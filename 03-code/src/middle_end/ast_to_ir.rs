@@ -4,7 +4,9 @@ use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
-use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, TypeSize, UnionType};
+use crate::middle_end::ir_types::{
+    array_to_pointer_type, EnumConstant, IrType, StructType, TypeSize, UnionType,
+};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
@@ -578,6 +580,7 @@ fn convert_statement_to_ir(
                 for (param_name, param_type) in param_bindings {
                     let param_var = prog.new_var(ValueType::ModifiableLValue);
                     param_var_mappings.push(param_var.to_owned());
+                    let param_type = array_to_pointer_type(param_type);
                     context.add_variable_to_scope(
                         param_name,
                         param_var.to_owned(),

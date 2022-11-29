@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (argc != yLen + 3) {
-    printf("Please specify intial contents for the %d rows\n", yLen);
+    printf("Please specify initial contents for the %d rows\n", yLen);
     return 1;
   }
 

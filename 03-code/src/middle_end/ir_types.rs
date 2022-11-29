@@ -591,3 +591,10 @@ impl fmt::Display for UnionType {
         write!(f, "\nTotal byte size: {}", self.total_byte_size)
     }
 }
+
+pub fn array_to_pointer_type(src_type: Box<IrType>) -> Box<IrType> {
+    match *src_type {
+        IrType::ArrayOf(member_type, _count) => Box::new(IrType::PointerTo(member_type)),
+        _ => src_type,
+    }
+}
