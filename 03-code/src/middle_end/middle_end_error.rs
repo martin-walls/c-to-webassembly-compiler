@@ -11,6 +11,7 @@ pub enum MiddleEndError {
     CaseOutsideSwitchContext,
     DefaultOutsideSwitchContext,
     MultipleDefaultCasesInSwitch,
+    NoCaseBlockToPushInstructionTo,
     /// in theory this should never occur
     LoopNestingError,
     UndeclaredIdentifier(String),

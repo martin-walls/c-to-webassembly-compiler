@@ -253,16 +253,31 @@ fn convert_statement_to_ir(
                 Src::Fun(_) | Src::StoreAddressVar(_) => unreachable!(),
             };
             context.push_switch(SwitchContext::new(switch_end_label.to_owned(), switch_var));
-            // switch body
-            instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
-            // add default case after all other cases, if it exists
-            let switch_context = context.pop_switch()?;
-            match switch_context.default_case {
-                None => {}
-                Some(mut default_instrs) => {
-                    instrs.append(&mut default_instrs);
+            // convert switch body - ignore the return, because the instrs will
+            // be stored into the SwitchContext, and we'll get them from there after
+            convert_statement_to_ir(body, prog, context)?;
+
+            let mut switch_context = context.pop_switch()?;
+
+            // add case comparison instructions
+            instrs.append(&mut switch_context.case_condition_instrs);
+            // if we have a default block, then jump there unconditionally after
+            // checking all the other conditions. If no default block, then exit
+            // the switch (ie. if no cases match)
+            match switch_context.default_block_label {
+                Some(label) => {
+                    instrs.push(Instruction::Br(label));
+                }
+                None => {
+                    instrs.push(Instruction::Br(switch_end_label.to_owned()));
                 }
             }
+
+            // add case bodies
+            for mut case_body_instrs in switch_context.case_blocks {
+                instrs.append(&mut case_body_instrs);
+            }
+
             // end of switch label
             instrs.push(Instruction::Label(switch_end_label));
         }
@@ -278,25 +293,30 @@ fn convert_statement_to_ir(
                     if !context.is_in_switch_context() {
                         return Err(MiddleEndError::CaseOutsideSwitchContext);
                     }
-                    let (mut expr_instrs, expr_var) =
+                    let (mut condition_instrs, expr_var) =
                         convert_expression_to_ir(expr, prog, context)?;
-                    instrs.append(&mut expr_instrs);
-                    let end_of_case_label = prog.new_label();
+                    let case_body_label = prog.new_label();
                     // check if case condition matches the switch expression
-                    instrs.push(Instruction::BrIfNotEq(
-                        expr_var,
+                    // if so, jump to the corresponding block
+                    condition_instrs.push(Instruction::BrIfEq(
                         Src::Var(context.get_switch_variable().unwrap()),
-                        end_of_case_label.to_owned(),
+                        expr_var,
+                        case_body_label.to_owned(),
                     ));
-                    // case body
-                    instrs.append(&mut convert_statement_to_ir(stmt, prog, context)?);
-                    // end of case label
-                    instrs.push(Instruction::Label(end_of_case_label));
+                    context.new_switch_case_block(case_body_label, condition_instrs)?;
+                    // start of case body - the result of this will be automatically pushed to
+                    // the case block we just created, because we're in a switch context
+                    convert_statement_to_ir(stmt, prog, context)?;
+                    return Ok(instrs);
                 }
                 LabelledStatement::Default(stmt) => {
-                    // todo default statement may contain other cases
-                    let body_instrs = convert_statement_to_ir(stmt, prog, context)?;
-                    context.add_default_switch_case(body_instrs)?;
+                    let case_body_label = prog.new_label();
+                    context.add_default_switch_block_label(case_body_label.to_owned())?;
+                    // default case has no condition instruction to add, because it'll get added
+                    // at the end of converting the whole switch statement
+                    context.new_switch_case_block(case_body_label, Vec::new())?;
+                    convert_statement_to_ir(stmt, prog, context)?;
+                    return Ok(instrs);
                 }
             }
         }
@@ -612,6 +632,12 @@ fn convert_statement_to_ir(
         }
         Statement::Empty => {}
     }
+
+    if context.is_in_switch_context() {
+        context.push_instrs_to_switch_case_block(instrs)?;
+        return Ok(Vec::new());
+    }
+
     Ok(instrs)
 }
 

@@ -78,6 +78,9 @@ impl Context {
     }
 
     pub fn is_in_switch_context(&self) -> bool {
+        if self.loop_stack.is_empty() {
+            return false;
+        }
         let mut i = self.loop_stack.len() - 1;
         loop {
             match self.loop_stack.get(i) {
@@ -85,11 +88,17 @@ impl Context {
                 Some(LoopOrSwitchContext::Switch(_)) => return true,
                 Some(LoopOrSwitchContext::Loop(_)) => {}
             }
+            if i == 0 {
+                return false;
+            }
             i -= 1;
         }
     }
 
     pub fn get_switch_variable(&self) -> Option<VarId> {
+        if self.loop_stack.is_empty() {
+            return None;
+        }
         let mut i = self.loop_stack.len() - 1;
         loop {
             match self.loop_stack.get(i) {
@@ -99,24 +108,88 @@ impl Context {
                 }
                 _ => {}
             }
+            if i == 0 {
+                return None;
+            }
             i -= 1;
         }
     }
 
-    pub fn add_default_switch_case(
+    pub fn new_switch_case_block(
         &mut self,
-        body: Vec<Instruction>,
+        case_body_label: LabelId,
+        mut case_condition_instrs: Vec<Instruction>,
     ) -> Result<(), MiddleEndError> {
+        if self.loop_stack.is_empty() {
+            return Err(MiddleEndError::CaseOutsideSwitchContext);
+        }
+        let mut i = self.loop_stack.len() - 1;
+        loop {
+            match self.loop_stack.get_mut(i) {
+                None => return Err(MiddleEndError::CaseOutsideSwitchContext),
+                Some(loop_or_switch_context) => match loop_or_switch_context {
+                    LoopOrSwitchContext::Loop(_) => {}
+                    LoopOrSwitchContext::Switch(switch_context) => {
+                        // every case block must have a label so it can be jumped to,
+                        // so enforce that by adding it here
+                        let case_instrs = vec![Instruction::Label(case_body_label)];
+                        switch_context.case_blocks.push(case_instrs);
+                        switch_context
+                            .case_condition_instrs
+                            .append(&mut case_condition_instrs);
+                        return Ok(());
+                    }
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::CaseOutsideSwitchContext);
+            }
+            i -= 1;
+        }
+    }
+
+    pub fn push_instrs_to_switch_case_block(
+        &mut self,
+        instrs: Vec<Instruction>,
+    ) -> Result<(), MiddleEndError> {
+        if self.loop_stack.is_empty() {
+            return Err(MiddleEndError::CaseOutsideSwitchContext);
+        }
+        let mut i = self.loop_stack.len() - 1;
+        loop {
+            match self.loop_stack.get_mut(i) {
+                None => return Err(MiddleEndError::CaseOutsideSwitchContext),
+                Some(loop_or_switch_context) => match loop_or_switch_context {
+                    LoopOrSwitchContext::Loop(_) => {}
+                    LoopOrSwitchContext::Switch(switch_context) => {
+                        return switch_context.push_instrs_to_last_case_block(instrs);
+                    }
+                },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::CaseOutsideSwitchContext);
+            }
+            i -= 1;
+        }
+    }
+
+    pub fn add_default_switch_block_label(&mut self, label: LabelId) -> Result<(), MiddleEndError> {
+        if self.loop_stack.is_empty() {
+            return Err(MiddleEndError::DefaultOutsideSwitchContext);
+        }
         let mut i = self.loop_stack.len() - 1;
         loop {
             match self.loop_stack.get_mut(i) {
                 None => return Err(MiddleEndError::DefaultOutsideSwitchContext),
-                Some(loop_or_switch) => match loop_or_switch {
+                Some(loop_or_switch_context) => match loop_or_switch_context {
                     LoopOrSwitchContext::Loop(_) => {}
                     LoopOrSwitchContext::Switch(switch_context) => {
-                        return switch_context.add_default_case(body);
+                        return switch_context.add_default_block_label(label);
                     }
                 },
+            }
+            if i == 0 {
+                return Err(MiddleEndError::DefaultOutsideSwitchContext);
             }
             i -= 1;
         }
@@ -563,7 +636,9 @@ impl LoopContext {
 pub struct SwitchContext {
     pub end_label: LabelId,
     pub switch_var: VarId,
-    pub default_case: Option<Vec<Instruction>>, //todo redo switch case logic
+    pub case_condition_instrs: Vec<Instruction>,
+    pub case_blocks: Vec<Vec<Instruction>>,
+    pub default_block_label: Option<LabelId>,
 }
 
 impl SwitchContext {
@@ -571,14 +646,29 @@ impl SwitchContext {
         SwitchContext {
             end_label,
             switch_var,
-            default_case: None,
+            case_condition_instrs: Vec::new(),
+            case_blocks: Vec::new(),
+            default_block_label: None,
         }
     }
 
-    pub fn add_default_case(&mut self, body: Vec<Instruction>) -> Result<(), MiddleEndError> {
-        match self.default_case {
+    fn push_instrs_to_last_case_block(
+        &mut self,
+        mut instrs: Vec<Instruction>,
+    ) -> Result<(), MiddleEndError> {
+        match self.case_blocks.last_mut() {
+            None => Err(MiddleEndError::NoCaseBlockToPushInstructionTo),
+            Some(block_instrs) => {
+                block_instrs.append(&mut instrs);
+                Ok(())
+            }
+        }
+    }
+
+    fn add_default_block_label(&mut self, label: LabelId) -> Result<(), MiddleEndError> {
+        match self.default_block_label {
             None => {
-                self.default_case = Some(body);
+                self.default_block_label = Some(label);
                 Ok(())
             }
             Some(_) => Err(MiddleEndError::MultipleDefaultCasesInSwitch),
