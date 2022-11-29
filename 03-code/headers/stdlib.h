@@ -1,7 +1,9 @@
 #ifndef _STDLIB_H
 #define _STDLIB_H
 
-#define NULL 0
+#define NULL ((void*)0)
+
+#define EXIT_SUCCESS 0
 
 int atoi(const char *str);
 

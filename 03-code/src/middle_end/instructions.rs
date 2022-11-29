@@ -212,8 +212,17 @@ pub enum Instruction {
     I64toI8(Dest, Src),
     U64toI8(Dest, Src),
 
+    I32toU8(Dest, Src),
+    U32toU8(Dest, Src),
+    I64toU8(Dest, Src),
+    U64toU8(Dest, Src),
+
     I64toI32(Dest, Src),
     U64toI32(Dest, Src),
+
+    // cast to pointer
+    U32toPtr(Dest, Src),
+    I32toPtr(Dest, Src),
 
     Nop,
 }
