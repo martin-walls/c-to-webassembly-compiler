@@ -9,6 +9,7 @@ use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{array_to_pointer_type, IrType, TypeSize};
 use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::middle_end::type_conversions::{
     binary_convert, binary_convert_separately, convert_type_for_assignment,
     get_type_conversion_instrs, unary_convert,
@@ -30,6 +31,7 @@ pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
             Err(e) => return Err(e),
         }
     }
+    optimise_ir(&mut program)?;
     Ok(program)
 }
 
