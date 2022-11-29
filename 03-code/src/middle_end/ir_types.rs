@@ -1,6 +1,6 @@
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::Program;
-use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
+use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast::{BinaryOperator, Constant, Expression, Initialiser};
 use std::collections::HashMap;
 use std::fmt;
@@ -36,8 +36,8 @@ pub enum IrType {
     PointerTo(Box<IrType>),
     /// array type, array size
     ArrayOf(Box<IrType>, Option<TypeSize>),
-    /// return type, parameter types
-    Function(Box<IrType>, Vec<Box<IrType>>),
+    /// return type, parameter types, is variadic
+    Function(Box<IrType>, Vec<Box<IrType>>, bool),
 }
 
 impl IrType {
@@ -76,7 +76,7 @@ impl IrType {
                 Some(TypeSize::Runtime(e)) => TypeSize::Runtime(e.to_owned()),
                 None => TypeSize::CompileTime(0),
             },
-            IrType::Function(_, _) => TypeSize::CompileTime(POINTER_SIZE),
+            IrType::Function(_, _, _) => TypeSize::CompileTime(POINTER_SIZE),
         }
     }
 
@@ -88,43 +88,21 @@ impl IrType {
         Box::new(IrType::ArrayOf(Box::new(self), size))
     }
 
-    pub fn wrap_with_fun(self, params: Vec<Box<IrType>>) -> Box<Self> {
-        Box::new(IrType::Function(Box::new(self), params))
+    pub fn wrap_with_fun(self, params: Vec<Box<IrType>>, is_variadic: bool) -> Box<Self> {
+        Box::new(IrType::Function(Box::new(self), params, is_variadic))
     }
 
     pub fn is_signed_integral(&self) -> bool {
         match self {
             IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 => true,
-            IrType::U8
-            | IrType::U16
-            | IrType::U32
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::PointerTo(_)
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
     pub fn is_unsigned_integral(&self) -> bool {
         match self {
             IrType::U8 | IrType::U16 | IrType::U32 | IrType::U64 => true,
-            IrType::I8
-            | IrType::I16
-            | IrType::I32
-            | IrType::I64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::PointerTo(_)
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -137,18 +115,11 @@ impl IrType {
             IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 | IrType::F32 | IrType::F64 => {
                 Ok(Box::new(self.to_owned()))
             }
-            IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::PointerTo(_)
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => {
-                Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
-                    "Cannot convert to signed",
-                    Box::new(self.to_owned()),
-                    None,
-                )))
-            }
+            _ => Err(MiddleEndError::TypeConversionError(
+                "Cannot convert to signed",
+                Box::new(self.to_owned()),
+                None,
+            )),
         }
     }
 
@@ -162,14 +133,7 @@ impl IrType {
             | IrType::U32
             | IrType::I64
             | IrType::U64 => true,
-            IrType::F32
-            | IrType::F64
-            | IrType::PointerTo(_)
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -177,9 +141,9 @@ impl IrType {
     pub fn require_integral_type(&self) -> Result<(), MiddleEndError> {
         match self.is_integral_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require integral type failed",
-            ))),
+            )),
         }
     }
 
@@ -195,12 +159,7 @@ impl IrType {
             | IrType::U64
             | IrType::F32
             | IrType::F64 => true,
-            IrType::PointerTo(_)
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -208,9 +167,9 @@ impl IrType {
     pub fn require_arithmetic_type(&self) -> Result<(), MiddleEndError> {
         match self.is_arithmetic_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require arithmetic type failed",
-            ))),
+            )),
         }
     }
 
@@ -227,11 +186,7 @@ impl IrType {
             | IrType::F32
             | IrType::F64
             | IrType::PointerTo(_) => true,
-            IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -239,33 +194,19 @@ impl IrType {
     pub fn require_scalar_type(&self) -> Result<(), MiddleEndError> {
         match self.is_scalar_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require scalar type failed",
-            ))),
+            )),
         }
     }
 
     pub fn is_object_pointer_type(&self) -> bool {
         match self {
             IrType::PointerTo(t) => match **t {
-                IrType::Function(_, _) | IrType::Void => false,
+                IrType::Function(_, _, _) | IrType::Void => false,
                 _ => true,
             },
-            IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -273,30 +214,16 @@ impl IrType {
     pub fn require_object_pointer_type(&self) -> Result<(), MiddleEndError> {
         match self.is_object_pointer_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require object pointer type failed",
-            ))),
+            )),
         }
     }
 
     pub fn is_pointer_type(&self) -> bool {
         match self {
             IrType::PointerTo(_) => true,
-            IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Struct(_)
-            | IrType::Union(_)
-            | IrType::Void
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -304,29 +231,16 @@ impl IrType {
     pub fn require_pointer_type(&self) -> Result<(), MiddleEndError> {
         match self.is_pointer_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require pointer type failed",
-            ))),
+            )),
         }
     }
 
     pub fn is_struct_or_union_type(&self) -> bool {
         match self {
             IrType::Struct(_) | IrType::Union(_) => true,
-            IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::Void
-            | IrType::PointerTo(_)
-            | IrType::ArrayOf(_, _)
-            | IrType::Function(_, _) => false,
+            _ => false,
         }
     }
 
@@ -334,9 +248,9 @@ impl IrType {
     pub fn require_struct_or_union_type(&self) -> Result<(), MiddleEndError> {
         match self.is_struct_or_union_type() {
             true => Ok(()),
-            false => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            false => Err(MiddleEndError::InvalidOperation(
                 "Require struct/union type failed",
-            ))),
+            )),
         }
     }
 
@@ -362,36 +276,30 @@ impl IrType {
     pub fn dereference_pointer_type(&self) -> Result<Box<Self>, MiddleEndError> {
         match self {
             IrType::PointerTo(t) => Ok(t.to_owned()),
-            t => Err(MiddleEndError::TypeError(
-                TypeError::DereferenceNonPointerType(Box::new(t.to_owned())),
-            )),
+            t => Err(MiddleEndError::DereferenceNonPointerType(Box::new(
+                t.to_owned(),
+            ))),
         }
     }
 
     pub fn unwrap_array_type(&self) -> Result<Box<Self>, MiddleEndError> {
         match self {
             IrType::ArrayOf(t, _size) => Ok(t.to_owned()),
-            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
-                Box::new(t.to_owned()),
-            ))),
+            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
         }
     }
 
     pub fn unwrap_struct_type(&self, prog: &Box<Program>) -> Result<StructType, MiddleEndError> {
         match self {
             IrType::Struct(struct_id) => Ok(prog.get_struct_type(struct_id)?),
-            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonStructType(
-                Box::new(t.to_owned()),
-            ))),
+            t => Err(MiddleEndError::UnwrapNonStructType(Box::new(t.to_owned()))),
         }
     }
 
     pub fn get_array_size(&self) -> Result<TypeSize, MiddleEndError> {
         match self {
             IrType::ArrayOf(_t, size) => Ok(size.to_owned().unwrap_or(TypeSize::CompileTime(0))),
-            t => Err(MiddleEndError::TypeError(TypeError::UnwrapNonArrayType(
-                Box::new(t.to_owned()),
-            ))),
+            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
         }
     }
 
@@ -463,12 +371,16 @@ impl fmt::Display for IrType {
                 Some(TypeSize::CompileTime(size)) => write!(f, "({})[{}]", t, size),
                 _ => write!(f, "({})[runtime]", t),
             },
-            IrType::Function(ret, params) => {
+            IrType::Function(ret, params, is_variadic) => {
                 write!(f, "({})(", ret)?;
                 for param in &params[..params.len() - 1] {
                     write!(f, "{}, ", param)?;
                 }
-                write!(f, "{})", params[params.len() - 1])
+                write!(f, "{}", params[params.len() - 1])?;
+                if *is_variadic {
+                    write!(f, ", ...")?;
+                }
+                write!(f, ")")
             }
         }
     }

@@ -43,7 +43,6 @@ pub enum MiddleEndError {
     /// in theory shouldn't happen
     TypeNotFound,
     FunctionNotFoundForId(FunId),
-    TypeError(TypeError),
     InvalidAssignment,
     ValueTypeNotSet(VarId),
     AttemptToModifyNonLValue,
@@ -53,6 +52,15 @@ pub enum MiddleEndError {
     UndefinedUnionMemberSize,
     CantEvaluateAtCompileTime,
     UnwrapNonFunctionType,
+    DereferenceNonPointerType(Box<IrType>),
+    InvalidOperation(&'static str),
+    TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
+    MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
+    UnwrapNonArrayType(Box<IrType>),
+    UnwrapNonStructType(Box<IrType>),
+    AssignNonAggregateValueToAggregateType,
+    AssignAggregateValueToNonAggregateType,
+    MismatchedArrayInitialiserLength,
 }
 
 impl fmt::Display for MiddleEndError {
@@ -136,9 +144,6 @@ impl fmt::Display for MiddleEndError {
             MiddleEndError::TypeNotFound => {
                 write!(f, "Type was not found in IR")
             }
-            MiddleEndError::TypeError(type_error) => {
-                write!(f, "Type error: {}", type_error)
-            }
             e => {
                 write!(f, "Middle end error: {:?}", e)
             }
@@ -147,24 +152,3 @@ impl fmt::Display for MiddleEndError {
 }
 
 impl Error for MiddleEndError {}
-
-#[derive(Debug)]
-pub enum TypeError {
-    DereferenceNonPointerType(Box<IrType>),
-    InvalidOperation(&'static str),
-    TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
-    MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
-    UnwrapNonArrayType(Box<IrType>),
-    UnwrapNonStructType(Box<IrType>),
-    AssignNonAggregateValueToAggregateType,
-    AssignAggregateValueToNonAggregateType,
-    MismatchedArrayInitialiserLength,
-}
-
-impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self) // todo nice error msgs
-    }
-}
-
-impl Error for TypeError {}

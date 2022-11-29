@@ -1,7 +1,7 @@
 use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
-use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
+use crate::middle_end::middle_end_error::MiddleEndError;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -79,9 +79,9 @@ impl Src {
     pub fn require_function_id(&self) -> Result<FunId, MiddleEndError> {
         match self {
             Src::Fun(fun_id) => Ok(fun_id.to_owned()),
-            _ => Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+            _ => Err(MiddleEndError::InvalidOperation(
                 "Require function name failed",
-            ))),
+            )),
         }
     }
 
@@ -91,7 +91,7 @@ impl Src {
     ) -> Result<Box<IrType>, MiddleEndError> {
         match self {
             Src::Fun(fun_id) => match *prog.get_fun_type(fun_id)? {
-                IrType::Function(ret_type, _) => Ok(ret_type),
+                IrType::Function(ret_type, _, _) => Ok(ret_type),
                 _ => Err(MiddleEndError::UnwrapNonFunctionType),
             },
             _ => Err(MiddleEndError::UnwrapNonFunctionType),

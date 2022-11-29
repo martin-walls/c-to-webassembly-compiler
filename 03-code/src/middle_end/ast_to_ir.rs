@@ -5,7 +5,7 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, TypeSize, UnionType};
-use crate::middle_end::middle_end_error::{MiddleEndError, TypeError};
+use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast;
 use crate::parser::ast::{
     ArithmeticType, BinaryOperator, Constant as AstConstant, Declarator, DeclaratorInitialiser,
@@ -551,24 +551,12 @@ fn convert_statement_to_ir(
                     return Err(MiddleEndError::InvalidTypedefDeclaration);
                 }
                 Some((type_info, _name, _params)) => match *type_info {
-                    IrType::I8
-                    | IrType::U8
-                    | IrType::I16
-                    | IrType::U16
-                    | IrType::U32
-                    | IrType::I64
-                    | IrType::U64
-                    | IrType::F32
-                    | IrType::F64
-                    | IrType::Void
-                    | IrType::ArrayOf(_, _)
-                    | IrType::PointerTo(_)
-                    | IrType::Function(_, _) => return Err(MiddleEndError::InvalidDeclaration),
                     IrType::I32 => match &sq.type_specifier {
                         TypeSpecifier::Enum(_) => {}
                         _ => return Err(MiddleEndError::InvalidDeclaration),
                     },
                     IrType::Struct(_) | IrType::Union(_) => {}
+                    _ => return Err(MiddleEndError::InvalidDeclaration),
                 },
             }
         }
@@ -819,9 +807,9 @@ fn convert_expression_to_ir(
             let expr_var_type = expr_var.get_type(prog)?;
             // check type is valid to be incremented
             if !expr_var_type.is_scalar_type() {
-                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                return Err(MiddleEndError::InvalidOperation(
                     "Incrementing a non-scalar type",
-                )));
+                ));
             }
             prog.add_var_type(dest.to_owned(), expr_var_type)?;
             // the returned value is the variable before incrementing
@@ -852,9 +840,9 @@ fn convert_expression_to_ir(
             let expr_var_type = expr_var.get_type(prog)?;
             // check type is valid to be incremented
             if !expr_var_type.is_scalar_type() {
-                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                return Err(MiddleEndError::InvalidOperation(
                     "Decrementing a non-scalar type",
-                )));
+                ));
             }
             prog.add_var_type(dest.to_owned(), expr_var_type)?;
             // the returned value is the variable before decrementing
@@ -886,9 +874,9 @@ fn convert_expression_to_ir(
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             if !expr_var_type.is_scalar_type() {
-                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                return Err(MiddleEndError::InvalidOperation(
                     "Incrementing a non-scalar type",
-                )));
+                ));
             }
             match expr_var {
                 Src::Var(var) => {
@@ -918,9 +906,9 @@ fn convert_expression_to_ir(
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
             if !expr_var_type.is_scalar_type() {
-                return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                return Err(MiddleEndError::InvalidOperation(
                     "Incrementing a non-scalar type",
-                )));
+                ));
             }
             match expr_var {
                 Src::Var(var) => {
@@ -963,8 +951,8 @@ fn convert_expression_to_ir(
                                 prog.add_var_type(dest.to_owned(), expr_var_type)?;
                             }
                             _ => {
-                                return Err(MiddleEndError::TypeError(
-                                    TypeError::DereferenceNonPointerType(expr_var_type),
+                                return Err(MiddleEndError::DereferenceNonPointerType(
+                                    expr_var_type,
                                 ))
                             }
                         }
@@ -980,8 +968,8 @@ fn convert_expression_to_ir(
                                 prog.add_var_type(dest.to_owned(), inner_type)?;
                             }
                             _ => {
-                                return Err(MiddleEndError::TypeError(
-                                    TypeError::DereferenceNonPointerType(expr_var_type),
+                                return Err(MiddleEndError::DereferenceNonPointerType(
+                                    expr_var_type,
                                 ))
                             }
                         }
@@ -996,9 +984,9 @@ fn convert_expression_to_ir(
                         expr_var,
                     ));
                     if !expr_var_type.is_arithmetic_type() {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Unary plus of a non-arithmetic type",
-                        )));
+                        ));
                     }
                     // type of dest is same as type of src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
@@ -1012,9 +1000,9 @@ fn convert_expression_to_ir(
                         expr_var,
                     ));
                     if !expr_var_type.is_arithmetic_type() {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Unary minus of a non-arithmetic type",
-                        )));
+                        ));
                     }
                     let dest_type = expr_var_type.smallest_signed_equivalent()?;
                     prog.add_var_type(dest.to_owned(), dest_type)?;
@@ -1024,9 +1012,9 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::BitwiseNot(dest.to_owned(), expr_var));
                     if !expr_var_type.is_integral_type() {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Bitwise not of a non-integral type",
-                        )));
+                        ));
                     }
                     // dest type is same as src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
@@ -1036,9 +1024,9 @@ fn convert_expression_to_ir(
                     let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::LogicalNot(dest.to_owned(), expr_var));
                     if !expr_var_type.is_scalar_type() {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Logical not of a non-scalar type",
-                        )));
+                        ));
                     }
                     // dest type is same as src
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
@@ -1139,9 +1127,9 @@ fn convert_expression_to_ir(
                         && !(left_var_type.is_integral_type()
                             && right_var_type.is_object_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid addition operand types",
-                        )));
+                        ));
                     }
                     if left_var_type.is_arithmetic_type() {
                         prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1167,9 +1155,9 @@ fn convert_expression_to_ir(
                         && !(left_var_type.is_object_pointer_type()
                             && right_var_type.is_object_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid addition operand types",
-                        )));
+                        ));
                     }
                     if left_var_type.is_arithmetic_type() {
                         prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1211,9 +1199,9 @@ fn convert_expression_to_ir(
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1230,9 +1218,9 @@ fn convert_expression_to_ir(
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1253,9 +1241,9 @@ fn convert_expression_to_ir(
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1276,9 +1264,9 @@ fn convert_expression_to_ir(
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1295,9 +1283,9 @@ fn convert_expression_to_ir(
                         && !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
                         && !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid equality comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1310,9 +1298,9 @@ fn convert_expression_to_ir(
                         && !(left_var_type.is_pointer_type() && right_var_type.is_integral_type())
                         && !(left_var_type.is_integral_type() && right_var_type.is_pointer_type())
                     {
-                        return Err(MiddleEndError::TypeError(TypeError::InvalidOperation(
+                        return Err(MiddleEndError::InvalidOperation(
                             "Invalid equality comparison operand types",
-                        )));
+                        ));
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
@@ -1782,7 +1770,7 @@ fn add_type_info_from_declarator(
 
             let (type_info, name, _) = add_type_info_from_declarator(
                 d,
-                type_info.wrap_with_fun(param_types),
+                type_info.wrap_with_fun(param_types, is_variadic),
                 prog,
                 context,
             )?;
@@ -2282,7 +2270,7 @@ fn get_type_conversion_instrs(
             Ok((instrs, Src::Var(dest)))
         }
 
-        (IrType::Function(_, _), IrType::PointerTo(t))
+        (IrType::Function(_, _, _), IrType::PointerTo(t))
         | (IrType::ArrayOf(_, _), IrType::PointerTo(t)) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t)))?;
@@ -2290,11 +2278,11 @@ fn get_type_conversion_instrs(
             Ok((instrs, Src::Var(dest)))
         }
         (s, d) => {
-            return Err(MiddleEndError::TypeError(TypeError::TypeConversionError(
+            return Err(MiddleEndError::TypeConversionError(
                 "Cannot convert type",
                 Box::new(s),
                 Some(Box::new(d)),
-            )))
+            ))
         } // todo rest of types
     }
 }
@@ -2334,18 +2322,14 @@ fn array_initialiser(
     };
     // check that the array length matches the number of initialisers
     if array_size as usize != initialiser_list.len() {
-        return Err(MiddleEndError::TypeError(
-            TypeError::MismatchedArrayInitialiserLength,
-        ));
+        return Err(MiddleEndError::MismatchedArrayInitialiserLength);
     }
 
     for array_member_initialiser in initialiser_list {
         match *array_member_initialiser {
             Initialiser::Expr(e) => {
                 if array_member_type.is_aggregate_type() {
-                    return Err(MiddleEndError::TypeError(
-                        TypeError::AssignNonAggregateValueToAggregateType,
-                    ));
+                    return Err(MiddleEndError::AssignNonAggregateValueToAggregateType);
                 }
                 let (mut expr_instrs, mut expr_var) = convert_expression_to_ir(e, prog, context)?;
                 instrs.append(&mut expr_instrs);
@@ -2432,9 +2416,7 @@ fn struct_initialiser(
             struct_type.member_count(),
             initialiser_list.len()
         );
-        return Err(MiddleEndError::TypeError(
-            TypeError::MismatchedArrayInitialiserLength,
-        ));
+        return Err(MiddleEndError::MismatchedArrayInitialiserLength);
     }
 
     for member_index in 0..struct_type.member_count() {
@@ -2485,9 +2467,7 @@ fn struct_initialiser(
         match *member_initialiser {
             Initialiser::Expr(e) => {
                 if member_type.is_aggregate_type() {
-                    return Err(MiddleEndError::TypeError(
-                        TypeError::AssignNonAggregateValueToAggregateType,
-                    ));
+                    return Err(MiddleEndError::AssignNonAggregateValueToAggregateType);
                 }
 
                 let (mut expr_instrs, mut expr_var) = convert_expression_to_ir(e, prog, context)?;
