@@ -432,7 +432,6 @@ impl StructType {
             TypeSize::CompileTime(size) => size,
             TypeSize::Runtime(_) => return Err(MiddleEndError::UndefinedStructMemberSize),
         };
-        println!("pushing member {}", member_name);
         self.members.push(member_name.to_owned());
         self.member_types
             .insert(member_name.to_owned(), member_type);

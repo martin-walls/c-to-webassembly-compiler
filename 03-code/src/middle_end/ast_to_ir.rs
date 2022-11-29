@@ -18,6 +18,7 @@ use crate::parser::ast::{
     BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
     Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
+use log::trace;
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut program = Box::new(Program::new());
@@ -321,7 +322,7 @@ fn convert_statement_to_ir(
                             Some((type_info, name, Some(_params))) => match name {
                                 // function declaration
                                 Some(name) => {
-                                    println!("Function declaration: {}", name);
+                                    trace!("Function declaration: {}", name);
                                     let fun_declaration =
                                         Function::declaration(type_info.to_owned());
                                     let fun_id =
@@ -338,7 +339,7 @@ fn convert_statement_to_ir(
                             Some((type_info, name, None)) => match name {
                                 // non-function declaration (normal variable)
                                 Some(name) => {
-                                    println!("Variable declaration: {}", name);
+                                    trace!("Variable declaration: {}", name);
                                     let var = prog.new_var(ValueType::ModifiableLValue);
                                     context.add_variable_to_scope(
                                         name,
@@ -423,10 +424,6 @@ fn convert_statement_to_ir(
 
                                         // convert src to dest type
                                         let src_type = src.get_type(prog)?;
-                                        println!(
-                                            "src type: {}, dest type: {}",
-                                            src_type, dest_type_info
-                                        );
                                         if src_type != dest_type_info {
                                             if let Src::Constant(c) = &src {
                                                 let temp = prog.new_var(ValueType::RValue);

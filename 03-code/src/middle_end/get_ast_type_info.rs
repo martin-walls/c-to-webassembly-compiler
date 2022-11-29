@@ -8,6 +8,7 @@ use crate::parser::ast::{
     SpecifierQualifier, StorageClassSpecifier, StructType as AstStructType, TypeSpecifier,
     UnionType as AstUnionType,
 };
+use log::trace;
 
 pub type FunctionParameterBindings = Vec<(String, Box<IrType>)>;
 
@@ -184,19 +185,19 @@ pub fn get_type_info(
         }
         Some(StorageClassSpecifier::Auto) => {
             // todo storage class specifiers
-            println!("ignoring storage class specifier: auto")
+            trace!("ignoring storage class specifier: auto")
         }
         Some(StorageClassSpecifier::Extern) => {
             // todo storage class specifiers
-            println!("ignoring storage class specifier: extern")
+            trace!("ignoring storage class specifier: extern")
         }
         Some(StorageClassSpecifier::Register) => {
             // todo storage class specifiers
-            println!("ignoring storage class specifier: register")
+            trace!("ignoring storage class specifier: register")
         }
         Some(StorageClassSpecifier::Static) => {
             // todo storage class specifiers
-            println!("ignoring storage class specifier: static")
+            trace!("ignoring storage class specifier: static")
         }
     }
 

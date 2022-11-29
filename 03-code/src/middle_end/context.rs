@@ -2,6 +2,7 @@ use crate::middle_end::ids::{FunId, LabelId, StructId, UnionId, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
+use log::trace;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -135,7 +136,7 @@ impl Context {
         var: VarId,
         type_info: Box<IrType>,
     ) -> Result<(), MiddleEndError> {
-        println!("adding variable \"{}\" to scope", name);
+        trace!("adding variable \"{}\" to scope", name);
         match self.scope_stack.last_mut() {
             None => Err(MiddleEndError::ScopeError),
             Some(scope) => scope.add_var(name, var, type_info),
@@ -456,7 +457,7 @@ impl Scope {
         if self.enum_constants.contains_key(&name) {
             return Err(MiddleEndError::DuplicateEnumConstantDeclaration(name));
         }
-        println!("Setting enum constant {} = {}", name, value);
+        trace!("Setting enum constant {} = {}", name, value);
         self.enum_constants.insert(name, value);
         Ok(())
     }

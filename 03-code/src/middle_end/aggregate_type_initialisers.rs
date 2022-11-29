@@ -132,11 +132,6 @@ pub fn struct_initialiser(
 
     // check that the number of initialisers matches the number of struct members
     if struct_type.member_count() != initialiser_list.len() {
-        println!(
-            "struct member count: {}, initialiser count: {}",
-            struct_type.member_count(),
-            initialiser_list.len()
-        );
         return Err(MiddleEndError::MismatchedArrayInitialiserLength);
     }
 

@@ -4,6 +4,7 @@ use crate::middle_end::ids::{
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::MiddleEndError;
+use log::trace;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -215,7 +216,7 @@ impl Program {
                 if existing_fun.type_info != fun.type_info {
                     return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
                 }
-                println!("Adding fun body: {}", name);
+                trace!("Adding fun body: {}", name);
                 self.functions.insert(fun_id.to_owned(), fun);
                 Ok(fun_id.to_owned())
             }
@@ -254,7 +255,7 @@ impl Program {
         var: VarId,
         var_type: Box<IrType>,
     ) -> Result<(), MiddleEndError> {
-        println!("Setting type {} = {}", var, var_type);
+        trace!("Setting type {} = {}", var, var_type);
         if self.var_types.contains_key(&var) {
             return Err(MiddleEndError::RedeclaredVarType(var));
         }

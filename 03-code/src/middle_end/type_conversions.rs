@@ -2,6 +2,7 @@ use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::MiddleEndError;
+use log::trace;
 
 pub fn unary_convert(
     src: Src,
@@ -237,7 +238,7 @@ pub fn convert_type_for_assignment(
     dest_type: Box<IrType>,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
-    println!("convert {}: {} to {}", src, src_type, dest_type);
+    trace!("convert {}: {} to {}", src, src_type, dest_type);
     let (convert_instrs, converted_var) =
         get_type_conversion_instrs(src, src_type, dest_type, prog)?;
     Ok((convert_instrs, converted_var))
@@ -249,7 +250,7 @@ pub fn get_type_conversion_instrs(
     dest_type: Box<IrType>,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
-    println!("convert {}: {} to {}", src, src_type, dest_type);
+    trace!("convert {}: {} to {}", src, src_type, dest_type);
     let mut instrs = Vec::new();
     if src_type == dest_type {
         return Ok((instrs, src));
