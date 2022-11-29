@@ -589,9 +589,9 @@ fn convert_statement_to_ir(
                     prog.add_var_type(param_var, param_type)?;
                 }
             }
-            // add function to context before converting body, because might be recursive
+            // add function to context and prog before converting body, because might be recursive
             let fun_declaration = Function::declaration(type_info.to_owned());
-            let fun_id = prog.new_fun_declaration(name.to_owned(), fun_declaration)?;
+            let fun_id = prog.new_fun_body(name.to_owned(), fun_declaration)?;
             context.add_function_declaration(name.to_owned(), fun_id)?;
             // function body instructions
             let instrs = convert_statement_to_ir(body, prog, context)?;
