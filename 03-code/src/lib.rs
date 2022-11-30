@@ -3,7 +3,9 @@
 mod middle_end;
 mod parser;
 mod preprocessor;
+mod relooper;
 
+use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
 use log::info;
 use middle_end::ast_to_ir::convert_to_ir;
@@ -24,7 +26,8 @@ pub struct CliConfig {
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let source = preprocess(Path::new(&config.filepath))?;
     let ast = parse(source)?;
-    let ir = convert_to_ir(ast)?;
+    let mut ir = convert_to_ir(ast)?;
     info!("IR: {}", ir);
+    reloop(&mut ir);
     Ok(())
 }
