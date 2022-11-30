@@ -123,7 +123,7 @@ impl fmt::Display for Function {
 
 #[derive(Debug)]
 pub struct Program {
-    label_id_generator: IdGenerator<LabelId>,
+    pub label_id_generator: IdGenerator<LabelId>,
     fun_id_generator: IdGenerator<FunId>,
     var_id_generator: IdGenerator<VarId>,
     string_literal_id_generator: IdGenerator<StringLiteralId>,

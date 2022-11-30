@@ -1,4 +1,4 @@
-use crate::middle_end::ids::LabelId;
+use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
 use std::collections::HashMap;
@@ -8,11 +8,11 @@ pub fn soupify(prog: &mut Box<Program>) {
     for (_fun_id, function) in &mut prog.functions {
         remove_consecutive_labels(&mut function.instrs);
         remove_label_fallthrough(&mut function.instrs);
+        add_block_gap_labels_after_conditionals(&mut function.instrs, &mut prog.label_id_generator);
     }
     remove_consecutive_labels(&mut prog.global_instrs);
     remove_label_fallthrough(&mut prog.global_instrs);
-
-    add_block_gap_labels_after_conditionals(prog);
+    add_block_gap_labels_after_conditionals(&mut prog.global_instrs, &mut prog.label_id_generator);
 
     println!("soupified: {}", prog);
 
@@ -198,48 +198,19 @@ fn remove_label_fallthrough(instrs: &mut Vec<Instruction>) {
     }
 }
 
-fn add_block_gap_labels_after_conditionals(prog: &mut Box<Program>) {
-    for (_fun_id, function) in &mut prog.functions {
-        let mut i = 0;
-        loop {
-            if i >= function.instrs.len() {
-                break;
-            }
-            let instr = function.instrs.get(i).unwrap();
-            let mut insert_gap_label = false;
-
-            match instr {
-                Instruction::BrIfEq(_, _, _)
-                | Instruction::BrIfNotEq(_, _, _)
-                | Instruction::BrIfGT(_, _, _)
-                | Instruction::BrIfLT(_, _, _)
-                | Instruction::BrIfGE(_, _, _)
-                | Instruction::BrIfLE(_, _, _) => {
-                    insert_gap_label = true;
-                }
-                _ => {}
-            }
-            match insert_gap_label {
-                false => i += 1,
-                true => {
-                    // increment i accounting for the new instructions we added
-                    i += 3;
-                    let new_label = prog.new_label();
-                    function.instrs.push(Instruction::Br(new_label.to_owned()));
-                    function.instrs.push(Instruction::Label(new_label));
-                }
-            }
-        }
-    }
-
-    // global instrs
+/// After a conditional branch, insert an unconditional branch and the label it
+/// branches to directly after, so that a block always ends with a branch
+fn add_block_gap_labels_after_conditionals(
+    instrs: &mut Vec<Instruction>,
+    label_generator: &mut IdGenerator<LabelId>,
+) {
     let mut i = 0;
     loop {
-        if i >= prog.global_instrs.len() {
+        if i >= instrs.len() {
             break;
         }
-        let instr = prog.global_instrs.get(i).unwrap();
-        let mut instrs_to_insert: Option<Vec<Instruction>> = None;
+        let instr = instrs.get(i).unwrap();
+        let mut insert_gap_label = false;
 
         match instr {
             Instruction::BrIfEq(_, _, _)
@@ -248,20 +219,18 @@ fn add_block_gap_labels_after_conditionals(prog: &mut Box<Program>) {
             | Instruction::BrIfLT(_, _, _)
             | Instruction::BrIfGE(_, _, _)
             | Instruction::BrIfLE(_, _, _) => {
-                let new_label = prog.new_label();
-                instrs_to_insert = Some(vec![
-                    Instruction::Br(new_label.to_owned()),
-                    Instruction::Label(new_label),
-                ])
+                insert_gap_label = true;
             }
             _ => {}
         }
-        match instrs_to_insert {
-            None => i += 1,
-            Some(mut instrs) => {
+        match insert_gap_label {
+            false => i += 1,
+            true => {
+                let new_label = label_generator.new_id();
+                instrs.insert(i, Instruction::Br(new_label.to_owned()));
+                instrs.insert(i + 1, Instruction::Label(new_label));
                 // increment i accounting for the new instructions we added
-                i += prog.global_instrs.len() + 1;
-                prog.global_instrs.append(&mut instrs);
+                i += 3;
             }
         }
     }
