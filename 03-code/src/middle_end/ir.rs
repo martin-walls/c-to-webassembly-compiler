@@ -1,5 +1,5 @@
 use crate::middle_end::ids::{
-    FunId, Id, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
+    FunId, IdGenerator, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
 };
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
@@ -123,66 +123,56 @@ impl fmt::Display for Function {
 
 #[derive(Debug)]
 pub struct Program {
-    pub label_identifiers: HashMap<String, LabelId>,
-    /// the highest label value currently in use
-    max_label: Option<LabelId>,
+    label_id_generator: IdGenerator<LabelId>,
+    fun_id_generator: IdGenerator<FunId>,
+    var_id_generator: IdGenerator<VarId>,
+    string_literal_id_generator: IdGenerator<StringLiteralId>,
+    struct_id_generator: IdGenerator<StructId>,
+    union_id_generator: IdGenerator<UnionId>,
+    pub label_ids: HashMap<String, LabelId>,
     pub function_ids: HashMap<String, FunId>,
     pub functions: HashMap<FunId, Function>,
-    max_fun_id: Option<FunId>,
     pub global_instrs: Vec<Instruction>,
-    max_var: Option<VarId>,
     pub string_literals: HashMap<StringLiteralId, String>,
-    max_string_literal_id: Option<StringLiteralId>,
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
-    max_struct_id: Option<StructId>,
     pub unions: HashMap<UnionId, UnionType>,
-    max_union_id: Option<UnionId>,
     pub enum_member_values: HashMap<String, u64>,
 }
 
 impl Program {
     pub fn new() -> Self {
         Program {
-            label_identifiers: HashMap::new(),
-            max_label: None,
+            label_id_generator: IdGenerator::new(),
+            fun_id_generator: IdGenerator::new(),
+            var_id_generator: IdGenerator::new(),
+            string_literal_id_generator: IdGenerator::new(),
+            struct_id_generator: IdGenerator::new(),
+            union_id_generator: IdGenerator::new(),
+            label_ids: HashMap::new(),
             function_ids: HashMap::new(),
             functions: HashMap::new(),
-            max_fun_id: None,
             global_instrs: Vec::new(),
-            max_var: None,
             string_literals: HashMap::new(),
-            max_string_literal_id: None,
             var_types: HashMap::new(),
             structs: HashMap::new(),
-            max_struct_id: None,
             unions: HashMap::new(),
-            max_union_id: None,
             enum_member_values: HashMap::new(),
         }
     }
 
     pub fn new_label(&mut self) -> LabelId {
-        let new_label = match &self.max_label {
-            None => LabelId::initial_id(),
-            Some(label) => label.next_id(),
-        };
-        self.max_label = Some(new_label.to_owned());
-        new_label
+        self.label_id_generator.new_id()
     }
 
     pub fn new_identifier_label(&mut self, name: String) -> LabelId {
         let label = self.new_label();
-        self.label_identifiers.insert(name, label.to_owned());
+        self.label_ids.insert(name, label.to_owned());
         label
     }
 
     fn new_fun_id(&mut self, name: String) -> FunId {
-        let new_fun_id = match &self.max_fun_id {
-            None => FunId::initial_id(),
-            Some(fun_id) => fun_id.next_id(),
-        };
-        self.max_fun_id = Some(new_fun_id.to_owned());
+        let new_fun_id = self.fun_id_generator.new_id();
         self.function_ids.insert(name, new_fun_id.to_owned());
         new_fun_id
     }
@@ -231,21 +221,13 @@ impl Program {
     }
 
     pub fn new_var(&mut self, value_type: ValueType) -> VarId {
-        let mut new_var = match &self.max_var {
-            None => VarId::initial_id(),
-            Some(var) => var.next_id(),
-        };
+        let mut new_var = self.var_id_generator.new_id();
         new_var.set_value_type(value_type);
-        self.max_var = Some(new_var.to_owned());
         new_var
     }
 
     pub fn new_string_literal(&mut self, s: String) -> StringLiteralId {
-        let new_string_id = match &self.max_string_literal_id {
-            None => StringLiteralId::initial_id(),
-            Some(string_id) => string_id.next_id(),
-        };
-        self.max_string_literal_id = Some(new_string_id.to_owned());
+        let new_string_id = self.string_literal_id_generator.new_id();
         self.string_literals.insert(new_string_id.to_owned(), s);
         new_string_id
     }
@@ -271,12 +253,7 @@ impl Program {
     }
 
     fn new_struct_id(&mut self) -> StructId {
-        let new_struct_id = match &self.max_struct_id {
-            None => StructId::initial_id(),
-            Some(struct_id) => struct_id.next_id(),
-        };
-        self.max_struct_id = Some(new_struct_id.to_owned());
-        new_struct_id
+        self.struct_id_generator.new_id()
     }
 
     pub fn add_struct_type(&mut self, struct_type: StructType) -> Result<StructId, MiddleEndError> {
@@ -299,12 +276,7 @@ impl Program {
     }
 
     fn new_union_id(&mut self) -> UnionId {
-        let new_union_id = match &self.max_union_id {
-            None => UnionId::initial_id(),
-            Some(union_id) => union_id.next_id(),
-        };
-        self.max_union_id = Some(new_union_id.to_owned());
-        new_union_id
+        self.union_id_generator.new_id()
     }
 
     pub fn add_union_type(&mut self, union_type: UnionType) -> Result<UnionId, MiddleEndError> {
@@ -344,7 +316,7 @@ impl fmt::Display for Program {
             write!(f, "\n  {} ({}): {}", var, var.get_value_type(), type_info)?;
         }
         write!(f, "\nLabel identifiers:")?;
-        for (name, label) in &self.label_identifiers {
+        for (name, label) in &self.label_ids {
             write!(f, "\n  \"{}\": {}", name, label)?;
         }
         write!(f, "\nString literals:")?;

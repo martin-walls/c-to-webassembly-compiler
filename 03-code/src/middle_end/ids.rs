@@ -12,6 +12,26 @@ pub trait Id {
     fn next_id(&self) -> Self;
 }
 
+#[derive(Debug)]
+pub struct IdGenerator<T: Id + Clone> {
+    max_id: Option<T>,
+}
+
+impl<T: Id + Clone> IdGenerator<T> {
+    pub fn new() -> Self {
+        IdGenerator { max_id: None }
+    }
+
+    pub fn new_id(&mut self) -> T {
+        let new_id = match &self.max_id {
+            None => T::initial_id(),
+            Some(id) => id.next_id(),
+        };
+        self.max_id = Some(new_id.to_owned());
+        new_id
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ValueType {
     ModifiableLValue,

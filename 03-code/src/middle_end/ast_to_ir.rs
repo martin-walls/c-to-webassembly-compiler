@@ -49,11 +49,11 @@ fn convert_statement_to_ir(
             }
             context.pop_scope();
         }
-        Statement::Goto(x) => match prog.label_identifiers.get(&x.0) {
+        Statement::Goto(x) => match prog.label_ids.get(&x.0) {
             Some(label) => instrs.push(Instruction::Br(label.to_owned())),
             None => {
                 let label = prog.new_label();
-                prog.label_identifiers.insert(x.0, label.to_owned());
+                prog.label_ids.insert(x.0, label.to_owned());
                 instrs.push(Instruction::Br(label));
             }
         },
