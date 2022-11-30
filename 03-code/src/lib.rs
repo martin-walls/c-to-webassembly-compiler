@@ -26,8 +26,8 @@ pub struct CliConfig {
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let source = preprocess(Path::new(&config.filepath))?;
     let ast = parse(source)?;
-    let mut ir = convert_to_ir(ast)?;
+    let ir = convert_to_ir(ast)?;
     info!("IR: {}", ir);
-    reloop(&mut ir);
+    reloop(ir);
     Ok(())
 }

@@ -2,40 +2,68 @@ use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
+
+/// A 'label' block. This is a list of instructions starting with a label
+/// and ending with one or more branch instructions.
+/// We call it a label to distinguish it from the output blocks we're generating.
+#[derive(Debug)]
+struct Label {
+    pub label: LabelId,
+    pub instrs: Vec<Instruction>,
+    // todo add output_branches or similar
+}
+
+impl Label {
+    fn new(label: LabelId) -> Self {
+        Label {
+            label,
+            instrs: Vec::new(),
+        }
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Label: {}", self.label)?;
+        for instr in &self.instrs {
+            write!(f, "\n  {}", instr)?;
+        }
+        write!(f, "")
+    }
+}
 
 /// Given a list of instructions, generate a 'soup of labelled blocks'
-pub fn soupify(prog: &mut Box<Program>) {
-    for (_fun_id, function) in &mut prog.functions {
+pub fn soupify(mut prog: Box<Program>) {
+    for (_fun_id, mut function) in prog.functions {
         remove_consecutive_labels(&mut function.instrs);
         remove_label_fallthrough(&mut function.instrs);
         add_block_gap_labels_after_conditionals(&mut function.instrs, &mut prog.label_id_generator);
+        insert_entry_label_if_necessary(&mut function.instrs, &mut prog.label_id_generator);
+        let labels = instructions_to_soup_of_labels(function.instrs);
+        for label in &labels {
+            println!("{}", label);
+        }
     }
     remove_consecutive_labels(&mut prog.global_instrs);
     remove_label_fallthrough(&mut prog.global_instrs);
     add_block_gap_labels_after_conditionals(&mut prog.global_instrs, &mut prog.label_id_generator);
+    insert_entry_label_if_necessary(&mut prog.global_instrs, &mut prog.label_id_generator);
+}
 
-    println!("soupified: {}", prog);
-
-    // for instr in instrs {
-    //     println!("  {}", instr);
-    //     match instr {
-    //         Instruction::Label(label_id) => {
-    //             // start of a block
-    //         }
-    //         Instruction::Br(label_id)
-    //         | Instruction::BrIfEq(_, _, label_id)
-    //         | Instruction::BrIfNotEq(_, _, label_id)
-    //         | Instruction::BrIfGT(_, _, label_id)
-    //         | Instruction::BrIfLT(_, _, label_id)
-    //         | Instruction::BrIfGE(_, _, label_id)
-    //         | Instruction::BrIfLE(_, _, label_id) => {
-    //             // end of a block
-    //         }
-    //         i => {
-    //             // inside a block
-    //         }
-    //     }
-    // }
+/// Add a new label at the start of the instructions, to be our entry-point
+fn insert_entry_label_if_necessary(
+    instrs: &mut Vec<Instruction>,
+    label_generator: &mut IdGenerator<LabelId>,
+) {
+    match instrs.get(0) {
+        Some(Instruction::Label(_)) => {}
+        Some(_) => {
+            instrs.insert(0, Instruction::Label(label_generator.new_id()));
+        }
+        None => {}
+    }
 }
 
 /// Combine any consecutive label instructions into a single label, and remap
@@ -234,4 +262,25 @@ fn add_block_gap_labels_after_conditionals(
             }
         }
     }
+}
+
+/// Convert a list of instructions, which has been processed to add appropriate
+/// label instructions, to a 'soup of blocks' (which we call labels).
+///
+/// The first label in the resulting vector is the entry-point.
+fn instructions_to_soup_of_labels(instrs: Vec<Instruction>) -> Vec<Label> {
+    let mut labels = Vec::new();
+    for instr in instrs {
+        match instr {
+            Instruction::Label(label_id) => {
+                // start of a new block
+                labels.push(Label::new(label_id));
+            }
+            i => {
+                // any other instruction is continuation of the current block
+                labels.last_mut().unwrap().instrs.push(i);
+            }
+        }
+    }
+    labels
 }
