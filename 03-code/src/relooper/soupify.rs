@@ -1,6 +1,5 @@
 use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir::Program;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -9,10 +8,9 @@ use std::fmt::Formatter;
 /// and ending with one or more branch instructions.
 /// We call it a label to distinguish it from the output blocks we're generating.
 #[derive(Debug)]
-struct Label {
+pub struct Label {
     pub label: LabelId,
     pub instrs: Vec<Instruction>,
-    // todo add output_branches or similar
 }
 
 impl Label {
@@ -21,6 +19,29 @@ impl Label {
             label,
             instrs: Vec::new(),
         }
+    }
+
+    pub fn possible_branch_targets(&self) -> Vec<LabelId> {
+        let mut targets = Vec::new();
+        for instr in &self.instrs {
+            match instr {
+                Instruction::Br(label_id)
+                | Instruction::BrIfEq(_, _, label_id)
+                | Instruction::BrIfNotEq(_, _, label_id)
+                | Instruction::BrIfGT(_, _, label_id)
+                | Instruction::BrIfLT(_, _, label_id)
+                | Instruction::BrIfGE(_, _, label_id)
+                | Instruction::BrIfLE(_, _, label_id) => {
+                    // set semantics - only want one copy of each label to branch to,
+                    // even if there are multiple branches
+                    if !targets.contains(label_id) {
+                        targets.push(label_id.to_owned());
+                    }
+                }
+                _ => {}
+            }
+        }
+        targets
     }
 }
 
@@ -35,21 +56,15 @@ impl fmt::Display for Label {
 }
 
 /// Given a list of instructions, generate a 'soup of labelled blocks'
-pub fn soupify(mut prog: Box<Program>) {
-    for (_fun_id, mut function) in prog.functions {
-        remove_consecutive_labels(&mut function.instrs);
-        remove_label_fallthrough(&mut function.instrs);
-        add_block_gap_labels_after_conditionals(&mut function.instrs, &mut prog.label_id_generator);
-        insert_entry_label_if_necessary(&mut function.instrs, &mut prog.label_id_generator);
-        let labels = instructions_to_soup_of_labels(function.instrs);
-        for label in &labels {
-            println!("{}", label);
-        }
-    }
-    remove_consecutive_labels(&mut prog.global_instrs);
-    remove_label_fallthrough(&mut prog.global_instrs);
-    add_block_gap_labels_after_conditionals(&mut prog.global_instrs, &mut prog.label_id_generator);
-    insert_entry_label_if_necessary(&mut prog.global_instrs, &mut prog.label_id_generator);
+pub fn soupify(
+    mut instrs: Vec<Instruction>,
+    label_generator: &mut IdGenerator<LabelId>,
+) -> (HashMap<LabelId, Label>, LabelId) {
+    remove_consecutive_labels(&mut instrs);
+    remove_label_fallthrough(&mut instrs);
+    add_block_gap_labels_after_conditionals(&mut instrs, label_generator);
+    insert_entry_label_if_necessary(&mut instrs, label_generator);
+    instructions_to_soup_of_labels(instrs)
 }
 
 /// Add a new label at the start of the instructions, to be our entry-point
@@ -268,19 +283,29 @@ fn add_block_gap_labels_after_conditionals(
 /// label instructions, to a 'soup of blocks' (which we call labels).
 ///
 /// The first label in the resulting vector is the entry-point.
-fn instructions_to_soup_of_labels(instrs: Vec<Instruction>) -> Vec<Label> {
-    let mut labels = Vec::new();
+fn instructions_to_soup_of_labels(instrs: Vec<Instruction>) -> (HashMap<LabelId, Label>, LabelId) {
+    let mut labels = HashMap::new();
+    let mut current_label_id: Option<LabelId> = None;
+    let mut entry: Option<LabelId> = None;
     for instr in instrs {
         match instr {
             Instruction::Label(label_id) => {
+                if let None = current_label_id {
+                    // no previous block => this new block is the entry
+                    entry = Some(label_id.to_owned());
+                }
                 // start of a new block
-                labels.push(Label::new(label_id));
+                current_label_id = Some(label_id.to_owned());
+                let new_label = Label::new(label_id.to_owned());
+                labels.insert(label_id, new_label);
             }
             i => {
                 // any other instruction is continuation of the current block
-                labels.last_mut().unwrap().instrs.push(i);
+                if let Some(current_label_id) = &current_label_id {
+                    labels.get_mut(current_label_id).unwrap().instrs.push(i);
+                }
             }
         }
     }
-    labels
+    (labels, entry.unwrap())
 }

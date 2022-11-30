@@ -22,17 +22,17 @@ use crate::parser::ast::{
 use log::trace;
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
-    let mut program = Box::new(Program::new());
+    let mut prog = Box::new(Program::new());
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
-        let global_instrs = convert_statement_to_ir(stmt, &mut program, &mut context);
+        let global_instrs = convert_statement_to_ir(stmt, &mut prog, &mut context);
         match global_instrs {
-            Ok(mut instrs) => program.global_instrs.append(&mut instrs),
+            Ok(mut instrs) => prog.program_instructions.global_instrs.append(&mut instrs),
             Err(e) => return Err(e),
         }
     }
-    optimise_ir(&mut program)?;
-    Ok(program)
+    optimise_ir(&mut prog)?;
+    Ok(prog)
 }
 
 fn convert_statement_to_ir(
@@ -49,11 +49,10 @@ fn convert_statement_to_ir(
             }
             context.pop_scope();
         }
-        Statement::Goto(x) => match prog.label_ids.get(&x.0) {
+        Statement::Goto(x) => match prog.resolve_identifier_to_label(&x.0) {
             Some(label) => instrs.push(Instruction::Br(label.to_owned())),
             None => {
-                let label = prog.new_label();
-                prog.label_ids.insert(x.0, label.to_owned());
+                let label = prog.new_identifier_label(x.0);
                 instrs.push(Instruction::Br(label));
             }
         },

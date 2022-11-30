@@ -66,63 +66,49 @@ impl fmt::Display for Function {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct TypeInfo {
-//     pub type_: IrType,
-// }
-//
-// impl TypeInfo {
-//     pub fn new() -> Self {
-//         TypeInfo {
-//             type_: IrType::Void,
-//         }
-//     }
-//
-//     pub fn get_byte_size(&self) -> u64 {
-//         self.type_.get_byte_size()
-//     }
-//
-//     pub fn wrap_with_pointer(&mut self) {
-//         self.type_ = IrType::PointerTo(Box::new(self.type_.to_owned()));
-//     }
-//
-//     pub fn wrap_with_array(&mut self, size: Option<u64>) {
-//         self.type_ = IrType::ArrayOf(Box::new(self.type_.to_owned()), size);
-//     }
-//
-//     pub fn wrap_with_fun(&mut self, params: Vec<Box<TypeInfo>>) {
-//         self.type_ = IrType::Function(Box::new(self.type_.to_owned()), params);
-//     }
-//
-//     pub fn is_struct_union_or_enum(&self) -> bool {
-//         match &self.type_ {
-//             IrType::I8
-//             | IrType::U8
-//             | IrType::I16
-//             | IrType::U16
-//             | IrType::I32
-//             | IrType::U32
-//             | IrType::I64
-//             | IrType::U64
-//             | IrType::F32
-//             | IrType::F64
-//             | IrType::Void
-//             | IrType::PointerTo(_)
-//             | IrType::ArrayOf(_, _)
-//             | IrType::Function(_, _) => false,
-//             IrType::Struct(_) | IrType::Union(_) => true,
-//         }
-//     }
-// }
-//
-// impl fmt::Display for TypeInfo {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", self.type_)
-//     }
-// }
+#[derive(Debug)]
+pub struct ProgramInstructions {
+    pub functions: HashMap<FunId, Function>,
+    pub global_instrs: Vec<Instruction>,
+}
+
+impl ProgramInstructions {
+    pub fn new() -> Self {
+        ProgramInstructions {
+            functions: HashMap::new(),
+            global_instrs: Vec::new(),
+        }
+    }
+
+    fn insert_function(&mut self, fun_id: FunId, fun: Function) {
+        self.functions.insert(fun_id, fun);
+    }
+
+    fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+        match self.functions.get(fun_id) {
+            None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
+            Some(fun) => Ok(fun.type_info.to_owned()),
+        }
+    }
+}
+
+impl fmt::Display for ProgramInstructions {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{{")?;
+        write!(f, "\nGlobal instructions:")?;
+        for instr in &self.global_instrs {
+            write!(f, "\n  {}", instr)?;
+        }
+        write!(f, "\nFunction bodies:")?;
+        for (fun_id, fun) in &self.functions {
+            write!(f, "\nFunction {}:\n{}", fun_id, fun)?;
+        }
+        write!(f, "\n}}")
+    }
+}
 
 #[derive(Debug)]
-pub struct Program {
+pub struct ProgramMetadata {
     pub label_id_generator: IdGenerator<LabelId>,
     fun_id_generator: IdGenerator<FunId>,
     var_id_generator: IdGenerator<VarId>,
@@ -131,8 +117,6 @@ pub struct Program {
     union_id_generator: IdGenerator<UnionId>,
     pub label_ids: HashMap<String, LabelId>,
     pub function_ids: HashMap<String, FunId>,
-    pub functions: HashMap<FunId, Function>,
-    pub global_instrs: Vec<Instruction>,
     pub string_literals: HashMap<StringLiteralId, String>,
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
@@ -140,9 +124,9 @@ pub struct Program {
     pub enum_member_values: HashMap<String, u64>,
 }
 
-impl Program {
+impl ProgramMetadata {
     pub fn new() -> Self {
-        Program {
+        ProgramMetadata {
             label_id_generator: IdGenerator::new(),
             fun_id_generator: IdGenerator::new(),
             var_id_generator: IdGenerator::new(),
@@ -151,8 +135,6 @@ impl Program {
             union_id_generator: IdGenerator::new(),
             label_ids: HashMap::new(),
             function_ids: HashMap::new(),
-            functions: HashMap::new(),
-            global_instrs: Vec::new(),
             string_literals: HashMap::new(),
             var_types: HashMap::new(),
             structs: HashMap::new(),
@@ -171,53 +153,14 @@ impl Program {
         label
     }
 
-    fn new_fun_id(&mut self, name: String) -> FunId {
-        let new_fun_id = self.fun_id_generator.new_id();
-        self.function_ids.insert(name, new_fun_id.to_owned());
-        new_fun_id
-    }
-
-    pub fn new_fun_declaration(
-        &mut self,
-        name: String,
-        fun: Function,
-    ) -> Result<FunId, MiddleEndError> {
+    pub fn new_fun_declaration(&mut self, name: String) -> Result<FunId, MiddleEndError> {
         match self.function_ids.get(&name) {
             None => {}
             Some(_) => return Err(MiddleEndError::DuplicateFunctionDeclaration(name)),
         }
-        let fun_id = self.new_fun_id(name);
-        self.functions.insert(fun_id.to_owned(), fun);
+        let fun_id = self.fun_id_generator.new_id();
+        self.function_ids.insert(name, fun_id.to_owned());
         Ok(fun_id)
-    }
-
-    pub fn new_fun_body(&mut self, name: String, fun: Function) -> Result<FunId, MiddleEndError> {
-        match self.function_ids.get(&name) {
-            None => {
-                // new function declaration
-                let fun_id = self.new_fun_id(name);
-                self.functions.insert(fun_id.to_owned(), fun);
-                Ok(fun_id)
-            }
-            Some(fun_id) => {
-                // body definition of existing function declaration
-                // check whether this definition matches the earlier declaration
-                let existing_fun = self.functions.get(fun_id).unwrap();
-                if existing_fun.type_info != fun.type_info {
-                    return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
-                }
-                trace!("Adding fun body: {}", name);
-                self.functions.insert(fun_id.to_owned(), fun);
-                Ok(fun_id.to_owned())
-            }
-        }
-    }
-
-    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
-        match self.functions.get(fun_id) {
-            None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
-            Some(fun) => Ok(fun.type_info.to_owned()),
-        }
     }
 
     pub fn new_var(&mut self, value_type: ValueType) -> VarId {
@@ -299,17 +242,13 @@ impl Program {
     }
 }
 
-impl fmt::Display for Program {
+impl fmt::Display for ProgramMetadata {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{{")?;
-        write!(f, "\nGlobal instructions:")?;
-        for instr in &self.global_instrs {
-            write!(f, "\n  {}", instr)?;
-        }
+        write!(f, "\nFunction names:")?;
         for fun_name in self.function_ids.keys() {
             let fun_id = self.function_ids.get(fun_name).unwrap();
-            let fun = self.functions.get(fun_id).unwrap();
-            write!(f, "\nFunction {} => {}\n{}", fun_name, fun_id, fun)?;
+            write!(f, "\nFunction {} => {}", fun_name, fun_id)?;
         }
         write!(f, "\nVar types:")?;
         for (var, type_info) in &self.var_types {
@@ -332,5 +271,118 @@ impl fmt::Display for Program {
             write!(f, "\n  {}: {}", id, type_info)?;
         }
         write!(f, "\n}}")
+    }
+}
+
+pub struct Program {
+    pub program_instructions: Box<ProgramInstructions>,
+    pub program_metadata: Box<ProgramMetadata>,
+}
+
+impl Program {
+    pub fn new() -> Self {
+        Program {
+            program_instructions: Box::new(ProgramInstructions::new()),
+            program_metadata: Box::new(ProgramMetadata::new()),
+        }
+    }
+
+    pub fn new_label(&mut self) -> LabelId {
+        self.program_metadata.new_label()
+    }
+
+    pub fn new_identifier_label(&mut self, name: String) -> LabelId {
+        self.program_metadata.new_identifier_label(name)
+    }
+
+    pub fn resolve_identifier_to_label(&self, name: &str) -> Option<&LabelId> {
+        self.program_metadata.label_ids.get(name)
+    }
+
+    pub fn new_fun_declaration(
+        &mut self,
+        name: String,
+        fun: Function,
+    ) -> Result<FunId, MiddleEndError> {
+        let fun_id = self.program_metadata.new_fun_declaration(name)?;
+        self.program_instructions
+            .insert_function(fun_id.to_owned(), fun);
+        Ok(fun_id)
+    }
+
+    pub fn new_fun_body(&mut self, name: String, fun: Function) -> Result<FunId, MiddleEndError> {
+        match self.program_metadata.function_ids.get(&name) {
+            None => self.new_fun_declaration(name, fun),
+            Some(existing_fun_id) => {
+                // body definition of existing function declaration
+                // check whether this definition matches the earlier declaration
+                let existing_fun = self
+                    .program_instructions
+                    .functions
+                    .get(existing_fun_id)
+                    .unwrap();
+                if existing_fun.type_info != fun.type_info {
+                    return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
+                }
+                self.program_instructions
+                    .insert_function(existing_fun_id.to_owned(), fun);
+                Ok(existing_fun_id.to_owned())
+            }
+        }
+    }
+
+    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+        self.program_instructions.get_fun_type(fun_id)
+    }
+
+    pub fn new_var(&mut self, value_type: ValueType) -> VarId {
+        self.program_metadata.new_var(value_type)
+    }
+
+    pub fn new_string_literal(&mut self, s: String) -> StringLiteralId {
+        self.program_metadata.new_string_literal(s)
+    }
+
+    pub fn add_var_type(
+        &mut self,
+        var: VarId,
+        var_type: Box<IrType>,
+    ) -> Result<(), MiddleEndError> {
+        self.program_metadata.add_var_type(var, var_type)
+    }
+
+    pub fn get_var_type(&self, var: &VarId) -> Result<Box<IrType>, MiddleEndError> {
+        self.program_metadata.get_var_type(var)
+    }
+
+    fn new_struct_id(&mut self) -> StructId {
+        self.program_metadata.new_struct_id()
+    }
+
+    pub fn add_struct_type(&mut self, struct_type: StructType) -> Result<StructId, MiddleEndError> {
+        self.program_metadata.add_struct_type(struct_type)
+    }
+
+    pub fn get_struct_type(&self, struct_id: &StructId) -> Result<StructType, MiddleEndError> {
+        self.program_metadata.get_struct_type(struct_id)
+    }
+
+    fn new_union_id(&mut self) -> UnionId {
+        self.program_metadata.new_union_id()
+    }
+
+    pub fn add_union_type(&mut self, union_type: UnionType) -> Result<UnionId, MiddleEndError> {
+        self.program_metadata.add_union_type(union_type)
+    }
+
+    pub fn get_union_type(&self, union_id: &UnionId) -> Result<UnionType, MiddleEndError> {
+        self.program_metadata.get_union_type(union_id)
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Instructions:\n{}", self.program_instructions)?;
+        write!(f, "Metadata:\n{}", self.program_metadata)
     }
 }
