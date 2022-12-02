@@ -2,6 +2,8 @@ use crate::middle_end::ids::LabelId;
 use crate::middle_end::ir::Program;
 use crate::relooper::soupify::{soupify, Label};
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
 
 pub fn reloop(mut prog: Box<Program>) {
     for (_fun_id, function) in prog.program_instructions.functions {
@@ -13,7 +15,11 @@ pub fn reloop(mut prog: Box<Program>) {
             function.instrs,
             &mut prog.program_metadata.label_id_generator,
         );
-        reloop_labels(labels, vec![entry]);
+        let block = create_block_from_labels(labels, vec![entry]);
+        match block {
+            Some(block) => println!("created block\n{}", block),
+            None => println!("No block created"),
+        }
     }
     let labels = soupify(
         prog.program_instructions.global_instrs,
@@ -21,27 +27,68 @@ pub fn reloop(mut prog: Box<Program>) {
     );
 }
 
+#[derive(Debug)]
 pub enum Block {
     Simple {
         internal: Label,
-        next: Box<Block>,
+        next: Option<Box<Block>>,
     },
     Loop {
         inner: Box<Block>,
-        next: Box<Block>,
+        next: Option<Box<Block>>,
     },
     Multiple {
         handled_blocks: Vec<Box<Block>>,
-        next: Box<Block>,
+        next: Option<Box<Block>>,
     },
 }
 
-fn reloop_labels(mut labels: HashMap<LabelId, Label>, entries: Vec<LabelId>) -> Box<Block> {
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Block::Simple { internal, next } => match next {
+                Some(next) => write!(
+                    f,
+                    "Simple {{ internal: {}, next: {} }}",
+                    internal.label, next
+                ),
+                None => write!(f, "Simple {{ internal: {}, next: NULL }}", internal.label),
+            },
+            Block::Loop { inner, next } => match next {
+                Some(next) => write!(f, "Loop {{ inner: {}, next: {} }}", inner, next),
+                None => write!(f, "Loop {{ inner: {}, next: NULL }}", inner),
+            },
+            Block::Multiple {
+                handled_blocks,
+                next,
+            } => {
+                write!(f, "Multiple {{ handled: [")?;
+                for handled in &handled_blocks[..handled_blocks.len() - 1] {
+                    write!(f, "{}, ", handled)?;
+                }
+                write!(f, "{}", handled_blocks[handled_blocks.len() - 1])?;
+                match next {
+                    Some(next) => write!(f, "], next: {} }}", next),
+                    None => write!(f, "], next: NULL }}"),
+                }
+            }
+        }
+    }
+}
+
+fn create_block_from_labels(
+    mut labels: HashMap<LabelId, Label>,
+    entries: Vec<LabelId>,
+) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);
     // for label in labels.values() {
     //     println!("{}", label);
     // }
     // println!("{:#?}", reachability);
+
+    if entries.is_empty() {
+        return None;
+    }
 
     // if we have a single entry that we can't return to
     if entries.len() == 1 {
@@ -56,11 +103,11 @@ fn reloop_labels(mut labels: HashMap<LabelId, Label>, entries: Vec<LabelId>) -> 
             println!("Create simple block: {}", single_entry);
             let next_entries = labels.get(single_entry).unwrap().possible_branch_targets();
             let this_label = labels.remove(single_entry).unwrap();
-            let next_block = reloop_labels(labels, next_entries);
-            return Box::new(Block::Simple {
+            let next_block = create_block_from_labels(labels, next_entries);
+            return Some(Box::new(Block::Simple {
                 internal: this_label,
                 next: next_block,
-            });
+            }));
         }
     }
 
