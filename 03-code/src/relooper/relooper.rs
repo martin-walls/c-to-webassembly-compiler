@@ -1,11 +1,13 @@
 use crate::middle_end::ids::LabelId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
-use crate::relooper::soupify::{soupify, Label};
-use crate::write_with_indent::IndentLevel;
+use crate::relooper::blocks::{Block, Label};
+use crate::relooper::soupify::soupify;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::fmt::Formatter;
+
+pub type Labels = HashMap<LabelId, Label>;
+type Entries = Vec<LabelId>;
+type ReachabilityMap = HashMap<LabelId, Vec<LabelId>>;
 
 pub fn reloop(mut prog: Box<Program>) {
     for (_fun_id, function) in prog.program_instructions.functions {
@@ -33,120 +35,6 @@ pub fn reloop(mut prog: Box<Program>) {
         &mut prog.program_metadata.label_id_generator,
     );
 }
-
-#[derive(Debug)]
-pub enum Block {
-    Simple {
-        internal: Label,
-        next: Option<Box<Block>>,
-    },
-    Loop {
-        inner: Box<Block>,
-        next: Option<Box<Block>>,
-    },
-    Multiple {
-        handled_blocks: Vec<Box<Block>>,
-        next: Option<Box<Block>>,
-    },
-}
-
-impl Block {
-    fn print(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
-        match self {
-            Block::Simple { internal, next } => {
-                indent_level.write(f)?;
-                writeln!(f, "SIMPLE {{")?;
-                indent_level.increment_marked();
-                indent_level.write(f)?;
-                writeln!(f, "internal: {}", internal.label)?;
-                match next {
-                    Some(next) => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next:")?;
-                        indent_level.increment();
-                        next.print(f, indent_level)?;
-                        indent_level.decrement();
-                    }
-                    None => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next: NULL")?;
-                    }
-                }
-                indent_level.decrement();
-                indent_level.write(f)?;
-                writeln!(f, "}}")
-            }
-            Block::Loop { inner, next } => {
-                indent_level.write(f)?;
-                writeln!(f, "LOOP {{")?;
-                indent_level.increment_marked();
-                indent_level.write(f)?;
-                writeln!(f, "inner:")?;
-                indent_level.increment();
-                inner.print(f, indent_level)?;
-                indent_level.decrement();
-                match next {
-                    Some(next) => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next:",)?;
-                        indent_level.increment();
-                        next.print(f, indent_level)?;
-                        indent_level.decrement();
-                    }
-                    None => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next: NULL")?;
-                    }
-                }
-                indent_level.decrement();
-                indent_level.write(f)?;
-                writeln!(f, "}}")
-            }
-            Block::Multiple {
-                handled_blocks,
-                next,
-            } => {
-                indent_level.write(f)?;
-                writeln!(f, "MULTIPLE {{")?;
-                indent_level.increment_marked();
-                indent_level.write(f)?;
-                writeln!(f, "handled: ")?;
-                indent_level.increment();
-                for handled in &handled_blocks[..handled_blocks.len() - 1] {
-                    handled.print(f, indent_level)?;
-                }
-                handled_blocks[handled_blocks.len() - 1].print(f, indent_level)?;
-                indent_level.decrement();
-                match next {
-                    Some(next) => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next:")?;
-                        indent_level.increment();
-                        next.print(f, indent_level)?;
-                        indent_level.decrement();
-                    }
-                    None => {
-                        indent_level.write(f)?;
-                        writeln!(f, "next: NULL")?;
-                    }
-                }
-                indent_level.decrement();
-                indent_level.write(f)?;
-                writeln!(f, "}}")
-            }
-        }
-    }
-}
-
-impl fmt::Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.print(f, &mut IndentLevel::zero())
-    }
-}
-
-pub type Labels = HashMap<LabelId, Label>;
-type Entries = Vec<LabelId>;
-type ReachabilityMap = HashMap<LabelId, Vec<LabelId>>;
 
 fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);

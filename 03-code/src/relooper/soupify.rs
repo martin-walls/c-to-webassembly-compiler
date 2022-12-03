@@ -1,60 +1,8 @@
 use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
+use crate::relooper::blocks::Label;
 use crate::relooper::relooper::Labels;
 use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Formatter;
-
-/// A 'label' block. This is a list of instructions starting with a label
-/// and ending with one or more branch instructions.
-/// We call it a label to distinguish it from the output blocks we're generating.
-#[derive(Debug, Clone)]
-pub struct Label {
-    pub label: LabelId,
-    pub instrs: Vec<Instruction>,
-}
-
-impl Label {
-    fn new(label: LabelId) -> Self {
-        Label {
-            label,
-            instrs: Vec::new(),
-        }
-    }
-
-    pub fn possible_branch_targets(&self) -> Vec<LabelId> {
-        let mut targets = Vec::new();
-        for instr in &self.instrs {
-            match instr {
-                Instruction::Br(label_id)
-                | Instruction::BrIfEq(_, _, label_id)
-                | Instruction::BrIfNotEq(_, _, label_id)
-                | Instruction::BrIfGT(_, _, label_id)
-                | Instruction::BrIfLT(_, _, label_id)
-                | Instruction::BrIfGE(_, _, label_id)
-                | Instruction::BrIfLE(_, _, label_id) => {
-                    // set semantics - only want one copy of each label to branch to,
-                    // even if there are multiple branches
-                    if !targets.contains(label_id) {
-                        targets.push(label_id.to_owned());
-                    }
-                }
-                _ => {}
-            }
-        }
-        targets
-    }
-}
-
-impl fmt::Display for Label {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Label: {}", self.label)?;
-        for instr in &self.instrs {
-            write!(f, "\n  {}", instr)?;
-        }
-        write!(f, "")
-    }
-}
 
 /// Given a list of instructions, generate a 'soup of labelled blocks'
 pub fn soupify(
