@@ -9,6 +9,10 @@ pub fn soupify(
     mut instrs: Vec<Instruction>,
     label_generator: &mut IdGenerator<LabelId>,
 ) -> (Labels, LabelId) {
+    assert!(
+        !instrs.is_empty(),
+        "List of instructions to soupify should be non-empty"
+    );
     remove_consecutive_labels(&mut instrs);
     remove_label_fallthrough(&mut instrs);
     add_block_gap_labels_after_conditionals(&mut instrs, label_generator);

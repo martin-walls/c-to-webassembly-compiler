@@ -30,10 +30,17 @@ pub fn reloop(mut prog: Box<Program>) {
             None => println!("No block created"),
         }
     }
-    let labels = soupify(
-        prog.program_instructions.global_instrs,
-        &mut prog.program_metadata.label_id_generator,
-    );
+    if !prog.program_instructions.global_instrs.is_empty() {
+        let (labels, entry) = soupify(
+            prog.program_instructions.global_instrs,
+            &mut prog.program_metadata.label_id_generator,
+        );
+        let block = create_block_from_labels(labels, vec![entry]);
+        match block {
+            Some(block) => println!("created block\n{}", block),
+            None => println!("No block created"),
+        }
+    }
 }
 
 fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<Block>> {
