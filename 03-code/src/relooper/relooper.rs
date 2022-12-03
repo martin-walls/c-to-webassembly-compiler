@@ -1,3 +1,4 @@
+use crate::display::{write_indent, IndentLevel};
 use crate::middle_end::ids::LabelId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
@@ -49,36 +50,97 @@ pub enum Block {
     },
 }
 
-impl fmt::Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Block {
+    fn print(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
         match self {
-            Block::Simple { internal, next } => match next {
-                Some(next) => write!(
-                    f,
-                    "Simple {{ internal: {}, next: {} }}",
-                    internal.label, next
-                ),
-                None => write!(f, "Simple {{ internal: {}, next: NULL }}", internal.label),
-            },
-            Block::Loop { inner, next } => match next {
-                Some(next) => write!(f, "Loop {{ inner: {}, next: {} }}", inner, next),
-                None => write!(f, "Loop {{ inner: {}, next: NULL }}", inner),
-            },
+            Block::Simple { internal, next } => {
+                write_indent(f, indent_level)?;
+                writeln!(f, "Simple {{")?;
+                indent_level.increment();
+                write_indent(f, indent_level)?;
+                writeln!(f, "internal: {}", internal.label)?;
+                match next {
+                    Some(next) => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next:")?;
+                        indent_level.increment();
+                        next.print(f, indent_level)?;
+                        indent_level.decrement();
+                    }
+                    None => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next: NULL")?;
+                    }
+                }
+                indent_level.decrement();
+                write_indent(f, indent_level)?;
+                writeln!(f, "}}")
+            }
+            Block::Loop { inner, next } => {
+                write_indent(f, indent_level)?;
+                writeln!(f, "Loop {{")?;
+                indent_level.increment();
+                write_indent(f, indent_level)?;
+                writeln!(f, "inner:")?;
+                indent_level.increment();
+                inner.print(f, indent_level)?;
+                indent_level.decrement();
+                match next {
+                    Some(next) => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next:",)?;
+                        indent_level.increment();
+                        next.print(f, indent_level)?;
+                        indent_level.decrement();
+                    }
+                    None => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next: NULL")?;
+                    }
+                }
+                indent_level.decrement();
+                write_indent(f, indent_level)?;
+                writeln!(f, "}}")
+            }
             Block::Multiple {
                 handled_blocks,
                 next,
             } => {
-                write!(f, "Multiple {{ handled: [")?;
+                write_indent(f, indent_level)?;
+                writeln!(f, "Multiple {{")?;
+                indent_level.increment();
+                write_indent(f, indent_level)?;
+                writeln!(f, "handled: ")?;
+                indent_level.increment();
                 for handled in &handled_blocks[..handled_blocks.len() - 1] {
-                    write!(f, "{}, ", handled)?;
+                    handled.print(f, indent_level)?;
                 }
-                write!(f, "{}", handled_blocks[handled_blocks.len() - 1])?;
+                handled_blocks[handled_blocks.len() - 1].print(f, indent_level)?;
+                indent_level.decrement();
                 match next {
-                    Some(next) => write!(f, "], next: {} }}", next),
-                    None => write!(f, "], next: NULL }}"),
+                    Some(next) => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next:")?;
+                        indent_level.increment();
+                        next.print(f, indent_level)?;
+                        indent_level.decrement();
+                    }
+                    None => {
+                        write_indent(f, indent_level)?;
+                        writeln!(f, "next: NULL")?;
+                    }
                 }
+                indent_level.decrement();
+                write_indent(f, indent_level)?;
+                writeln!(f, "}}")
             }
         }
+    }
+}
+
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.print(f, &mut IndentLevel::zero())
     }
 }
 
@@ -136,10 +198,14 @@ fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<
 
     // if we have more than one entry, try to create a multiple block
     if entries.len() > 1 {
-        try_create_multiple_block(labels, entries, reachability);
+        match try_create_multiple_block(&labels, &entries, &reachability) {
+            None => {}
+            Some(block) => return Some(block),
+        }
     }
 
-    todo!("implement rest of the relooper algorithm")
+    // if creating a multiple block fails, create a loop block
+    Some(create_loop_block(labels, entries, reachability))
 }
 
 fn calculate_reachability(labels: &Labels) -> ReachabilityMap {
@@ -363,24 +429,24 @@ fn replace_branch_instrs_inside_loop(
 }
 
 fn try_create_multiple_block(
-    labels: Labels,
-    entries: Entries,
-    reachability: ReachabilityMap,
+    labels: &Labels,
+    entries: &Entries,
+    reachability: &ReachabilityMap,
 ) -> Option<Box<Block>> {
     println!("\ntry create multiple block");
     print!("from labels ");
-    for (label, _) in &labels {
+    for (label, _) in labels {
         print!("{} ", label);
     }
     println!();
     print!("with entries ");
-    for entry in &entries {
+    for entry in entries {
         print!("{} ", entry);
     }
     println!();
     // "for each entry, find all the labels it reaches that can't be reached by any other entry"
     let mut uniquely_reachable_labels: HashMap<LabelId, Vec<LabelId>> = HashMap::new();
-    for entry in &entries {
+    for entry in entries {
         // let reachable_labels = labels.get(entry).unwrap().possible_branch_targets();
         let mut reachable_labels = reachability.get(entry).unwrap().clone();
         if !reachable_labels.contains(entry) {
@@ -389,7 +455,7 @@ fn try_create_multiple_block(
         // check which of the labels can't be reached by any other entry
         for label in &reachable_labels {
             let mut uniquely_reachable = true;
-            for other_entry in &entries {
+            for other_entry in entries {
                 if other_entry == entry {
                     continue;
                 }
@@ -433,23 +499,23 @@ fn try_create_multiple_block(
             if let Some(entry) = handled_by_entry {
                 match handled_labels.get_mut(entry) {
                     Some(labels) => {
-                        labels.insert(label_id, label);
+                        labels.insert(label_id.to_owned(), label.to_owned());
                     }
                     None => {
-                        let mut labels = HashMap::new();
-                        labels.insert(label_id, label);
+                        let mut labels: Labels = HashMap::new();
+                        labels.insert(label_id.to_owned(), label.to_owned());
                         handled_labels.insert(entry.to_owned(), labels);
                     }
                 }
             } else {
-                next_labels.insert(label_id, label);
+                next_labels.insert(label_id.to_owned(), label.to_owned());
             }
         }
 
         // check which of the handled labels are entries
         // for (handled_label_id, _) in &handled_labels {}
 
-        let mut next_entries = entries;
+        let mut next_entries = entries.to_owned();
         // keep all the non-handled entries
         next_entries.retain(|e| match handled_labels.get(e) {
             None => true,

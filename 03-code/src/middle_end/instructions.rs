@@ -115,7 +115,7 @@ impl fmt::Display for Src {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     // t = a
     SimpleAssignment(Dest, Src),

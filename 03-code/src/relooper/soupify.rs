@@ -8,7 +8,7 @@ use std::fmt::Formatter;
 /// A 'label' block. This is a list of instructions starting with a label
 /// and ending with one or more branch instructions.
 /// We call it a label to distinguish it from the output blocks we're generating.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Label {
     pub label: LabelId,
     pub instrs: Vec<Instruction>,

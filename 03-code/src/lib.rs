@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod display;
 mod middle_end;
 mod parser;
 mod preprocessor;
