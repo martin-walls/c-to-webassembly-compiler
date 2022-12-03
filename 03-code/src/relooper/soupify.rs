@@ -1,5 +1,6 @@
 use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
+use crate::relooper::relooper::Labels;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
@@ -59,7 +60,7 @@ impl fmt::Display for Label {
 pub fn soupify(
     mut instrs: Vec<Instruction>,
     label_generator: &mut IdGenerator<LabelId>,
-) -> (HashMap<LabelId, Label>, LabelId) {
+) -> (Labels, LabelId) {
     remove_consecutive_labels(&mut instrs);
     remove_label_fallthrough(&mut instrs);
     add_block_gap_labels_after_conditionals(&mut instrs, label_generator);

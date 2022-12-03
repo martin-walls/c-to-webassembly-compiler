@@ -166,6 +166,29 @@ pub enum Instruction {
     BrIfGE(Src, Src, LabelId),
     BrIfLE(Src, Src, LabelId),
 
+    // relooper control flow
+    Break,
+    BreakIfEq(Src, Src),
+    BreakIfNotEq(Src, Src),
+    BreakIfGT(Src, Src),
+    BreakIfLT(Src, Src),
+    BreakIfGE(Src, Src),
+    BreakIfLE(Src, Src),
+    Continue,
+    ContinueIfEq(Src, Src),
+    ContinueIfNotEq(Src, Src),
+    ContinueIfGT(Src, Src),
+    ContinueIfLT(Src, Src),
+    ContinueIfGE(Src, Src),
+    ContinueIfLE(Src, Src),
+    EndHandledBlock,
+    EndHandledBlockIfEq(Src, Src),
+    EndHandledBlockIfNotEq(Src, Src),
+    EndHandledBlockIfGT(Src, Src),
+    EndHandledBlockIfLT(Src, Src),
+    EndHandledBlockIfGE(Src, Src),
+    EndHandledBlockIfLE(Src, Src),
+
     PointerToStringLiteral(Dest, StringLiteralId),
 
     // char promotions
