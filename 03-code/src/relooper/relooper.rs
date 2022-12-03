@@ -1,8 +1,8 @@
-use crate::display::{write_indent, IndentLevel};
 use crate::middle_end::ids::LabelId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
 use crate::relooper::soupify::{soupify, Label};
+use crate::write_with_indent::IndentLevel;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;
@@ -54,62 +54,62 @@ impl Block {
     fn print(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
         match self {
             Block::Simple { internal, next } => {
-                write_indent(f, indent_level)?;
-                writeln!(f, "Simple {{")?;
-                indent_level.increment();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
+                writeln!(f, "SIMPLE {{")?;
+                indent_level.increment_marked();
+                indent_level.write(f)?;
                 writeln!(f, "internal: {}", internal.label)?;
                 match next {
                     Some(next) => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next:")?;
                         indent_level.increment();
                         next.print(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next: NULL")?;
                     }
                 }
                 indent_level.decrement();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
                 writeln!(f, "}}")
             }
             Block::Loop { inner, next } => {
-                write_indent(f, indent_level)?;
-                writeln!(f, "Loop {{")?;
-                indent_level.increment();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
+                writeln!(f, "LOOP {{")?;
+                indent_level.increment_marked();
+                indent_level.write(f)?;
                 writeln!(f, "inner:")?;
                 indent_level.increment();
                 inner.print(f, indent_level)?;
                 indent_level.decrement();
                 match next {
                     Some(next) => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next:",)?;
                         indent_level.increment();
                         next.print(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next: NULL")?;
                     }
                 }
                 indent_level.decrement();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
                 writeln!(f, "}}")
             }
             Block::Multiple {
                 handled_blocks,
                 next,
             } => {
-                write_indent(f, indent_level)?;
-                writeln!(f, "Multiple {{")?;
-                indent_level.increment();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
+                writeln!(f, "MULTIPLE {{")?;
+                indent_level.increment_marked();
+                indent_level.write(f)?;
                 writeln!(f, "handled: ")?;
                 indent_level.increment();
                 for handled in &handled_blocks[..handled_blocks.len() - 1] {
@@ -119,19 +119,19 @@ impl Block {
                 indent_level.decrement();
                 match next {
                     Some(next) => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next:")?;
                         indent_level.increment();
                         next.print(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
-                        write_indent(f, indent_level)?;
+                        indent_level.write(f)?;
                         writeln!(f, "next: NULL")?;
                     }
                 }
                 indent_level.decrement();
-                write_indent(f, indent_level)?;
+                indent_level.write(f)?;
                 writeln!(f, "}}")
             }
         }
