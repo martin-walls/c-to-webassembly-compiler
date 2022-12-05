@@ -179,7 +179,8 @@ fn create_block_from_labels(
                 print!("{}  ", entry);
             }
             println!();
-            let this_label = labels.remove(single_entry).unwrap();
+            let mut this_label = labels.remove(single_entry).unwrap();
+            replace_branch_instrs(&mut this_label, context);
             let next_block = create_block_from_labels(labels, next_entries, context);
             return Some(Box::new(Block::Simple {
                 internal: this_label,
@@ -269,6 +270,227 @@ fn combine_reachability_from_entries(
     }
 
     Vec::from_iter(combined_reachability)
+}
+
+fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
+    // the only branch instructions in a label are at the end.
+    //  (or a return, or a break/continue/endHandled instruction that's already been converted)
+    // either the label ends in a single unconditional branch,
+    // or it ends in a conditional branch followed by an unconditional branch.
+
+    // we can safely unwrap, because a label must have instructions.
+    let unconditional_branch_label_id = match label.instrs.last().unwrap() {
+        Instruction::Br(label_id) => Some(label_id),
+        Instruction::EndHandledBlock(_)
+        | Instruction::Break(_)
+        | Instruction::Continue(_)
+        | Instruction::Ret(_) => None,
+        i => {
+            println!("Last instruction of label: {}", i);
+            unreachable!("The last instruction of a label should always be an unconditional branch")
+        }
+    };
+
+    let conditional_branch_instr_index = match unconditional_branch_label_id {
+        Some(_) => {
+            // handle the possibility that the unconditional branch is the only instruction in the label
+            if label.instrs.len() > 1 {
+                Some(label.instrs.len() - 2)
+            } else {
+                None
+            }
+        }
+        None => {
+            // handle the possibility that the (setLabel + break/continue/endHandled) are the only
+            // two instructions in the label
+            if label.instrs.len() > 2 {
+                Some(label.instrs.len() - 3)
+            } else {
+                None
+            }
+        }
+    };
+
+    let conditional_branch_instr = match conditional_branch_instr_index {
+        Some(index) => match label.instrs.get(index).unwrap() {
+            i @ Instruction::BrIfEq(_, _, _)
+            | i @ Instruction::BrIfNotEq(_, _, _)
+            | i @ Instruction::BrIfGT(_, _, _)
+            | i @ Instruction::BrIfLT(_, _, _)
+            | i @ Instruction::BrIfGE(_, _, _)
+            | i @ Instruction::BrIfLE(_, _, _) => Some(i),
+            _ => None,
+        },
+        None => None,
+    };
+
+    match (conditional_branch_instr, unconditional_branch_label_id) {
+        (None, None) => {
+            // no need to do anything. either
+            //   - only an unconditional branch is present, and it's already
+            //     converted to a break/continue/endHandled
+            //   - both the conditional and unconditional branches have already been
+            //     converted to a break/continue/endHandled
+        }
+        (None, Some(unconditional_branch_label_id)) => {
+            // the case where only an unconditional branch is present, the
+            // conditional branch either isn't present or has already been handled
+
+            // replace the branch with an instruction setting the label variable
+            let new_instr = Instruction::SimpleAssignment(
+                context.label_variable.to_owned(),
+                Src::Constant(Constant::Int(unconditional_branch_label_id.as_u64() as i128)),
+            );
+            // remove the unconditional branch
+            label.instrs.remove(label.instrs.len() - 1);
+            // add the new instruction to replace it
+            label.instrs.push(new_instr);
+        }
+        (Some(conditional_branch_instr), None) => {
+            // the case where we have a conditional branch instruction, but the unconditional
+            // branch instruction has already been converted to a break/continue/endHandled
+            let else_instrs = vec![
+                label.instrs.get(label.instrs.len() - 2).unwrap().to_owned(),
+                label.instrs.get(label.instrs.len() - 1).unwrap().to_owned(),
+            ];
+            let new_instr = match conditional_branch_instr {
+                Instruction::BrIfEq(src1, src2, label_id) => Instruction::IfEqElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfNotEq(src1, src2, label_id) => Instruction::IfNotEqElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfGT(src1, src2, label_id) => Instruction::IfGTElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfLT(src1, src2, label_id) => Instruction::IfLTElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfGE(src1, src2, label_id) => Instruction::IfGEElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfLE(src1, src2, label_id) => Instruction::IfLEElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                _ => unreachable!(),
+            };
+            // remove the break/continue/endHandled (these two instructions are moved into the else clause)
+            label.instrs.pop();
+            // remove the setLabel belonging to the break/continue/endHandled
+            label.instrs.pop();
+            // remove the conditional branch
+            label.instrs.pop();
+            // add the if/else instruction to replace it
+            label.instrs.push(new_instr);
+        }
+        (Some(conditional_branch_instr), Some(unconditional_branch_label_id)) => {
+            // the case where we have both a conditional branch instruction and an unconditional
+            // branch statement present
+            let else_instrs = vec![Instruction::SimpleAssignment(
+                context.label_variable.to_owned(),
+                Src::Constant(Constant::Int(unconditional_branch_label_id.as_u64() as i128)),
+            )];
+            let new_instr = match conditional_branch_instr {
+                Instruction::BrIfEq(src1, src2, label_id) => Instruction::IfEqElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfNotEq(src1, src2, label_id) => Instruction::IfNotEqElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfGT(src1, src2, label_id) => Instruction::IfGTElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfLT(src1, src2, label_id) => Instruction::IfLTElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfGE(src1, src2, label_id) => Instruction::IfGEElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                Instruction::BrIfLE(src1, src2, label_id) => Instruction::IfLEElse(
+                    src1.to_owned(),
+                    src2.to_owned(),
+                    vec![Instruction::SimpleAssignment(
+                        context.label_variable.to_owned(),
+                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
+                    )],
+                    else_instrs,
+                ),
+                _ => unreachable!(),
+            };
+            // remove the unconditional branch
+            label.instrs.pop();
+            // remove the conditional branch
+            label.instrs.pop();
+            // add the if/else instruction to replace it
+            label.instrs.push(new_instr);
+        }
+    }
 }
 
 fn create_loop_block(
