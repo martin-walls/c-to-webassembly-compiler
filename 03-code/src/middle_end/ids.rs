@@ -10,6 +10,8 @@ pub trait Id {
     fn initial_id() -> Self;
     /// Generate a new id, given the current max id. (Id n+1)
     fn next_id(&self) -> Self;
+    /// Get a u64 representation of the id
+    fn as_u64(&self) -> u64;
 }
 
 #[derive(Debug)]
@@ -94,6 +96,10 @@ impl Id for VarId {
     fn next_id(&self) -> Self {
         VarId(self.0 + 1, self.1.to_owned())
     }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl VarId {
@@ -134,6 +140,10 @@ impl Id for FunId {
     fn next_id(&self) -> Self {
         FunId(self.0 + 1)
     }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl fmt::Display for FunId {
@@ -152,6 +162,10 @@ impl Id for LabelId {
 
     fn next_id(&self) -> Self {
         LabelId(self.0 + 1)
+    }
+
+    fn as_u64(&self) -> u64 {
+        self.0
     }
 }
 
@@ -172,6 +186,10 @@ impl Id for StringLiteralId {
     fn next_id(&self) -> Self {
         StringLiteralId(self.0 + 1)
     }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl fmt::Display for StringLiteralId {
@@ -191,6 +209,10 @@ impl Id for StructId {
     fn next_id(&self) -> Self {
         StructId(self.0 + 1)
     }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl fmt::Display for StructId {
@@ -209,6 +231,10 @@ impl Id for UnionId {
 
     fn next_id(&self) -> Self {
         UnionId(self.0 + 1)
+    }
+
+    fn as_u64(&self) -> u64 {
+        self.0
     }
 }
 

@@ -181,6 +181,10 @@ impl Id for LoopBlockId {
     fn next_id(&self) -> Self {
         LoopBlockId(self.0 + 1)
     }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl fmt::Display for LoopBlockId {
@@ -199,6 +203,10 @@ impl Id for MultipleBlockId {
 
     fn next_id(&self) -> Self {
         MultipleBlockId(self.0 + 1)
+    }
+
+    fn as_u64(&self) -> u64 {
+        self.0
     }
 }
 
