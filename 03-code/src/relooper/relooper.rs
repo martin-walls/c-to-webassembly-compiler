@@ -10,6 +10,26 @@ pub type Labels = HashMap<LabelId, Label>;
 type Entries = Vec<LabelId>;
 type ReachabilityMap = HashMap<LabelId, Vec<LabelId>>;
 
+struct RelooperContext<'a> {
+    loop_block_id_generator: &'a mut IdGenerator<LoopBlockId>,
+    multiple_block_id_generator: &'a mut IdGenerator<MultipleBlockId>,
+    label_variable: &'a VarId,
+}
+
+impl<'a> RelooperContext<'a> {
+    pub fn new(
+        loop_block_id_generator: &'a mut IdGenerator<LoopBlockId>,
+        multiple_block_id_generator: &'a mut IdGenerator<MultipleBlockId>,
+        label_variable: &'a VarId,
+    ) -> Self {
+        RelooperContext {
+            loop_block_id_generator,
+            multiple_block_id_generator,
+            label_variable,
+        }
+    }
+}
+
 pub fn reloop(mut prog: Box<Program>) {
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
     let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
@@ -28,13 +48,13 @@ pub fn reloop(mut prog: Box<Program>) {
             println!("{}", label);
         }
         println!();
-        let block = create_block_from_labels(
-            labels,
-            vec![entry],
+
+        let mut context = RelooperContext::new(
             &mut loop_block_id_generator,
             &mut multiple_block_id_generator,
             &label_var,
         );
+        let block = create_block_from_labels(labels, vec![entry], &mut context);
         match block {
             Some(block) => {
                 println!("created block\n{}", block);
@@ -52,13 +72,13 @@ pub fn reloop(mut prog: Box<Program>) {
             prog.program_instructions.global_instrs,
             &mut prog.program_metadata.label_id_generator,
         );
-        let block = create_block_from_labels(
-            labels,
-            vec![entry],
+
+        let mut context = RelooperContext::new(
             &mut loop_block_id_generator,
             &mut multiple_block_id_generator,
             &label_var,
         );
+        let block = create_block_from_labels(labels, vec![entry], &mut context);
         match block {
             Some(block) => {
                 println!("created block\n{}", block);
@@ -132,9 +152,7 @@ fn assert_no_branch_instrs_left(block: &Box<Block>) {
 fn create_block_from_labels(
     mut labels: Labels,
     entries: Entries,
-    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
-    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
-    label_var: &VarId,
+    context: &mut RelooperContext,
 ) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);
     let reachability_from_entries = combine_reachability_from_entries(&reachability, &entries);
@@ -162,13 +180,7 @@ fn create_block_from_labels(
             }
             println!();
             let this_label = labels.remove(single_entry).unwrap();
-            let next_block = create_block_from_labels(
-                labels,
-                next_entries,
-                loop_block_id_generator,
-                multiple_block_id_generator,
-                label_var,
-            );
+            let next_block = create_block_from_labels(labels, next_entries, context);
             return Some(Box::new(Block::Simple {
                 internal: this_label,
                 next: next_block,
@@ -186,40 +198,19 @@ fn create_block_from_labels(
         }
     }
     if can_return_to_all_entries {
-        return Some(create_loop_block(
-            labels,
-            entries,
-            reachability,
-            loop_block_id_generator,
-            multiple_block_id_generator,
-            label_var,
-        ));
+        return Some(create_loop_block(labels, entries, reachability, context));
     }
 
     // if we have more than one entry, try to create a multiple block
     if entries.len() > 1 {
-        match try_create_multiple_block(
-            &labels,
-            &entries,
-            &reachability,
-            loop_block_id_generator,
-            multiple_block_id_generator,
-            label_var,
-        ) {
+        match try_create_multiple_block(&labels, &entries, &reachability, context) {
             None => {}
             Some(block) => return Some(block),
         }
     }
 
     // if creating a multiple block fails, create a loop block
-    Some(create_loop_block(
-        labels,
-        entries,
-        reachability,
-        loop_block_id_generator,
-        multiple_block_id_generator,
-        label_var,
-    ))
+    Some(create_loop_block(labels, entries, reachability, context))
 }
 
 fn calculate_reachability(labels: &Labels) -> ReachabilityMap {
@@ -284,9 +275,7 @@ fn create_loop_block(
     labels: Labels,
     entries: Entries,
     reachability: ReachabilityMap,
-    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
-    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
-    label_var: &VarId,
+    context: &mut RelooperContext,
 ) -> Box<Block> {
     println!("\ncreate loop block");
     let mut inner_labels: Labels = HashMap::new();
@@ -325,7 +314,7 @@ fn create_loop_block(
     }
     let next_entries: Entries = Vec::from_iter(next_entries);
 
-    let loop_block_id = loop_block_id_generator.new_id();
+    let loop_block_id = context.loop_block_id_generator.new_id();
 
     // turn branch instructions to start of loop and out of loop into continue and break instructions
     replace_branch_instrs_inside_loop(
@@ -333,7 +322,7 @@ fn create_loop_block(
         &entries,
         &next_entries,
         &loop_block_id,
-        label_var,
+        context,
     );
 
     print!("  next labels: ");
@@ -350,21 +339,8 @@ fn create_loop_block(
     // entries for the inner block are the same as entries for this block
     // we can unwrap inner_block cos we know we can return to entries, so there must be
     // some labels in inner
-    let inner_block = create_block_from_labels(
-        inner_labels,
-        entries,
-        loop_block_id_generator,
-        multiple_block_id_generator,
-        label_var,
-    )
-    .unwrap();
-    let next_block = create_block_from_labels(
-        next_labels,
-        next_entries,
-        loop_block_id_generator,
-        multiple_block_id_generator,
-        label_var,
-    );
+    let inner_block = create_block_from_labels(inner_labels, entries, context).unwrap();
+    let next_block = create_block_from_labels(next_labels, next_entries, context);
 
     Box::new(Block::Loop {
         id: loop_block_id,
@@ -378,7 +354,7 @@ fn replace_branch_instrs_inside_loop(
     loop_entries: &Entries,
     next_entries: &Entries,
     loop_block_id: &LoopBlockId,
-    label_var: &VarId,
+    context: &RelooperContext,
 ) {
     for (_inner_label_id, inner_label) in inner_labels {
         for i in 0..inner_label.instrs.len() {
@@ -389,7 +365,7 @@ fn replace_branch_instrs_inside_loop(
                     if loop_entries.contains(label_id) {
                         // set the label variable
                         new_instrs.push(Instruction::SimpleAssignment(
-                            label_var.to_owned(),
+                            context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch back to the start of the loop into a continue
@@ -397,7 +373,7 @@ fn replace_branch_instrs_inside_loop(
                     } else if next_entries.contains(label_id) {
                         // set the label variable
                         new_instrs.push(Instruction::SimpleAssignment(
-                            label_var.to_owned(),
+                            context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch out of the loop into a break
@@ -412,7 +388,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -427,7 +403,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -445,7 +421,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -460,7 +436,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -478,7 +454,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -493,7 +469,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -511,7 +487,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -526,7 +502,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -544,7 +520,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -559,7 +535,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -577,7 +553,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
@@ -592,7 +568,7 @@ fn replace_branch_instrs_inside_loop(
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
@@ -620,9 +596,7 @@ fn try_create_multiple_block(
     labels: &Labels,
     entries: &Entries,
     reachability: &ReachabilityMap,
-    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
-    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
-    label_var: &VarId,
+    context: &mut RelooperContext,
 ) -> Option<Box<Block>> {
     println!("\ntry create multiple block");
     print!("from labels ");
@@ -713,7 +687,7 @@ fn try_create_multiple_block(
             Some(_) => false,
         });
 
-        let multiple_block_id = multiple_block_id_generator.new_id();
+        let multiple_block_id = context.multiple_block_id_generator.new_id();
 
         let mut handled_blocks = Vec::new();
         for (handled_label_entry, mut handled_labels) in handled_labels {
@@ -742,27 +716,16 @@ fn try_create_multiple_block(
                 &mut handled_labels,
                 &next_entries,
                 &multiple_block_id,
-                label_var,
+                context,
             );
 
-            let handled_block = create_block_from_labels(
-                handled_labels,
-                vec![handled_label_entry],
-                loop_block_id_generator,
-                multiple_block_id_generator,
-                label_var,
-            )
-            .unwrap();
+            let handled_block =
+                create_block_from_labels(handled_labels, vec![handled_label_entry], context)
+                    .unwrap();
             handled_blocks.push(handled_block);
         }
 
-        let next_block = create_block_from_labels(
-            next_labels,
-            next_entries,
-            loop_block_id_generator,
-            multiple_block_id_generator,
-            label_var,
-        );
+        let next_block = create_block_from_labels(next_labels, next_entries, context);
 
         return Some(Box::new(Block::Multiple {
             id: multiple_block_id,
@@ -777,7 +740,7 @@ fn replace_branch_instrs_inside_handled_block(
     handled_labels: &mut Labels,
     next_entries: &Entries,
     multiple_block_id: &MultipleBlockId,
-    label_var: &VarId,
+    context: &RelooperContext,
 ) {
     for (_handled_label_id, handled_label) in handled_labels {
         for i in 0..handled_label.instrs.len() {
@@ -787,7 +750,7 @@ fn replace_branch_instrs_inside_handled_block(
                 Instruction::Br(label_id) => {
                     if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::SimpleAssignment(
-                            label_var.to_owned(),
+                            context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch to next block into end handled block instruction
@@ -801,7 +764,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
@@ -818,7 +781,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
@@ -835,7 +798,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
@@ -852,7 +815,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
@@ -869,7 +832,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
@@ -886,7 +849,7 @@ fn replace_branch_instrs_inside_handled_block(
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
-                                    label_var.to_owned(),
+                                    context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
