@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
+mod fmt_indented;
 mod middle_end;
 mod parser;
 mod preprocessor;
 mod relooper;
-mod write_with_indent;
 
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;

@@ -1,6 +1,6 @@
+use crate::fmt_indented::{FmtIndented, IndentLevel};
 use crate::middle_end::ids::LabelId;
 use crate::middle_end::instructions::Instruction;
-use crate::write_with_indent::IndentLevel;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -72,8 +72,8 @@ pub enum Block {
     },
 }
 
-impl Block {
-    fn print(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
+impl FmtIndented for Block {
+    fn fmt_indented(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
         match self {
             Block::Simple { internal, next } => {
                 indent_level.write(f)?;
@@ -86,7 +86,7 @@ impl Block {
                         indent_level.write(f)?;
                         writeln!(f, "next:")?;
                         indent_level.increment();
-                        next.print(f, indent_level)?;
+                        next.fmt_indented(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
@@ -105,14 +105,14 @@ impl Block {
                 indent_level.write(f)?;
                 writeln!(f, "inner:")?;
                 indent_level.increment();
-                inner.print(f, indent_level)?;
+                inner.fmt_indented(f, indent_level)?;
                 indent_level.decrement();
                 match next {
                     Some(next) => {
                         indent_level.write(f)?;
                         writeln!(f, "next:",)?;
                         indent_level.increment();
-                        next.print(f, indent_level)?;
+                        next.fmt_indented(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
@@ -135,16 +135,16 @@ impl Block {
                 writeln!(f, "handled: ")?;
                 indent_level.increment();
                 for handled in &handled_blocks[..handled_blocks.len() - 1] {
-                    handled.print(f, indent_level)?;
+                    handled.fmt_indented(f, indent_level)?;
                 }
-                handled_blocks[handled_blocks.len() - 1].print(f, indent_level)?;
+                handled_blocks[handled_blocks.len() - 1].fmt_indented(f, indent_level)?;
                 indent_level.decrement();
                 match next {
                     Some(next) => {
                         indent_level.write(f)?;
                         writeln!(f, "next:")?;
                         indent_level.increment();
-                        next.print(f, indent_level)?;
+                        next.fmt_indented(f, indent_level)?;
                         indent_level.decrement();
                     }
                     None => {
@@ -162,6 +162,6 @@ impl Block {
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.print(f, &mut IndentLevel::zero())
+        self.fmt_indented(f, &mut IndentLevel::zero())
     }
 }

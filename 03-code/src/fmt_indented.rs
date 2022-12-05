@@ -5,6 +5,10 @@ use std::fmt::Formatter;
 
 const INDENT_SIZE: u32 = 2;
 
+pub trait FmtIndented {
+    fn fmt_indented(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result;
+}
+
 pub struct IndentLevel(u32, HashSet<u32>);
 
 impl IndentLevel {
