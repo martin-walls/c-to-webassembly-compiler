@@ -33,7 +33,10 @@ pub fn reloop(mut prog: Box<Program>) {
             &mut multiple_block_id_generator,
         );
         match block {
-            Some(block) => println!("created block\n{}", block),
+            Some(block) => {
+                println!("created block\n{}", block);
+                assert_no_branch_instrs_left(&block);
+            }
             None => println!("No block created"),
         }
     }
@@ -49,8 +52,55 @@ pub fn reloop(mut prog: Box<Program>) {
             &mut multiple_block_id_generator,
         );
         match block {
-            Some(block) => println!("created block\n{}", block),
+            Some(block) => {
+                println!("created block\n{}", block);
+                assert_no_branch_instrs_left(&block);
+            }
             None => println!("No block created"),
+        }
+    }
+}
+
+fn assert_no_branch_instrs_left(block: &Box<Block>) {
+    match &**block {
+        Block::Simple { internal, next } => {
+            for instr in &internal.instrs {
+                let is_branch_instr = match instr {
+                    Instruction::Br(_)
+                    | Instruction::BrIfEq(_, _, _)
+                    | Instruction::BrIfNotEq(_, _, _)
+                    | Instruction::BrIfGT(_, _, _)
+                    | Instruction::BrIfLT(_, _, _)
+                    | Instruction::BrIfGE(_, _, _)
+                    | Instruction::BrIfLE(_, _, _) => true,
+                    _ => false,
+                };
+                assert!(
+                    !is_branch_instr,
+                    "No branch instructions should be left in output of relooper"
+                )
+            }
+            if let Some(next) = next {
+                assert_no_branch_instrs_left(&next);
+            }
+        }
+        Block::Loop { inner, next, .. } => {
+            assert_no_branch_instrs_left(&inner);
+            if let Some(next) = next {
+                assert_no_branch_instrs_left(&next);
+            }
+        }
+        Block::Multiple {
+            handled_blocks,
+            next,
+            ..
+        } => {
+            for handled_block in handled_blocks {
+                assert_no_branch_instrs_left(handled_block);
+            }
+            if let Some(next) = next {
+                assert_no_branch_instrs_left(&next);
+            }
         }
     }
 }
