@@ -17,6 +17,9 @@ pub fn soupify(
     remove_label_fallthrough(&mut instrs);
     add_block_gap_labels_after_conditionals(&mut instrs, label_generator);
     insert_entry_label_if_necessary(&mut instrs, label_generator);
+    for instr in &instrs {
+        println!("{}", instr);
+    }
     instructions_to_soup_of_labels(instrs)
 }
 

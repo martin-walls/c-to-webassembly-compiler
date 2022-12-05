@@ -1,5 +1,5 @@
 use crate::fmt_indented::{FmtIndented, IndentLevel};
-use crate::middle_end::ids::LabelId;
+use crate::middle_end::ids::{Id, LabelId};
 use crate::middle_end::instructions::Instruction;
 use std::fmt;
 use std::fmt::Formatter;
@@ -63,10 +63,12 @@ pub enum Block {
         next: Option<Box<Block>>,
     },
     Loop {
+        id: LoopBlockId,
         inner: Box<Block>,
         next: Option<Box<Block>>,
     },
     Multiple {
+        id: MultipleBlockId,
         handled_blocks: Vec<Box<Block>>,
         next: Option<Box<Block>>,
     },
@@ -98,9 +100,9 @@ impl FmtIndented for Block {
                 indent_level.write(f)?;
                 writeln!(f, "}}")
             }
-            Block::Loop { inner, next } => {
+            Block::Loop { id, inner, next } => {
                 indent_level.write(f)?;
-                writeln!(f, "LOOP {{")?;
+                writeln!(f, "LOOP {} {{", id)?;
                 indent_level.increment_marked();
                 indent_level.write(f)?;
                 writeln!(f, "inner:")?;
@@ -125,11 +127,12 @@ impl FmtIndented for Block {
                 writeln!(f, "}}")
             }
             Block::Multiple {
+                id,
                 handled_blocks,
                 next,
             } => {
                 indent_level.write(f)?;
-                writeln!(f, "MULTIPLE {{")?;
+                writeln!(f, "MULTIPLE {} {{", id)?;
                 indent_level.increment_marked();
                 indent_level.write(f)?;
                 writeln!(f, "handled: ")?;
@@ -163,5 +166,44 @@ impl FmtIndented for Block {
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.fmt_indented(f, &mut IndentLevel::zero())
+    }
+}
+
+// loop and handled block ids, for break/continue/endHandled instrs
+#[derive(Debug, Clone, PartialEq)]
+pub struct LoopBlockId(u64);
+
+impl Id for LoopBlockId {
+    fn initial_id() -> Self {
+        LoopBlockId(0)
+    }
+
+    fn next_id(&self) -> Self {
+        LoopBlockId(self.0 + 1)
+    }
+}
+
+impl fmt::Display for LoopBlockId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "loop{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultipleBlockId(u64);
+
+impl Id for MultipleBlockId {
+    fn initial_id() -> Self {
+        MultipleBlockId(0)
+    }
+
+    fn next_id(&self) -> Self {
+        MultipleBlockId(self.0 + 1)
+    }
+}
+
+impl fmt::Display for MultipleBlockId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "multiple{}", self.0)
     }
 }

@@ -1,7 +1,7 @@
-use crate::middle_end::ids::LabelId;
+use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
-use crate::relooper::blocks::{Block, Label};
+use crate::relooper::blocks::{Block, Label, LoopBlockId, MultipleBlockId};
 use crate::relooper::soupify::soupify;
 use std::collections::{HashMap, HashSet};
 
@@ -10,6 +10,8 @@ type Entries = Vec<LabelId>;
 type ReachabilityMap = HashMap<LabelId, Vec<LabelId>>;
 
 pub fn reloop(mut prog: Box<Program>) {
+    let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
+    let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
     for (_fun_id, function) in prog.program_instructions.functions {
         // function with no body (ie. one that we'll link to in JS runtime)
         if function.instrs.is_empty() {
@@ -24,7 +26,12 @@ pub fn reloop(mut prog: Box<Program>) {
             println!("{}", label);
         }
         println!();
-        let block = create_block_from_labels(labels, vec![entry]);
+        let block = create_block_from_labels(
+            labels,
+            vec![entry],
+            &mut loop_block_id_generator,
+            &mut multiple_block_id_generator,
+        );
         match block {
             Some(block) => println!("created block\n{}", block),
             None => println!("No block created"),
@@ -35,7 +42,12 @@ pub fn reloop(mut prog: Box<Program>) {
             prog.program_instructions.global_instrs,
             &mut prog.program_metadata.label_id_generator,
         );
-        let block = create_block_from_labels(labels, vec![entry]);
+        let block = create_block_from_labels(
+            labels,
+            vec![entry],
+            &mut loop_block_id_generator,
+            &mut multiple_block_id_generator,
+        );
         match block {
             Some(block) => println!("created block\n{}", block),
             None => println!("No block created"),
@@ -43,7 +55,12 @@ pub fn reloop(mut prog: Box<Program>) {
     }
 }
 
-fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<Block>> {
+fn create_block_from_labels(
+    mut labels: Labels,
+    entries: Entries,
+    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
+    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
+) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);
     let reachability_from_entries = combine_reachability_from_entries(&reachability, &entries);
     // print!("reachable from entries: ");
@@ -70,7 +87,12 @@ fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<
             }
             println!();
             let this_label = labels.remove(single_entry).unwrap();
-            let next_block = create_block_from_labels(labels, next_entries);
+            let next_block = create_block_from_labels(
+                labels,
+                next_entries,
+                loop_block_id_generator,
+                multiple_block_id_generator,
+            );
             return Some(Box::new(Block::Simple {
                 internal: this_label,
                 next: next_block,
@@ -88,19 +110,37 @@ fn create_block_from_labels(mut labels: Labels, entries: Entries) -> Option<Box<
         }
     }
     if can_return_to_all_entries {
-        return Some(create_loop_block(labels, entries, reachability));
+        return Some(create_loop_block(
+            labels,
+            entries,
+            reachability,
+            loop_block_id_generator,
+            multiple_block_id_generator,
+        ));
     }
 
     // if we have more than one entry, try to create a multiple block
     if entries.len() > 1 {
-        match try_create_multiple_block(&labels, &entries, &reachability) {
+        match try_create_multiple_block(
+            &labels,
+            &entries,
+            &reachability,
+            loop_block_id_generator,
+            multiple_block_id_generator,
+        ) {
             None => {}
             Some(block) => return Some(block),
         }
     }
 
     // if creating a multiple block fails, create a loop block
-    Some(create_loop_block(labels, entries, reachability))
+    Some(create_loop_block(
+        labels,
+        entries,
+        reachability,
+        loop_block_id_generator,
+        multiple_block_id_generator,
+    ))
 }
 
 fn calculate_reachability(labels: &Labels) -> ReachabilityMap {
@@ -165,6 +205,8 @@ fn create_loop_block(
     labels: Labels,
     entries: Entries,
     reachability: ReachabilityMap,
+    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
+    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
 ) -> Box<Block> {
     println!("\ncreate loop block");
     let mut inner_labels: Labels = HashMap::new();
@@ -203,8 +245,10 @@ fn create_loop_block(
     }
     let next_entries: Entries = Vec::from_iter(next_entries);
 
+    let loop_block_id = loop_block_id_generator.new_id();
+
     // turn branch instructions to start of loop and out of loop into continue and break instructions
-    replace_branch_instrs_inside_loop(&mut inner_labels, &entries, &next_entries);
+    replace_branch_instrs_inside_loop(&mut inner_labels, &entries, &next_entries, &loop_block_id);
 
     print!("  next labels: ");
     for (label_id, _) in &next_labels {
@@ -220,10 +264,22 @@ fn create_loop_block(
     // entries for the inner block are the same as entries for this block
     // we can unwrap inner_block cos we know we can return to entries, so there must be
     // some labels in inner
-    let inner_block = create_block_from_labels(inner_labels, entries).unwrap();
-    let next_block = create_block_from_labels(next_labels, next_entries);
+    let inner_block = create_block_from_labels(
+        inner_labels,
+        entries,
+        loop_block_id_generator,
+        multiple_block_id_generator,
+    )
+    .unwrap();
+    let next_block = create_block_from_labels(
+        next_labels,
+        next_entries,
+        loop_block_id_generator,
+        multiple_block_id_generator,
+    );
 
     Box::new(Block::Loop {
+        id: loop_block_id,
         inner: inner_block,
         next: next_block,
     })
@@ -233,6 +289,7 @@ fn replace_branch_instrs_inside_loop(
     inner_labels: &mut Labels,
     loop_entries: &Entries,
     next_entries: &Entries,
+    loop_block_id: &LoopBlockId,
 ) {
     for (_inner_label_id, inner_label) in inner_labels {
         for i in 0..inner_label.instrs.len() {
@@ -242,73 +299,112 @@ fn replace_branch_instrs_inside_loop(
                 Instruction::Br(label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr = Some(Instruction::Continue);
+                        new_instr = Some(Instruction::Continue(loop_block_id.to_owned()));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::Break);
+                        new_instr = Some(Instruction::Break(loop_block_id.to_owned()));
                     }
                 }
                 Instruction::BrIfEq(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr =
-                            Some(Instruction::ContinueIfEq(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::ContinueIfEq(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::BreakIfEq(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfEq(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 Instruction::BrIfNotEq(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
                         new_instr = Some(Instruction::ContinueIfNotEq(
+                            loop_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr =
-                            Some(Instruction::BreakIfNotEq(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfNotEq(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 Instruction::BrIfLT(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr =
-                            Some(Instruction::ContinueIfLT(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::ContinueIfLT(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::BreakIfLT(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfLT(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 Instruction::BrIfGT(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr =
-                            Some(Instruction::ContinueIfGT(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::ContinueIfGT(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::BreakIfGT(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfGT(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 Instruction::BrIfLE(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr =
-                            Some(Instruction::ContinueIfLE(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::ContinueIfLE(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::BreakIfLE(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfLE(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 Instruction::BrIfGE(src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         // turn branch back to the start of the loop into a continue
-                        new_instr =
-                            Some(Instruction::ContinueIfGE(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::ContinueIfGE(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // turn branch out of the loop into a break
-                        new_instr = Some(Instruction::BreakIfGE(src1.to_owned(), src2.to_owned()));
+                        new_instr = Some(Instruction::BreakIfGE(
+                            loop_block_id.to_owned(),
+                            src1.to_owned(),
+                            src2.to_owned(),
+                        ));
                     }
                 }
                 _ => {}
@@ -327,6 +423,8 @@ fn try_create_multiple_block(
     labels: &Labels,
     entries: &Entries,
     reachability: &ReachabilityMap,
+    loop_block_id_generator: &mut IdGenerator<LoopBlockId>,
+    multiple_block_id_generator: &mut IdGenerator<MultipleBlockId>,
 ) -> Option<Box<Block>> {
     println!("\ntry create multiple block");
     print!("from labels ");
@@ -417,6 +515,8 @@ fn try_create_multiple_block(
             Some(_) => false,
         });
 
+        let multiple_block_id = multiple_block_id_generator.new_id();
+
         let mut handled_blocks = Vec::new();
         for (handled_label_entry, mut handled_labels) in handled_labels {
             // add any new entries that are branched to from inside the handled blocks
@@ -440,16 +540,31 @@ fn try_create_multiple_block(
             }
             println!();
 
-            replace_branch_instrs_inside_handled_block(&mut handled_labels, &next_entries);
+            replace_branch_instrs_inside_handled_block(
+                &mut handled_labels,
+                &next_entries,
+                &multiple_block_id,
+            );
 
-            let handled_block =
-                create_block_from_labels(handled_labels, vec![handled_label_entry]).unwrap();
+            let handled_block = create_block_from_labels(
+                handled_labels,
+                vec![handled_label_entry],
+                loop_block_id_generator,
+                multiple_block_id_generator,
+            )
+            .unwrap();
             handled_blocks.push(handled_block);
         }
 
-        let next_block = create_block_from_labels(next_labels, next_entries);
+        let next_block = create_block_from_labels(
+            next_labels,
+            next_entries,
+            loop_block_id_generator,
+            multiple_block_id_generator,
+        );
 
         return Some(Box::new(Block::Multiple {
+            id: multiple_block_id,
             handled_blocks,
             next: next_block,
         }));
@@ -457,7 +572,11 @@ fn try_create_multiple_block(
     None
 }
 
-fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_entries: &Entries) {
+fn replace_branch_instrs_inside_handled_block(
+    handled_labels: &mut Labels,
+    next_entries: &Entries,
+    multiple_block_id: &MultipleBlockId,
+) {
     for (_handled_label_id, handled_label) in handled_labels {
         for i in 0..handled_label.instrs.len() {
             let instr = handled_label.instrs.get(i).unwrap();
@@ -466,13 +585,15 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                 Instruction::Br(label_id) => {
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
-                        new_instr = Some(Instruction::EndHandledBlock);
+                        new_instr =
+                            Some(Instruction::EndHandledBlock(multiple_block_id.to_owned()));
                     }
                 }
                 Instruction::BrIfEq(src1, src2, label_id) => {
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfEq(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
@@ -482,6 +603,7 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfNotEq(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
@@ -491,6 +613,7 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfLT(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
@@ -500,6 +623,7 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfGT(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
@@ -509,6 +633,7 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfLE(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));
@@ -518,6 +643,7 @@ fn replace_branch_instrs_inside_handled_block(handled_labels: &mut Labels, next_
                     if next_entries.contains(label_id) {
                         // turn branch to next block into end handled block instruction
                         new_instr = Some(Instruction::EndHandledBlockIfGE(
+                            multiple_block_id.to_owned(),
                             src1.to_owned(),
                             src2.to_owned(),
                         ));

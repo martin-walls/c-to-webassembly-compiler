@@ -2,6 +2,7 @@ use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -167,27 +168,27 @@ pub enum Instruction {
     BrIfLE(Src, Src, LabelId),
 
     // relooper control flow
-    Break,
-    BreakIfEq(Src, Src),
-    BreakIfNotEq(Src, Src),
-    BreakIfGT(Src, Src),
-    BreakIfLT(Src, Src),
-    BreakIfGE(Src, Src),
-    BreakIfLE(Src, Src),
-    Continue,
-    ContinueIfEq(Src, Src),
-    ContinueIfNotEq(Src, Src),
-    ContinueIfGT(Src, Src),
-    ContinueIfLT(Src, Src),
-    ContinueIfGE(Src, Src),
-    ContinueIfLE(Src, Src),
-    EndHandledBlock,
-    EndHandledBlockIfEq(Src, Src),
-    EndHandledBlockIfNotEq(Src, Src),
-    EndHandledBlockIfGT(Src, Src),
-    EndHandledBlockIfLT(Src, Src),
-    EndHandledBlockIfGE(Src, Src),
-    EndHandledBlockIfLE(Src, Src),
+    Break(LoopBlockId),
+    BreakIfEq(LoopBlockId, Src, Src),
+    BreakIfNotEq(LoopBlockId, Src, Src),
+    BreakIfGT(LoopBlockId, Src, Src),
+    BreakIfLT(LoopBlockId, Src, Src),
+    BreakIfGE(LoopBlockId, Src, Src),
+    BreakIfLE(LoopBlockId, Src, Src),
+    Continue(LoopBlockId),
+    ContinueIfEq(LoopBlockId, Src, Src),
+    ContinueIfNotEq(LoopBlockId, Src, Src),
+    ContinueIfGT(LoopBlockId, Src, Src),
+    ContinueIfLT(LoopBlockId, Src, Src),
+    ContinueIfGE(LoopBlockId, Src, Src),
+    ContinueIfLE(LoopBlockId, Src, Src),
+    EndHandledBlock(MultipleBlockId),
+    EndHandledBlockIfEq(MultipleBlockId, Src, Src),
+    EndHandledBlockIfNotEq(MultipleBlockId, Src, Src),
+    EndHandledBlockIfGT(MultipleBlockId, Src, Src),
+    EndHandledBlockIfLT(MultipleBlockId, Src, Src),
+    EndHandledBlockIfGE(MultipleBlockId, Src, Src),
+    EndHandledBlockIfLE(MultipleBlockId, Src, Src),
 
     PointerToStringLiteral(Dest, StringLiteralId),
 
