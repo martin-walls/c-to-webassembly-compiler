@@ -383,6 +383,6 @@ impl Program {
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Instructions:\n{}", self.program_instructions)?;
-        write!(f, "Metadata:\n{}", self.program_metadata)
+        write!(f, "\nMetadata:\n{}", self.program_metadata)
     }
 }

@@ -2,6 +2,7 @@ use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
 use crate::relooper::blocks::Label;
 use crate::relooper::relooper::Labels;
+use log::trace;
 use std::collections::HashMap;
 
 /// Given a list of instructions, generate a 'soup of labelled blocks'
@@ -13,13 +14,13 @@ pub fn soupify(
         !instrs.is_empty(),
         "List of instructions to soupify should be non-empty"
     );
-    remove_consecutive_labels(&mut instrs);
     remove_label_fallthrough(&mut instrs);
     add_block_gap_labels_after_conditionals(&mut instrs, label_generator);
     insert_entry_label_if_necessary(&mut instrs, label_generator);
-    println!("processed instrs for soupifying:");
+    remove_consecutive_labels(&mut instrs);
+    trace!("Processed instrs for soupifying:");
     for instr in &instrs {
-        println!("{}", instr);
+        trace!("  {}", instr);
     }
     instructions_to_soup_of_labels(instrs)
 }

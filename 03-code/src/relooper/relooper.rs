@@ -4,6 +4,7 @@ use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::{Block, Label, LoopBlockId, MultipleBlockId};
 use crate::relooper::soupify::soupify;
+use log::{error, info, trace};
 use std::collections::{HashMap, HashSet};
 
 pub type Labels = HashMap<LabelId, Label>;
@@ -33,7 +34,7 @@ impl<'a> RelooperContext<'a> {
 pub fn reloop(mut prog: Box<Program>) {
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
     let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
-    for (_fun_id, mut function) in prog.program_instructions.functions {
+    for (fun_id, mut function) in prog.program_instructions.functions {
         // function with no body (ie. one that we'll link to in JS runtime)
         if function.instrs.is_empty() {
             continue;
@@ -43,11 +44,10 @@ pub fn reloop(mut prog: Box<Program>) {
             function.instrs,
             &mut prog.program_metadata.label_id_generator,
         );
-        println!("\nlabels:");
+        trace!("\nSoupified labels:");
         for (_, label) in &labels {
-            println!("{}", label);
+            trace!("{}", label);
         }
-        println!();
 
         let mut context = RelooperContext::new(
             &mut loop_block_id_generator,
@@ -57,10 +57,10 @@ pub fn reloop(mut prog: Box<Program>) {
         let block = create_block_from_labels(labels, vec![entry], &mut context);
         match block {
             Some(block) => {
-                println!("created block\n{}", block);
+                info!("Created block for function {}:\n{}", fun_id, block);
                 assert_no_branch_instrs_left(&block);
             }
-            None => println!("No block created"),
+            None => error!("No block created for function {}", fun_id),
         }
     }
     if !prog.program_instructions.global_instrs.is_empty() {
@@ -81,10 +81,10 @@ pub fn reloop(mut prog: Box<Program>) {
         let block = create_block_from_labels(labels, vec![entry], &mut context);
         match block {
             Some(block) => {
-                println!("created block\n{}", block);
+                trace!("Created block for global instructions:\n{}", block);
                 assert_no_branch_instrs_left(&block);
             }
-            None => println!("No block created"),
+            None => error!("No block created for global instructions"),
         }
     }
 }
@@ -152,11 +152,6 @@ fn create_block_from_labels(
 ) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);
     let reachability_from_entries = combine_reachability_from_entries(&reachability, &entries);
-    // print!("reachable from entries: ");
-    // for label in &reachability_from_entries {
-    //     print!("{}  ", label);
-    // }
-    // println!();
 
     if entries.is_empty() {
         return None;
@@ -168,13 +163,7 @@ fn create_block_from_labels(
         // check that the single entry isn't contained in the set of possible
         // destination labels from this entry
         if !reachability_from_entries.contains(single_entry) {
-            println!("\nCreate simple block: {}", single_entry);
             let next_entries: Entries = labels.get(single_entry).unwrap().possible_branch_targets();
-            print!("  next entries: ");
-            for entry in &next_entries {
-                print!("{}  ", entry);
-            }
-            println!();
             let mut this_label = labels.remove(single_entry).unwrap();
             replace_branch_instrs(&mut this_label, context);
             let next_block = create_block_from_labels(labels, next_entries, context);
@@ -259,7 +248,6 @@ fn combine_reachability_from_entries(
 
     for entry in entries {
         // add the reachability for each entry
-        // println!("  {}", entry);
         for label in reachability.get(&entry).unwrap() {
             combined_reachability.insert(label.to_owned());
         }
@@ -416,7 +404,6 @@ fn create_loop_block(
     reachability: ReachabilityMap,
     context: &mut RelooperContext,
 ) -> Box<Block> {
-    println!("\ncreate loop block");
     let mut inner_labels: Labels = HashMap::new();
     let mut next_labels: Labels = HashMap::new();
     // find the labels that can return to one of the entries, and those that can't
@@ -463,17 +450,6 @@ fn create_loop_block(
         &loop_block_id,
         context,
     );
-
-    print!("  next labels: ");
-    for (label_id, _) in &next_labels {
-        print!("{}  ", label_id);
-    }
-    println!();
-    print!("  next entries: ");
-    for entry in &next_entries {
-        print!("{}  ", entry);
-    }
-    println!();
 
     // entries for the inner block are the same as entries for this block
     // we can unwrap inner_block cos we know we can return to entries, so there must be
@@ -605,17 +581,6 @@ fn try_create_multiple_block(
     reachability: &ReachabilityMap,
     context: &mut RelooperContext,
 ) -> Option<Box<Block>> {
-    println!("\ntry create multiple block");
-    print!("from labels ");
-    for (label, _) in labels {
-        print!("{} ", label);
-    }
-    println!();
-    print!("with entries ");
-    for entry in entries {
-        print!("{} ", entry);
-    }
-    println!();
     // "for each entry, find all the labels it reaches that can't be reached by any other entry"
     let mut uniquely_reachable_labels: HashMap<LabelId, Vec<LabelId>> = HashMap::new();
     for entry in entries {
@@ -645,13 +610,6 @@ fn try_create_multiple_block(
                 }
             }
         }
-    }
-    for (src_label, dest_labels) in &uniquely_reachable_labels {
-        print!("  {} uniquely reaches ", src_label);
-        for label in dest_labels {
-            print!("{}  ", label);
-        }
-        println!();
     }
     if uniquely_reachable_labels.len() >= 1 {
         // map of entry to labels for each handled block
@@ -709,15 +667,6 @@ fn try_create_multiple_block(
                     }
                 }
             }
-
-            print!(
-                "  Creating handled block: entry {}, labels ",
-                handled_label_entry
-            );
-            for (label_id, _) in &handled_labels {
-                print!("{}  ", label_id);
-            }
-            println!();
 
             replace_branch_instrs_inside_handled_block(
                 &mut handled_labels,
