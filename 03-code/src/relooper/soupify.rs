@@ -17,6 +17,7 @@ pub fn soupify(
     remove_label_fallthrough(&mut instrs);
     add_block_gap_labels_after_conditionals(&mut instrs, label_generator);
     insert_entry_label_if_necessary(&mut instrs, label_generator);
+    println!("processed instrs for soupifying:");
     for instr in &instrs {
         println!("{}", instr);
     }
@@ -226,8 +227,8 @@ fn add_block_gap_labels_after_conditionals(
             false => i += 1,
             true => {
                 let new_label = label_generator.new_id();
-                instrs.insert(i, Instruction::Br(new_label.to_owned()));
-                instrs.insert(i + 1, Instruction::Label(new_label));
+                instrs.insert(i + 1, Instruction::Br(new_label.to_owned()));
+                instrs.insert(i + 2, Instruction::Label(new_label));
                 // increment i accounting for the new instructions we added
                 i += 3;
             }
