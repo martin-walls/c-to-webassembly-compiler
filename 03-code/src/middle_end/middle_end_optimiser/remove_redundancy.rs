@@ -22,11 +22,7 @@ pub fn remove_unused_labels(instrs: &mut Vec<Instruction>) -> Result<(), MiddleE
             },
             Instruction::Br(label_id)
             | Instruction::BrIfEq(_, _, label_id)
-            | Instruction::BrIfNotEq(_, _, label_id)
-            | Instruction::BrIfGT(_, _, label_id)
-            | Instruction::BrIfLT(_, _, label_id)
-            | Instruction::BrIfGE(_, _, label_id)
-            | Instruction::BrIfLE(_, _, label_id) => {
+            | Instruction::BrIfNotEq(_, _, label_id) => {
                 // found a usage of the label
                 labels.insert(label_id.to_owned(), true);
             }

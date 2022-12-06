@@ -162,11 +162,6 @@ pub enum Instruction {
     Br(LabelId),
     BrIfEq(Src, Src, LabelId),
     BrIfNotEq(Src, Src, LabelId),
-    BrIfGT(Src, Src, LabelId),
-    BrIfLT(Src, Src, LabelId),
-    BrIfGE(Src, Src, LabelId),
-    BrIfLE(Src, Src, LabelId),
-
     PointerToStringLiteral(Dest, StringLiteralId),
 
     // char promotions
@@ -235,10 +230,6 @@ pub enum Instruction {
     // if ... else ... end
     IfEqElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
     IfNotEqElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
-    IfGTElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
-    IfLTElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
-    IfGEElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
-    IfLEElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
 }
 
 impl fmt::Display for Instruction {
@@ -346,18 +337,6 @@ impl fmt::Display for Instruction {
             Instruction::BrIfNotEq(left, right, label) => {
                 write!(f, "if {} != {} goto {}", left, right, label)
             }
-            Instruction::BrIfGT(left, right, label) => {
-                write!(f, "if {} > {} goto {}", left, right, label)
-            }
-            Instruction::BrIfLT(left, right, label) => {
-                write!(f, "if {} < {} goto {}", left, right, label)
-            }
-            Instruction::BrIfGE(left, right, label) => {
-                write!(f, "if {} >= {} goto {}", left, right, label)
-            }
-            Instruction::BrIfLE(left, right, label) => {
-                write!(f, "if {} <= {} goto {}", left, right, label)
-            }
             Instruction::PointerToStringLiteral(dest, string_id) => {
                 write!(f, "{} = pointer to string literal {}", dest, string_id)
             }
@@ -421,50 +400,6 @@ impl fmt::Display for Instruction {
             }
             Instruction::IfNotEqElse(src1, src2, if_block, else_block) => {
                 write!(f, "if {} != {} {{ ", src1, src2)?;
-                for instr in if_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}} else {{ ")?;
-                for instr in else_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}}")
-            }
-            Instruction::IfGTElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} > {} {{ ", src1, src2)?;
-                for instr in if_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}} else {{ ")?;
-                for instr in else_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}}")
-            }
-            Instruction::IfLTElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} < {} {{ ", src1, src2)?;
-                for instr in if_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}} else {{ ")?;
-                for instr in else_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}}")
-            }
-            Instruction::IfGEElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} >= {} {{ ", src1, src2)?;
-                for instr in if_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}} else {{ ")?;
-                for instr in else_block {
-                    write!(f, "{}; ", instr)?;
-                }
-                write!(f, "}}")
-            }
-            Instruction::IfLEElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} <= {} {{ ", src1, src2)?;
                 for instr in if_block {
                     write!(f, "{}; ", instr)?;
                 }

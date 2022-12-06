@@ -126,6 +126,7 @@ fn convert_statement_to_ir(
             let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // jump back to start of loop if condition true
+
             instrs.push(Instruction::BrIfNotEq(
                 cond_var,
                 Src::Constant(Constant::Int(0)),

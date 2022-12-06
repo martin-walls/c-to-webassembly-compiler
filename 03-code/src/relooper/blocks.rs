@@ -27,11 +27,7 @@ impl Label {
             match instr {
                 Instruction::Br(label_id)
                 | Instruction::BrIfEq(_, _, label_id)
-                | Instruction::BrIfNotEq(_, _, label_id)
-                | Instruction::BrIfGT(_, _, label_id)
-                | Instruction::BrIfLT(_, _, label_id)
-                | Instruction::BrIfGE(_, _, label_id)
-                | Instruction::BrIfLE(_, _, label_id) => {
+                | Instruction::BrIfNotEq(_, _, label_id) => {
                     // set semantics - only want one copy of each label to branch to,
                     // even if there are multiple branches
                     if !targets.contains(label_id) {

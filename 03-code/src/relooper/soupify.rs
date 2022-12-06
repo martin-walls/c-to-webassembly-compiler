@@ -92,46 +92,6 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
                     );
                 }
             },
-            Instruction::BrIfGT(s1, s2, label_id) => match label_remappings.get(label_id) {
-                None => {}
-                Some(new_label_id) => {
-                    instrs[i] = Instruction::BrIfGT(
-                        s1.to_owned(),
-                        s2.to_owned(),
-                        new_label_id.to_owned().to_owned(),
-                    );
-                }
-            },
-            Instruction::BrIfLT(s1, s2, label_id) => match label_remappings.get(label_id) {
-                None => {}
-                Some(new_label_id) => {
-                    instrs[i] = Instruction::BrIfLT(
-                        s1.to_owned(),
-                        s2.to_owned(),
-                        new_label_id.to_owned().to_owned(),
-                    );
-                }
-            },
-            Instruction::BrIfGE(s1, s2, label_id) => match label_remappings.get(label_id) {
-                None => {}
-                Some(new_label_id) => {
-                    instrs[i] = Instruction::BrIfGE(
-                        s1.to_owned(),
-                        s2.to_owned(),
-                        new_label_id.to_owned().to_owned(),
-                    );
-                }
-            },
-            Instruction::BrIfLE(s1, s2, label_id) => match label_remappings.get(label_id) {
-                None => {}
-                Some(new_label_id) => {
-                    instrs[i] = Instruction::BrIfLE(
-                        s1.to_owned(),
-                        s2.to_owned(),
-                        new_label_id.to_owned().to_owned(),
-                    );
-                }
-            },
             _ => {}
         }
     }
@@ -173,13 +133,7 @@ fn remove_label_fallthrough(instrs: &mut Vec<Instruction>) {
                     instr_to_insert = Some(Instruction::Br(label_id.to_owned()));
                 }
             }
-            Instruction::Br(_)
-            | Instruction::BrIfEq(_, _, _)
-            | Instruction::BrIfNotEq(_, _, _)
-            | Instruction::BrIfGT(_, _, _)
-            | Instruction::BrIfLT(_, _, _)
-            | Instruction::BrIfGE(_, _, _)
-            | Instruction::BrIfLE(_, _, _) => {
+            Instruction::Br(_) | Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
                 prev_instr_was_branch = true;
             }
             _ => {
@@ -213,12 +167,7 @@ fn add_block_gap_labels_after_conditionals(
         let mut insert_gap_label = false;
 
         match instr {
-            Instruction::BrIfEq(_, _, _)
-            | Instruction::BrIfNotEq(_, _, _)
-            | Instruction::BrIfGT(_, _, _)
-            | Instruction::BrIfLT(_, _, _)
-            | Instruction::BrIfGE(_, _, _)
-            | Instruction::BrIfLE(_, _, _) => {
+            Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
                 insert_gap_label = true;
             }
             _ => {}

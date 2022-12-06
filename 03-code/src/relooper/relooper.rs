@@ -112,11 +112,7 @@ fn assert_no_branch_instrs_left(block: &Box<Block>) {
                 let is_branch_instr = match instr {
                     Instruction::Br(_)
                     | Instruction::BrIfEq(_, _, _)
-                    | Instruction::BrIfNotEq(_, _, _)
-                    | Instruction::BrIfGT(_, _, _)
-                    | Instruction::BrIfLT(_, _, _)
-                    | Instruction::BrIfGE(_, _, _)
-                    | Instruction::BrIfLE(_, _, _) => true,
+                    | Instruction::BrIfNotEq(_, _, _) => true,
                     _ => false,
                 };
                 assert!(
@@ -311,12 +307,7 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
 
     let conditional_branch_instr = match conditional_branch_instr_index {
         Some(index) => match label.instrs.get(index).unwrap() {
-            i @ Instruction::BrIfEq(_, _, _)
-            | i @ Instruction::BrIfNotEq(_, _, _)
-            | i @ Instruction::BrIfGT(_, _, _)
-            | i @ Instruction::BrIfLT(_, _, _)
-            | i @ Instruction::BrIfGE(_, _, _)
-            | i @ Instruction::BrIfLE(_, _, _) => Some(i),
+            i @ Instruction::BrIfEq(_, _, _) | i @ Instruction::BrIfNotEq(_, _, _) => Some(i),
             _ => None,
         },
         None => None,
@@ -370,42 +361,6 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
                     )],
                     else_instrs,
                 ),
-                Instruction::BrIfGT(src1, src2, label_id) => Instruction::IfGTElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfLT(src1, src2, label_id) => Instruction::IfLTElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfGE(src1, src2, label_id) => Instruction::IfGEElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfLE(src1, src2, label_id) => Instruction::IfLEElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
                 _ => unreachable!(),
             };
             // remove the break/continue/endHandled (these two instructions are moved into the else clause)
@@ -435,42 +390,6 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
                     else_instrs,
                 ),
                 Instruction::BrIfNotEq(src1, src2, label_id) => Instruction::IfNotEqElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfGT(src1, src2, label_id) => Instruction::IfGTElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfLT(src1, src2, label_id) => Instruction::IfLTElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfGE(src1, src2, label_id) => Instruction::IfGEElse(
-                    src1.to_owned(),
-                    src2.to_owned(),
-                    vec![Instruction::SimpleAssignment(
-                        context.label_variable.to_owned(),
-                        Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                    )],
-                    else_instrs,
-                ),
-                Instruction::BrIfLE(src1, src2, label_id) => Instruction::IfLEElse(
                     src1.to_owned(),
                     src2.to_owned(),
                     vec![Instruction::SimpleAssignment(
@@ -651,138 +570,6 @@ fn replace_branch_instrs_inside_loop(
                         ));
                     } else if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfNotEqElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfLT(src1, src2, label_id) => {
-                    if loop_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    } else if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfGT(src1, src2, label_id) => {
-                    if loop_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    } else if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfLE(src1, src2, label_id) => {
-                    if loop_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLEElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    } else if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLEElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfGE(src1, src2, label_id) => {
-                    if loop_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGEElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                // set the label variable
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    } else if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGEElse(
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
@@ -997,74 +784,6 @@ fn replace_branch_instrs_inside_handled_block(
                 Instruction::BrIfNotEq(src1, src2, label_id) => {
                     if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfNotEqElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfLT(src1, src2, label_id) => {
-                    if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfGT(src1, src2, label_id) => {
-                    if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGTElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfLE(src1, src2, label_id) => {
-                    if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfLEElse(
-                            src1.to_owned(),
-                            src2.to_owned(),
-                            vec![
-                                Instruction::SimpleAssignment(
-                                    context.label_variable.to_owned(),
-                                    Src::Constant(Constant::Int(label_id.as_u64() as i128)),
-                                ),
-                                // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
-                            ],
-                            vec![],
-                        ));
-                    }
-                }
-                Instruction::BrIfGE(src1, src2, label_id) => {
-                    if next_entries.contains(label_id) {
-                        new_instrs.push(Instruction::IfGEElse(
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
