@@ -399,6 +399,81 @@ impl fmt::Display for Instruction {
             Instruction::Nop => {
                 write!(f, "Nop")
             }
+            Instruction::Break(loop_block_id) => {
+                write!(f, "break {}", loop_block_id)
+            }
+            Instruction::Continue(loop_block_id) => {
+                write!(f, "continue {}", loop_block_id)
+            }
+            Instruction::EndHandledBlock(multiple_block_id) => {
+                write!(f, "endHandled {}", multiple_block_id)
+            }
+            Instruction::IfEqElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} == {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
+            Instruction::IfNotEqElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} != {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
+            Instruction::IfGTElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} > {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
+            Instruction::IfLTElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} < {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
+            Instruction::IfGEElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} >= {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
+            Instruction::IfLEElse(src1, src2, if_block, else_block) => {
+                write!(f, "if {} <= {} {{ ", src1, src2)?;
+                for instr in if_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}} else {{ ")?;
+                for instr in else_block {
+                    write!(f, "{}; ", instr)?;
+                }
+                write!(f, "}}")
+            }
             _ => {
                 write!(f, "{:?}", self)
             }

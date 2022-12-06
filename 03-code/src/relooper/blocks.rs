@@ -83,6 +83,12 @@ impl FmtIndented for Block {
                 indent_level.increment_marked();
                 indent_level.write(f)?;
                 writeln!(f, "internal: {}", internal.label)?;
+                indent_level.increment();
+                for instr in &internal.instrs {
+                    indent_level.write(f)?;
+                    writeln!(f, "{}", instr)?;
+                }
+                indent_level.decrement();
                 match next {
                     Some(next) => {
                         indent_level.write(f)?;
