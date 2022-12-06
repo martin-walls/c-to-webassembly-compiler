@@ -281,14 +281,12 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
     // we can safely unwrap, because a label must have instructions.
     let unconditional_branch_label_id = match label.instrs.last().unwrap() {
         Instruction::Br(label_id) => Some(label_id),
-        Instruction::EndHandledBlock(_)
-        | Instruction::Break(_)
-        | Instruction::Continue(_)
-        | Instruction::Ret(_) => None,
-        i => {
-            println!("Last instruction of label: {}", i);
-            unreachable!("The last instruction of a label should always be an unconditional branch")
-        }
+        // any other instruction we'll ignore.
+        // most likely this is a return or a break/continue/endHandled
+        // that's already been processed, or the other possible case
+        // is that this label is the end of the global instructions, in which
+        // case it doesn't need to end with a branch.
+        _ => None,
     };
 
     let conditional_branch_instr_index = match unconditional_branch_label_id {
