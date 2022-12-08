@@ -1,0 +1,87 @@
+\documentclass[10pt, a4paper]{article}
+
+\usepackage{mrw}
+
+\pagestyle{fancy}
+\setlength{\headheight}{22.59pt}
+\addtolength{\topmargin}{-10.59pt}
+\fancyhead[L]{\textbf{Martin Walls}\\mrw64@cam.ac.uk}
+\fancyhead[R]{\textbf{The Relooper Algorithm}\\Part II Project}
+\fancyfoot[C]{\thepage\ / \pageref{LastPage}}
+
+\usepackage{biblatex}
+\addbibresource{11-relooper-references.bib}
+
+\begin{document}
+\section{The Relooper Algorithm}
+
+Relooper is an algorithm that turns unstructured control flow into structured control flow.
+Unstructured control flow can contain arbitrary branch instructions to anywhere else in the code, whereas structured control flow is bounded within higher-level structures such as if and while blocks.
+
+The Relooper algorithm is described in the Emscripten paper \cite{emscripten}.
+
+\subsection{Input}
+
+The Relooper algorithm takes a so-called `soup of blocks' as input.
+Each block is a section of the instructions that starts at a label and ends with a branch instructions (which may be either a conditional branch followed by an unconditional branch, or just an unconditional branch).
+
+\begin{minipage}{0.3\textwidth}
+\begin{lstlisting}[style=code, frame=single, escapechar=|]
+label:
+...
+|\textit{non-branch instructions}|
+...
+if ... goto x     |\rmfamily\small\textit{(optional)}|
+goto y
+\end{lstlisting}
+\end{minipage}
+
+The list of instructions generated in the intermediate representation is processed into a set of these blocks.
+They're called a `soup' of blocks because they're no longer stored as a single continuous list, instead each block is separate and points to the blocks to which it can branch.
+
+To avoid overloading the term `block', we call these input blocks `labels'.
+
+
+\subsection{Output}
+
+The Relooper algorithm generates a set of structured blocks, which are nested to represent the structured control flow.
+
+There are three types of block:
+
+\begin{itemize}
+\item \textbf{Simple} blocks, which contain
+\begin{itemize}
+\item An \textbf{Internal} label
+\item A \textbf{Next block}
+\end{itemize}
+
+\item \textbf{Loop} blocks, which contain
+\begin{itemize}
+\item An \textbf{Inner} block
+\item A \textbf{Next} block
+\end{itemize}
+
+\item \textbf{Multiple} blocks, which contain
+\begin{itemize}
+\item Some number of \textbf{Handled} blocks
+\item A \textbf{Next} block
+\end{itemize}
+\end{itemize}
+
+\textbf{Simple blocks} are the basic building block, and just contain one of the input labels (which contains the actual code to execute), and point to the block to which execution should pass next.
+When this is translated into target code, a Simple block gets translated directly into the code inside the label, and the Next block is put right after it.
+
+\textbf{Loop blocks} represent any kind of loop in the code.
+The Inner block contains any labels that can branch back to the start of the loop (along some execution path, which may be multiple labels long).
+The Next block contains all the rest of the labels, from which execution will never be able to get back to the start of the loop.
+
+\textbf{Multiple blocks} represent any kind of conditional execution, e.g.\ `if' or `switch' statements.
+The Handled blocks are any blocks to which execution can directly pass when we enter this block.
+By use of the label variable, described below, we decide which (if any) of the Handled blocks should get executed when we enter the Multiple block.
+Once the selected Handled block has finished executing, we go to the Next block.
+It's also possible to not execute any of the Handled blocks, for example to represent an `if' statement without an `else', in which case execution will go directly to the Next block.
+
+
+\printbibliography
+
+\end{document}
