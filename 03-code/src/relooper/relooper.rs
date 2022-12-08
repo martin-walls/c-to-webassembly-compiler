@@ -642,9 +642,6 @@ fn try_create_multiple_block(
             }
         }
 
-        // check which of the handled labels are entries
-        // for (handled_label_id, _) in &handled_labels {}
-
         let mut next_entries = entries.to_owned();
         // keep all the non-handled entries
         next_entries.retain(|e| match handled_labels.get(e) {
