@@ -1,3 +1,5 @@
+use crate::backend::integer_encoding::encode_unsigned_int;
+
 /// See https://webassembly.github.io/spec/core/binary/instructions.html
 pub enum WasmOpcode {
     // Control instructions
@@ -264,22 +266,34 @@ impl WasmOpcode {
                 vec![0x26]
             }
             WasmOpcode::TableInit => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(12));
+                v
             }
             WasmOpcode::ElemDrop => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(13));
+                v
             }
             WasmOpcode::TableCopy => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(14));
+                v
             }
             WasmOpcode::TableGrow => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(15));
+                v
             }
             WasmOpcode::TableSize => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(16));
+                v
             }
             WasmOpcode::TableFill => {
-                vec![0xFC, todo!("variable length int encoding")]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(17));
+                v
             }
 
             WasmOpcode::I32Load => {
@@ -358,16 +372,27 @@ impl WasmOpcode {
                 vec![0x40, 0x00]
             }
             WasmOpcode::MemoryInit => {
-                vec![0xFC, todo!(8)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(8));
+                v
             }
             WasmOpcode::DataDrop => {
-                vec![0xFC, todo!(9)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(9));
+                v
             }
             WasmOpcode::MemoryCopy => {
-                vec![0xFC, todo!(10), 0x00, 0x00]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(10));
+                v.push(0x00);
+                v.push(0x00);
+                v
             }
             WasmOpcode::MemoryFill => {
-                vec![0xFC, todo!(11), 0x00]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(11));
+                v.push(0x00);
+                v
             }
             WasmOpcode::I32Const => {
                 vec![0x41]
@@ -777,28 +802,44 @@ impl WasmOpcode {
             }
 
             WasmOpcode::I32TruncSatF32S => {
-                vec![0xFC, todo!(0)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(0));
+                v
             }
             WasmOpcode::I32TruncSatF32U => {
-                vec![0xFC, todo!(1)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(1));
+                v
             }
             WasmOpcode::I32TruncSatF64S => {
-                vec![0xFC, todo!(2)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(2));
+                v
             }
             WasmOpcode::I32TruncSatF64U => {
-                vec![0xFC, todo!(3)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(3));
+                v
             }
             WasmOpcode::I64TruncSatF32S => {
-                vec![0xFC, todo!(4)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(4));
+                v
             }
             WasmOpcode::I64TruncSatF32U => {
-                vec![0xFC, todo!(5)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(5));
+                v
             }
             WasmOpcode::I64TruncSatF64S => {
-                vec![0xFC, todo!(6)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(6));
+                v
             }
             WasmOpcode::I64TruncSatF64U => {
-                vec![0xFC, todo!(7)]
+                let mut v = vec![0xFC];
+                v.append(&mut encode_unsigned_int(7));
+                v
             }
         }
     }
