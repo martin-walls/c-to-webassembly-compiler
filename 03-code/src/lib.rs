@@ -29,6 +29,6 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let ast = parse(source)?;
     let ir = convert_to_ir(ast)?;
     info!("IR: {}", ir);
-    reloop(ir);
+    let relooped_ir = reloop(ir);
     Ok(())
 }

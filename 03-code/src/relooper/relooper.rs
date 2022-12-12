@@ -1,4 +1,4 @@
-use crate::middle_end::ids::{Id, IdGenerator, LabelId, ValueType, VarId};
+use crate::middle_end::ids::{FunId, Id, IdGenerator, LabelId, ValueType, VarId};
 use crate::middle_end::instructions::{Constant, Instruction, Src};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
@@ -31,12 +31,34 @@ impl<'a> RelooperContext<'a> {
     }
 }
 
-pub fn reloop(mut prog: Box<Program>) {
+pub struct ProgramBlocks {
+    pub functions: HashMap<FunId, Option<Box<Block>>>,
+    pub global_instrs: Option<Box<Block>>,
+}
+
+impl ProgramBlocks {
+    pub fn new() -> Self {
+        ProgramBlocks {
+            functions: HashMap::new(),
+            global_instrs: None,
+        }
+    }
+}
+
+pub struct ReloopedProgram {
+    pub program_blocks: Box<ProgramBlocks>,
+    pub program_metadata: Box<ProgramMetadata>,
+}
+
+pub fn reloop(mut prog: Box<Program>) -> Box<ReloopedProgram> {
+    let mut program_blocks = ProgramBlocks::new();
+
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
     let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
     for (fun_id, mut function) in prog.program_instructions.functions {
         // function with no body (ie. one that we'll link to in JS runtime)
         if function.instrs.is_empty() {
+            program_blocks.functions.insert(fun_id, None);
             continue;
         }
         let label_var = init_label_variable(&mut function.instrs, &mut prog.program_metadata);
@@ -44,10 +66,6 @@ pub fn reloop(mut prog: Box<Program>) {
             function.instrs,
             &mut prog.program_metadata.label_id_generator,
         );
-        trace!("\nSoupified labels:");
-        for (_, label) in &labels {
-            trace!("{}", label);
-        }
 
         let mut context = RelooperContext::new(
             &mut loop_block_id_generator,
@@ -59,8 +77,12 @@ pub fn reloop(mut prog: Box<Program>) {
             Some(block) => {
                 info!("Created block for function {}:\n{}", fun_id, block);
                 assert_no_branch_instrs_left(&block);
+                program_blocks.functions.insert(fun_id, Some(block));
             }
-            None => error!("No block created for function {}", fun_id),
+            None => error!(
+                "No block created for function {}, even though it had instructions",
+                fun_id
+            ),
         }
     }
     if !prog.program_instructions.global_instrs.is_empty() {
@@ -83,10 +105,15 @@ pub fn reloop(mut prog: Box<Program>) {
             Some(block) => {
                 trace!("Created block for global instructions:\n{}", block);
                 assert_no_branch_instrs_left(&block);
+                program_blocks.global_instrs = Some(block);
             }
-            None => error!("No block created for global instructions"),
+            None => error!("No block created for global instructions, even though non-empty"),
         }
     }
+    Box::new(ReloopedProgram {
+        program_blocks: Box::new(program_blocks),
+        program_metadata: prog.program_metadata,
+    })
 }
 
 fn init_label_variable(
