@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod backend;
 mod fmt_indented;
 mod middle_end;
 mod parser;
