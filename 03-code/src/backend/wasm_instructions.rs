@@ -1,87 +1,248 @@
-use crate::backend::integer_encoding::encode_unsigned_int;
+use crate::backend::float_encoding::encode_float;
+use crate::backend::integer_encoding::{encode_signed_int, encode_unsigned_int};
+use crate::backend::vector_encoding::encode_vector;
+use crate::backend::wasm_indices::{
+    DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, TableIdx, TypeIdx,
+};
+use crate::backend::wasm_types::{RefType, ValType};
+use crate::middle_end::instructions::Instruction;
+
+pub trait ToBytes {
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+pub struct WasmExpression {
+    instrs: Vec<WasmInstruction>,
+}
+
+impl ToBytes for WasmExpression {
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for instr in &self.instrs {
+            bytes.append(&mut instr.to_bytes());
+        }
+        // instructions followed by explicit `end`
+        bytes.push(0x0b);
+        bytes
+    }
+}
+
+pub enum BlockType {}
+
+impl ToBytes for BlockType {
+    fn to_bytes(&self) -> Vec<u8> {
+        todo!("blocktype")
+    }
+}
+
+pub struct MemArg {
+    align: u32,
+    offset: u32,
+}
+
+impl ToBytes for MemArg {
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = encode_unsigned_int(self.align as u128);
+        bytes.append(&mut encode_unsigned_int(self.offset as u128));
+        bytes
+    }
+}
 
 /// See https://webassembly.github.io/spec/core/binary/instructions.html
-pub enum WasmOpcode {
+pub enum WasmInstruction {
     // Control instructions
     Unreachable,
     Nop,
-    Block,
-    Loop,
-    If,
-    Else,
-    End,
-    Br,
-    BrIf,
-    BrTable,
+    Block {
+        blocktype: BlockType,
+        instrs: Vec<WasmInstruction>,
+    },
+    Loop {
+        blocktype: BlockType,
+        instrs: Vec<WasmInstruction>,
+    },
+    IfElse {
+        blocktype: BlockType,
+        if_instrs: Vec<WasmInstruction>,
+        else_instrs: Vec<WasmInstruction>,
+    },
+
+    Br {
+        label_idx: LabelIdx,
+    },
+    BrIf {
+        label_idx: LabelIdx,
+    },
+    BrTable {
+        labels: Vec<LabelIdx>,
+        label_idx: LabelIdx,
+    },
     Return,
-    Call,
-    CallIndirect,
+    Call {
+        func_idx: FuncIdx,
+    },
+    CallIndirect {
+        type_idx: TypeIdx,
+        table_idx: TableIdx,
+    },
 
     // Reference instructions
-    RefNull,
+    RefNull {
+        ref_type: RefType,
+    },
     RefIsNull,
-    RefFunc,
+    RefFunc {
+        func_idx: FuncIdx,
+    },
 
     // Parametric instructions
     Drop,
     Select,
-    SelectTyped,
+    SelectTyped {
+        types: Vec<ValType>,
+    },
 
     // Variable instructions
-    LocalGet,
-    LocalSet,
-    LocalTee,
-    GlobalGet,
-    GlobalSet,
+    LocalGet {
+        local_idx: LocalIdx,
+    },
+    LocalSet {
+        local_idx: LocalIdx,
+    },
+    LocalTee {
+        local_idx: LocalIdx,
+    },
+    GlobalGet {
+        global_idx: GlobalIdx,
+    },
+    GlobalSet {
+        global_idx: GlobalIdx,
+    },
 
     // Table instructions
-    TableGet,
-    TableSet,
-    TableInit,
-    ElemDrop,
-    TableCopy,
-    TableGrow,
-    TableSize,
-    TableFill,
+    TableGet {
+        table_idx: TableIdx,
+    },
+    TableSet {
+        table_idx: TableIdx,
+    },
+    TableInit {
+        elem_idx: ElemIdx,
+        table_idx: TableIdx,
+    },
+    ElemDrop {
+        elem_idx: ElemIdx,
+    },
+    TableCopy {
+        table_idx1: TableIdx,
+        table_idx2: TableIdx,
+    },
+    TableGrow {
+        table_idx: TableIdx,
+    },
+    TableSize {
+        table_idx: TableIdx,
+    },
+    TableFill {
+        table_idx: TableIdx,
+    },
 
     // Memory instructions
-    I32Load,
-    I64Load,
-    F32Load,
-    F64Load,
-    I32Load8S,
-    I32Load8U,
-    I32Load16S,
-    I32Load16U,
-    I64Load8S,
-    I64Load8U,
-    I64Load16S,
-    I64Load16U,
-    I64Load32S,
-    I64Load32U,
+    I32Load {
+        mem_arg: MemArg,
+    },
+    I64Load {
+        mem_arg: MemArg,
+    },
+    F32Load {
+        mem_arg: MemArg,
+    },
+    F64Load {
+        mem_arg: MemArg,
+    },
+    I32Load8S {
+        mem_arg: MemArg,
+    },
+    I32Load8U {
+        mem_arg: MemArg,
+    },
+    I32Load16S {
+        mem_arg: MemArg,
+    },
+    I32Load16U {
+        mem_arg: MemArg,
+    },
+    I64Load8S {
+        mem_arg: MemArg,
+    },
+    I64Load8U {
+        mem_arg: MemArg,
+    },
+    I64Load16S {
+        mem_arg: MemArg,
+    },
+    I64Load16U {
+        mem_arg: MemArg,
+    },
+    I64Load32S {
+        mem_arg: MemArg,
+    },
+    I64Load32U {
+        mem_arg: MemArg,
+    },
 
-    I32Store,
-    I64Store,
-    F32Store,
-    F64Store,
-    I32Store8,
-    I32Store16,
-    I64Store8,
-    I64Store16,
-    I64Store32,
+    I32Store {
+        mem_arg: MemArg,
+    },
+    I64Store {
+        mem_arg: MemArg,
+    },
+    F32Store {
+        mem_arg: MemArg,
+    },
+    F64Store {
+        mem_arg: MemArg,
+    },
+    I32Store8 {
+        mem_arg: MemArg,
+    },
+    I32Store16 {
+        mem_arg: MemArg,
+    },
+    I64Store8 {
+        mem_arg: MemArg,
+    },
+    I64Store16 {
+        mem_arg: MemArg,
+    },
+    I64Store32 {
+        mem_arg: MemArg,
+    },
 
     MemorySize,
     MemoryGrow,
-    MemoryInit,
-    DataDrop,
+    MemoryInit {
+        data_idx: DataIdx,
+    },
+    DataDrop {
+        data_idx: DataIdx,
+    },
     MemoryCopy,
     MemoryFill,
 
     // Numeric instructions
-    I32Const,
-    I64Const,
-    F32Const,
-    F64Const,
+    I32Const {
+        n: i32,
+    },
+    I64Const {
+        n: i64,
+    },
+    F32Const {
+        z: f32,
+    },
+    F64Const {
+        z: f64,
+    },
 
     I32Eqz,
     I32Eq,
@@ -231,612 +392,776 @@ pub enum WasmOpcode {
     I64TruncSatF64U,
 }
 
-impl WasmOpcode {
-    pub fn get_byte_code(&self) -> Vec<u8> {
+impl ToBytes for WasmInstruction {
+    fn to_bytes(&self) -> Vec<u8> {
         match self {
-            WasmOpcode::Unreachable => vec![0x00],
-            WasmOpcode::Nop => vec![0x01],
-            WasmOpcode::Block => vec![0x02],
-            WasmOpcode::Loop => vec![0x03],
-            WasmOpcode::If => vec![0x04],
-            WasmOpcode::Else => vec![0x05],
-            WasmOpcode::End => vec![0x0B],
-            WasmOpcode::Br => vec![0x0C],
-            WasmOpcode::BrIf => vec![0x0D],
-            WasmOpcode::BrTable => vec![0x0E],
-            WasmOpcode::Return => vec![0x0F],
-            WasmOpcode::Call => vec![0x10],
-            WasmOpcode::CallIndirect => vec![0x11],
-            WasmOpcode::RefNull => vec![0xD0],
-            WasmOpcode::RefIsNull => vec![0xD1],
-            WasmOpcode::RefFunc => vec![0xD2],
-            WasmOpcode::Drop => vec![0x1A],
-            WasmOpcode::Select => vec![0x1B],
-            WasmOpcode::SelectTyped => vec![0x1C],
-            WasmOpcode::LocalGet => vec![0x20],
-            WasmOpcode::LocalSet => vec![0x21],
-            WasmOpcode::LocalTee => vec![0x22],
-            WasmOpcode::GlobalGet => vec![0x23],
-            WasmOpcode::GlobalSet => vec![0x24],
+            WasmInstruction::Unreachable => vec![0x00],
+            WasmInstruction::Nop => vec![0x01],
+            WasmInstruction::Block { blocktype, instrs } => {
+                let mut bytes = vec![0x02];
+                bytes.append(&mut blocktype.to_bytes());
+                for instr in instrs {
+                    bytes.append(&mut instr.to_bytes());
+                }
+                bytes.push(0x0b);
+                bytes
+            }
+            WasmInstruction::Loop { blocktype, instrs } => {
+                let mut bytes = vec![0x03];
+                bytes.append(&mut blocktype.to_bytes());
+                for instr in instrs {
+                    bytes.append(&mut instr.to_bytes());
+                }
+                bytes.push(0x0b);
+                bytes
+            }
+            WasmInstruction::IfElse {
+                blocktype,
+                if_instrs,
+                else_instrs,
+            } => {
+                let mut bytes = vec![0x04];
+                bytes.append(&mut blocktype.to_bytes());
+                for instr in if_instrs {
+                    bytes.append(&mut instr.to_bytes());
+                }
+                if !else_instrs.is_empty() {
+                    bytes.push(0x05);
+                    for instr in else_instrs {
+                        bytes.append(&mut instr.to_bytes());
+                    }
+                }
+                bytes.push(0x0b);
+                bytes
+            }
+            WasmInstruction::Br { label_idx } => {
+                let mut bytes = vec![0x0C];
+                bytes.append(&mut label_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::BrIf { label_idx } => {
+                let mut bytes = vec![0x0D];
+                bytes.append(&mut label_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::BrTable { labels, label_idx } => {
+                let mut bytes = vec![0x0E];
+                bytes.append(&mut encode_vector(labels));
+                bytes.append(&mut label_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::Return => vec![0x0F],
+            WasmInstruction::Call { func_idx } => {
+                let mut bytes = vec![0x10];
+                bytes.append(&mut func_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::CallIndirect {
+                type_idx,
+                table_idx,
+            } => {
+                let mut bytes = vec![0x11];
+                bytes.append(&mut type_idx.to_bytes());
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::RefNull { ref_type } => {
+                let mut bytes = vec![0xD0];
+                bytes.append(&mut ref_type.to_bytes());
+                bytes
+            }
+            WasmInstruction::RefIsNull => vec![0xD1],
+            WasmInstruction::RefFunc { func_idx } => {
+                let mut bytes = vec![0xD2];
+                bytes.append(&mut func_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::Drop => vec![0x1A],
+            WasmInstruction::Select => vec![0x1B],
+            WasmInstruction::SelectTyped { types } => {
+                let mut bytes = vec![0x1C];
+                bytes.append(&mut encode_vector(types));
+                bytes
+            }
+            WasmInstruction::LocalGet { local_idx } => {
+                let mut bytes = vec![0x20];
+                bytes.append(&mut local_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::LocalSet { local_idx } => {
+                let mut bytes = vec![0x21];
+                bytes.append(&mut local_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::LocalTee { local_idx } => {
+                let mut bytes = vec![0x22];
+                bytes.append(&mut local_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::GlobalGet { global_idx } => {
+                let mut bytes = vec![0x23];
+                bytes.append(&mut global_idx.to_bytes());
+                bytes
+            }
+            WasmInstruction::GlobalSet { global_idx } => {
+                let mut bytes = vec![0x24];
+                bytes.append(&mut global_idx.to_bytes());
+                bytes
+            }
 
-            WasmOpcode::TableGet => {
-                vec![0x25]
+            WasmInstruction::TableGet { table_idx } => {
+                let mut bytes = vec![0x25];
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::TableSet => {
-                vec![0x26]
+            WasmInstruction::TableSet { table_idx } => {
+                let mut bytes = vec![0x26];
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::TableInit => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(12));
-                v
+            WasmInstruction::TableInit {
+                elem_idx,
+                table_idx,
+            } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(12));
+                bytes.append(&mut elem_idx.to_bytes());
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::ElemDrop => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(13));
-                v
+            WasmInstruction::ElemDrop { elem_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(13));
+                bytes.append(&mut elem_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::TableCopy => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(14));
-                v
+            WasmInstruction::TableCopy {
+                table_idx1,
+                table_idx2,
+            } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(14));
+                bytes.append(&mut table_idx1.to_bytes());
+                bytes.append(&mut table_idx2.to_bytes());
+                bytes
             }
-            WasmOpcode::TableGrow => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(15));
-                v
+            WasmInstruction::TableGrow { table_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(15));
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::TableSize => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(16));
-                v
+            WasmInstruction::TableSize { table_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(16));
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::TableFill => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(17));
-                v
+            WasmInstruction::TableFill { table_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(17));
+                bytes.append(&mut table_idx.to_bytes());
+                bytes
             }
 
-            WasmOpcode::I32Load => {
-                vec![0x28]
+            WasmInstruction::I32Load { mem_arg } => {
+                let mut bytes = vec![0x28];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load => {
-                vec![0x29]
+            WasmInstruction::I64Load { mem_arg } => {
+                let mut bytes = vec![0x29];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::F32Load => {
-                vec![0x2A]
+            WasmInstruction::F32Load { mem_arg } => {
+                let mut bytes = vec![0x2A];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::F64Load => {
-                vec![0x2B]
+            WasmInstruction::F64Load { mem_arg } => {
+                let mut bytes = vec![0x2B];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Load8S => {
-                vec![0x2C]
+            WasmInstruction::I32Load8S { mem_arg } => {
+                let mut bytes = vec![0x2C];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Load8U => {
-                vec![0x2D]
+            WasmInstruction::I32Load8U { mem_arg } => {
+                let mut bytes = vec![0x2D];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Load16S => {
-                vec![0x2E]
+            WasmInstruction::I32Load16S { mem_arg } => {
+                let mut bytes = vec![0x2E];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Load16U => {
-                vec![0x2F]
+            WasmInstruction::I32Load16U { mem_arg } => {
+                let mut bytes = vec![0x2F];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load8S => {
-                vec![0x30]
+            WasmInstruction::I64Load8S { mem_arg } => {
+                let mut bytes = vec![0x30];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load8U => {
-                vec![0x31]
+            WasmInstruction::I64Load8U { mem_arg } => {
+                let mut bytes = vec![0x31];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load16S => {
-                vec![0x32]
+            WasmInstruction::I64Load16S { mem_arg } => {
+                let mut bytes = vec![0x32];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load16U => {
-                vec![0x33]
+            WasmInstruction::I64Load16U { mem_arg } => {
+                let mut bytes = vec![0x33];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load32S => {
-                vec![0x34]
+            WasmInstruction::I64Load32S { mem_arg } => {
+                let mut bytes = vec![0x34];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Load32U => {
-                vec![0x35]
+            WasmInstruction::I64Load32U { mem_arg } => {
+                let mut bytes = vec![0x35];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Store => {
-                vec![0x36]
+            WasmInstruction::I32Store { mem_arg } => {
+                let mut bytes = vec![0x36];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Store => {
-                vec![0x37]
+            WasmInstruction::I64Store { mem_arg } => {
+                let mut bytes = vec![0x37];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::F32Store => {
-                vec![0x38]
+            WasmInstruction::F32Store { mem_arg } => {
+                let mut bytes = vec![0x38];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::F64Store => {
-                vec![0x39]
+            WasmInstruction::F64Store { mem_arg } => {
+                let mut bytes = vec![0x39];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Store8 => {
-                vec![0x3A]
+            WasmInstruction::I32Store8 { mem_arg } => {
+                let mut bytes = vec![0x3A];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I32Store16 => {
-                vec![0x3B]
+            WasmInstruction::I32Store16 { mem_arg } => {
+                let mut bytes = vec![0x3B];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Store8 => {
-                vec![0x3C]
+            WasmInstruction::I64Store8 { mem_arg } => {
+                let mut bytes = vec![0x3C];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Store16 => {
-                vec![0x3D]
+            WasmInstruction::I64Store16 { mem_arg } => {
+                let mut bytes = vec![0x3D];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::I64Store32 => {
-                vec![0x3E]
+            WasmInstruction::I64Store32 { mem_arg } => {
+                let mut bytes = vec![0x3E];
+                bytes.append(&mut mem_arg.to_bytes());
+                bytes
             }
-            WasmOpcode::MemorySize => {
+            WasmInstruction::MemorySize => {
                 vec![0x3F, 0x00]
             }
-            WasmOpcode::MemoryGrow => {
+            WasmInstruction::MemoryGrow => {
                 vec![0x40, 0x00]
             }
-            WasmOpcode::MemoryInit => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(8));
-                v
+            WasmInstruction::MemoryInit { data_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(8));
+                bytes.append(&mut data_idx.to_bytes());
+                bytes.push(0x00);
+                bytes
             }
-            WasmOpcode::DataDrop => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(9));
-                v
+            WasmInstruction::DataDrop { data_idx } => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(9));
+                bytes.append(&mut data_idx.to_bytes());
+                bytes
             }
-            WasmOpcode::MemoryCopy => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(10));
-                v.push(0x00);
-                v.push(0x00);
-                v
+            WasmInstruction::MemoryCopy => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(10));
+                bytes.push(0x00);
+                bytes.push(0x00);
+                bytes
             }
-            WasmOpcode::MemoryFill => {
-                let mut v = vec![0xFC];
-                v.append(&mut encode_unsigned_int(11));
-                v.push(0x00);
-                v
+            WasmInstruction::MemoryFill => {
+                let mut bytes = vec![0xFC];
+                bytes.append(&mut encode_unsigned_int(11));
+                bytes.push(0x00);
+                bytes
             }
-            WasmOpcode::I32Const => {
-                vec![0x41]
+            WasmInstruction::I32Const { n } => {
+                let mut bytes = vec![0x41];
+                bytes.append(&mut encode_signed_int(*n as i128));
+                bytes
             }
-            WasmOpcode::I64Const => {
-                vec![0x42]
+            WasmInstruction::I64Const { n } => {
+                let mut bytes = vec![0x42];
+                bytes.append(&mut encode_signed_int(*n as i128));
+                bytes
             }
-            WasmOpcode::F32Const => {
-                vec![0x43]
+            WasmInstruction::F32Const { z } => {
+                let mut bytes = vec![0x43];
+                bytes.append(&mut encode_float(*z as f64));
+                bytes
             }
-            WasmOpcode::F64Const => {
-                vec![0x44]
+            WasmInstruction::F64Const { z } => {
+                let mut bytes = vec![0x44];
+                bytes.append(&mut encode_float(*z));
+                bytes
             }
 
-            WasmOpcode::I32Eqz => {
+            WasmInstruction::I32Eqz => {
                 vec![0x45]
             }
-            WasmOpcode::I32Eq => {
+            WasmInstruction::I32Eq => {
                 vec![0x46]
             }
-            WasmOpcode::I32Ne => {
+            WasmInstruction::I32Ne => {
                 vec![0x47]
             }
-            WasmOpcode::I32LtS => {
+            WasmInstruction::I32LtS => {
                 vec![0x48]
             }
-            WasmOpcode::I32LtU => {
+            WasmInstruction::I32LtU => {
                 vec![0x49]
             }
-            WasmOpcode::I32GtS => {
+            WasmInstruction::I32GtS => {
                 vec![0x4A]
             }
-            WasmOpcode::I32GtU => {
+            WasmInstruction::I32GtU => {
                 vec![0x4b]
             }
-            WasmOpcode::I32LeS => {
+            WasmInstruction::I32LeS => {
                 vec![0x4c]
             }
-            WasmOpcode::I32LeU => {
+            WasmInstruction::I32LeU => {
                 vec![0x4d]
             }
-            WasmOpcode::I32GeS => {
+            WasmInstruction::I32GeS => {
                 vec![0x4e]
             }
-            WasmOpcode::I32GeU => {
+            WasmInstruction::I32GeU => {
                 vec![0x4f]
             }
 
-            WasmOpcode::I64Eqz => {
+            WasmInstruction::I64Eqz => {
                 vec![0x50]
             }
-            WasmOpcode::I64Eq => {
+            WasmInstruction::I64Eq => {
                 vec![0x51]
             }
-            WasmOpcode::I64Ne => {
+            WasmInstruction::I64Ne => {
                 vec![0x52]
             }
-            WasmOpcode::I64LtS => {
+            WasmInstruction::I64LtS => {
                 vec![0x53]
             }
-            WasmOpcode::I64LtU => {
+            WasmInstruction::I64LtU => {
                 vec![0x54]
             }
-            WasmOpcode::I64GtS => {
+            WasmInstruction::I64GtS => {
                 vec![0x55]
             }
-            WasmOpcode::I64GtU => {
+            WasmInstruction::I64GtU => {
                 vec![0x56]
             }
-            WasmOpcode::I64LeS => {
+            WasmInstruction::I64LeS => {
                 vec![0x57]
             }
-            WasmOpcode::I64LeU => {
+            WasmInstruction::I64LeU => {
                 vec![0x58]
             }
-            WasmOpcode::I64GeS => {
+            WasmInstruction::I64GeS => {
                 vec![0x59]
             }
-            WasmOpcode::I64GeU => {
+            WasmInstruction::I64GeU => {
                 vec![0x5a]
             }
 
-            WasmOpcode::F32Eq => {
+            WasmInstruction::F32Eq => {
                 vec![0x5b]
             }
-            WasmOpcode::F32Ne => {
+            WasmInstruction::F32Ne => {
                 vec![0x5c]
             }
-            WasmOpcode::F32Lt => {
+            WasmInstruction::F32Lt => {
                 vec![0x5d]
             }
-            WasmOpcode::F32Gt => {
+            WasmInstruction::F32Gt => {
                 vec![0x5e]
             }
-            WasmOpcode::F32Le => {
+            WasmInstruction::F32Le => {
                 vec![0x5f]
             }
-            WasmOpcode::F32Ge => {
+            WasmInstruction::F32Ge => {
                 vec![0x60]
             }
 
-            WasmOpcode::F64Eq => {
+            WasmInstruction::F64Eq => {
                 vec![0x61]
             }
-            WasmOpcode::F64Ne => {
+            WasmInstruction::F64Ne => {
                 vec![0x62]
             }
-            WasmOpcode::F64Lt => {
+            WasmInstruction::F64Lt => {
                 vec![0x63]
             }
-            WasmOpcode::F64Gt => {
+            WasmInstruction::F64Gt => {
                 vec![0x64]
             }
-            WasmOpcode::F64Le => {
+            WasmInstruction::F64Le => {
                 vec![0x65]
             }
-            WasmOpcode::F64Ge => {
+            WasmInstruction::F64Ge => {
                 vec![0x66]
             }
 
-            WasmOpcode::I32Clz => {
+            WasmInstruction::I32Clz => {
                 vec![0x67]
             }
-            WasmOpcode::I32Ctz => {
+            WasmInstruction::I32Ctz => {
                 vec![0x68]
             }
-            WasmOpcode::I32PopCnt => {
+            WasmInstruction::I32PopCnt => {
                 vec![0x69]
             }
-            WasmOpcode::I32Add => {
+            WasmInstruction::I32Add => {
                 vec![0x6a]
             }
-            WasmOpcode::I32Sub => {
+            WasmInstruction::I32Sub => {
                 vec![0x6b]
             }
-            WasmOpcode::I32Mul => {
+            WasmInstruction::I32Mul => {
                 vec![0x6c]
             }
-            WasmOpcode::I32DivS => {
+            WasmInstruction::I32DivS => {
                 vec![0x6d]
             }
-            WasmOpcode::I32DivU => {
+            WasmInstruction::I32DivU => {
                 vec![0x6e]
             }
-            WasmOpcode::I32RemS => {
+            WasmInstruction::I32RemS => {
                 vec![0x6f]
             }
-            WasmOpcode::I32RemU => {
+            WasmInstruction::I32RemU => {
                 vec![0x70]
             }
-            WasmOpcode::I32And => {
+            WasmInstruction::I32And => {
                 vec![0x71]
             }
-            WasmOpcode::I32Or => {
+            WasmInstruction::I32Or => {
                 vec![0x72]
             }
-            WasmOpcode::I32Xor => {
+            WasmInstruction::I32Xor => {
                 vec![0x73]
             }
-            WasmOpcode::I32Shl => {
+            WasmInstruction::I32Shl => {
                 vec![0x74]
             }
-            WasmOpcode::I32ShrS => {
+            WasmInstruction::I32ShrS => {
                 vec![0x75]
             }
-            WasmOpcode::I32ShrU => {
+            WasmInstruction::I32ShrU => {
                 vec![0x76]
             }
-            WasmOpcode::I32RotL => {
+            WasmInstruction::I32RotL => {
                 vec![0x77]
             }
-            WasmOpcode::I32RotR => {
+            WasmInstruction::I32RotR => {
                 vec![0x78]
             }
 
-            WasmOpcode::I64Clz => {
+            WasmInstruction::I64Clz => {
                 vec![0x79]
             }
-            WasmOpcode::I64Ctz => {
+            WasmInstruction::I64Ctz => {
                 vec![0x7a]
             }
-            WasmOpcode::I64PopCnt => {
+            WasmInstruction::I64PopCnt => {
                 vec![0x7b]
             }
-            WasmOpcode::I64Add => {
+            WasmInstruction::I64Add => {
                 vec![0x7c]
             }
-            WasmOpcode::I64Sub => {
+            WasmInstruction::I64Sub => {
                 vec![0x7d]
             }
-            WasmOpcode::I64Mul => {
+            WasmInstruction::I64Mul => {
                 vec![0x7e]
             }
-            WasmOpcode::I64DivS => {
+            WasmInstruction::I64DivS => {
                 vec![0x7f]
             }
-            WasmOpcode::I64DivU => {
+            WasmInstruction::I64DivU => {
                 vec![0x80]
             }
-            WasmOpcode::I64RemS => {
+            WasmInstruction::I64RemS => {
                 vec![0x81]
             }
-            WasmOpcode::I64RemU => {
+            WasmInstruction::I64RemU => {
                 vec![0x82]
             }
-            WasmOpcode::I64And => {
+            WasmInstruction::I64And => {
                 vec![0x83]
             }
-            WasmOpcode::I64Or => {
+            WasmInstruction::I64Or => {
                 vec![0x84]
             }
-            WasmOpcode::I64Xor => {
+            WasmInstruction::I64Xor => {
                 vec![0x85]
             }
-            WasmOpcode::I64Shl => {
+            WasmInstruction::I64Shl => {
                 vec![0x86]
             }
-            WasmOpcode::I64ShrS => {
+            WasmInstruction::I64ShrS => {
                 vec![0x87]
             }
-            WasmOpcode::I64ShrU => {
+            WasmInstruction::I64ShrU => {
                 vec![0x88]
             }
-            WasmOpcode::I64RotL => {
+            WasmInstruction::I64RotL => {
                 vec![0x89]
             }
-            WasmOpcode::I64RotR => {
+            WasmInstruction::I64RotR => {
                 vec![0x8a]
             }
 
-            WasmOpcode::F32Abs => {
+            WasmInstruction::F32Abs => {
                 vec![0x8b]
             }
-            WasmOpcode::F32Neg => {
+            WasmInstruction::F32Neg => {
                 vec![0x8c]
             }
-            WasmOpcode::F32Ceil => {
+            WasmInstruction::F32Ceil => {
                 vec![0x8d]
             }
-            WasmOpcode::F32Floor => {
+            WasmInstruction::F32Floor => {
                 vec![0x8e]
             }
-            WasmOpcode::F32Trunc => {
+            WasmInstruction::F32Trunc => {
                 vec![0x8f]
             }
-            WasmOpcode::F32Nearest => {
+            WasmInstruction::F32Nearest => {
                 vec![0x90]
             }
-            WasmOpcode::F32Sqrt => {
+            WasmInstruction::F32Sqrt => {
                 vec![0x91]
             }
-            WasmOpcode::F32Add => {
+            WasmInstruction::F32Add => {
                 vec![0x92]
             }
-            WasmOpcode::F32Sub => {
+            WasmInstruction::F32Sub => {
                 vec![0x93]
             }
-            WasmOpcode::F32Mul => {
+            WasmInstruction::F32Mul => {
                 vec![0x94]
             }
-            WasmOpcode::F32Div => {
+            WasmInstruction::F32Div => {
                 vec![0x95]
             }
-            WasmOpcode::F32Min => {
+            WasmInstruction::F32Min => {
                 vec![0x96]
             }
-            WasmOpcode::F32Max => {
+            WasmInstruction::F32Max => {
                 vec![0x97]
             }
-            WasmOpcode::F32CopySign => {
+            WasmInstruction::F32CopySign => {
                 vec![0x98]
             }
 
-            WasmOpcode::F64Abs => {
+            WasmInstruction::F64Abs => {
                 vec![0x99]
             }
-            WasmOpcode::F64Neg => {
+            WasmInstruction::F64Neg => {
                 vec![0x9a]
             }
-            WasmOpcode::F64Ceil => {
+            WasmInstruction::F64Ceil => {
                 vec![0x9b]
             }
-            WasmOpcode::F64Floor => {
+            WasmInstruction::F64Floor => {
                 vec![0x9c]
             }
-            WasmOpcode::F64Trunc => {
+            WasmInstruction::F64Trunc => {
                 vec![0x9d]
             }
-            WasmOpcode::F64Nearest => {
+            WasmInstruction::F64Nearest => {
                 vec![0x9e]
             }
-            WasmOpcode::F64Sqrt => {
+            WasmInstruction::F64Sqrt => {
                 vec![0x9f]
             }
-            WasmOpcode::F64Add => {
+            WasmInstruction::F64Add => {
                 vec![0xa0]
             }
-            WasmOpcode::F64Sub => {
+            WasmInstruction::F64Sub => {
                 vec![0xa1]
             }
-            WasmOpcode::F64Mul => {
+            WasmInstruction::F64Mul => {
                 vec![0xa2]
             }
-            WasmOpcode::F64Div => {
+            WasmInstruction::F64Div => {
                 vec![0xa3]
             }
-            WasmOpcode::F64Min => {
+            WasmInstruction::F64Min => {
                 vec![0xa4]
             }
-            WasmOpcode::F64Max => {
+            WasmInstruction::F64Max => {
                 vec![0xa5]
             }
-            WasmOpcode::F64CopySign => {
+            WasmInstruction::F64CopySign => {
                 vec![0xa6]
             }
 
-            WasmOpcode::I32WrapI64 => {
+            WasmInstruction::I32WrapI64 => {
                 vec![0xa7]
             }
-            WasmOpcode::I32TruncF32S => {
+            WasmInstruction::I32TruncF32S => {
                 vec![0xa8]
             }
-            WasmOpcode::I32TruncF32U => {
+            WasmInstruction::I32TruncF32U => {
                 vec![0xa9]
             }
-            WasmOpcode::I32TruncF64S => {
+            WasmInstruction::I32TruncF64S => {
                 vec![0xaa]
             }
-            WasmOpcode::I32TruncF64U => {
+            WasmInstruction::I32TruncF64U => {
                 vec![0xab]
             }
-            WasmOpcode::I64ExtendI32S => {
+            WasmInstruction::I64ExtendI32S => {
                 vec![0xac]
             }
-            WasmOpcode::I64ExtendI32U => {
+            WasmInstruction::I64ExtendI32U => {
                 vec![0xad]
             }
-            WasmOpcode::I64TruncF32S => {
+            WasmInstruction::I64TruncF32S => {
                 vec![0xae]
             }
-            WasmOpcode::I64TruncF32U => {
+            WasmInstruction::I64TruncF32U => {
                 vec![0xaf]
             }
-            WasmOpcode::I64TruncF64S => {
+            WasmInstruction::I64TruncF64S => {
                 vec![0xb0]
             }
-            WasmOpcode::I64TruncF64U => {
+            WasmInstruction::I64TruncF64U => {
                 vec![0xb1]
             }
-            WasmOpcode::F32ConvertI32S => {
+            WasmInstruction::F32ConvertI32S => {
                 vec![0xb2]
             }
-            WasmOpcode::F32ConvertI32U => {
+            WasmInstruction::F32ConvertI32U => {
                 vec![0xb3]
             }
-            WasmOpcode::F32ConvertI64S => {
+            WasmInstruction::F32ConvertI64S => {
                 vec![0xb4]
             }
-            WasmOpcode::F32ConvertI64U => {
+            WasmInstruction::F32ConvertI64U => {
                 vec![0xb5]
             }
-            WasmOpcode::F32DemoteF64 => {
+            WasmInstruction::F32DemoteF64 => {
                 vec![0xb6]
             }
-            WasmOpcode::F64ConvertI32S => {
+            WasmInstruction::F64ConvertI32S => {
                 vec![0xb7]
             }
-            WasmOpcode::F64ConvertI32U => {
+            WasmInstruction::F64ConvertI32U => {
                 vec![0xb8]
             }
-            WasmOpcode::F64ConvertI64S => {
+            WasmInstruction::F64ConvertI64S => {
                 vec![0xb9]
             }
-            WasmOpcode::F64ConvertI64U => {
+            WasmInstruction::F64ConvertI64U => {
                 vec![0xba]
             }
-            WasmOpcode::F64PromoteF32 => {
+            WasmInstruction::F64PromoteF32 => {
                 vec![0xbb]
             }
-            WasmOpcode::I32ReinterpretF32 => {
+            WasmInstruction::I32ReinterpretF32 => {
                 vec![0xbc]
             }
-            WasmOpcode::I64ReinterpretF64 => {
+            WasmInstruction::I64ReinterpretF64 => {
                 vec![0xbd]
             }
-            WasmOpcode::F32ReinterpretI32 => {
+            WasmInstruction::F32ReinterpretI32 => {
                 vec![0xbe]
             }
-            WasmOpcode::F64ReinterpretI64 => {
+            WasmInstruction::F64ReinterpretI64 => {
                 vec![0xbf]
             }
 
-            WasmOpcode::I32Extend8S => {
+            WasmInstruction::I32Extend8S => {
                 vec![0xc0]
             }
-            WasmOpcode::I32Extend16S => {
+            WasmInstruction::I32Extend16S => {
                 vec![0xc1]
             }
-            WasmOpcode::I64Extend8S => {
+            WasmInstruction::I64Extend8S => {
                 vec![0xc2]
             }
-            WasmOpcode::I64Extend16S => {
+            WasmInstruction::I64Extend16S => {
                 vec![0xc3]
             }
-            WasmOpcode::I64Extend32S => {
+            WasmInstruction::I64Extend32S => {
                 vec![0xc4]
             }
 
-            WasmOpcode::I32TruncSatF32S => {
+            WasmInstruction::I32TruncSatF32S => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(0));
                 v
             }
-            WasmOpcode::I32TruncSatF32U => {
+            WasmInstruction::I32TruncSatF32U => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(1));
                 v
             }
-            WasmOpcode::I32TruncSatF64S => {
+            WasmInstruction::I32TruncSatF64S => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(2));
                 v
             }
-            WasmOpcode::I32TruncSatF64U => {
+            WasmInstruction::I32TruncSatF64U => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(3));
                 v
             }
-            WasmOpcode::I64TruncSatF32S => {
+            WasmInstruction::I64TruncSatF32S => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(4));
                 v
             }
-            WasmOpcode::I64TruncSatF32U => {
+            WasmInstruction::I64TruncSatF32U => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(5));
                 v
             }
-            WasmOpcode::I64TruncSatF64S => {
+            WasmInstruction::I64TruncSatF64S => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(6));
                 v
             }
-            WasmOpcode::I64TruncSatF64U => {
+            WasmInstruction::I64TruncSatF64U => {
                 let mut v = vec![0xFC];
                 v.append(&mut encode_unsigned_int(7));
                 v

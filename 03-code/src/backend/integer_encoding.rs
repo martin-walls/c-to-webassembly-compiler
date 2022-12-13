@@ -22,3 +22,7 @@ pub fn encode_unsigned_int(mut value: u128) -> Vec<u8> {
 
     bytes
 }
+
+pub fn encode_signed_int(value: i128) -> Vec<u8> {
+    todo!("LEB128 signed integer encoding")
+}
