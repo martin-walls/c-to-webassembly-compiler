@@ -1,5 +1,5 @@
 use crate::backend::integer_encoding::encode_unsigned_int;
-use crate::backend::wasm_instructions::ToBytes;
+use crate::backend::to_bytes::ToBytes;
 
 pub fn encode_vector<T: ToBytes>(elements: &Vec<T>) -> Vec<u8> {
     let mut bytes = Vec::new();

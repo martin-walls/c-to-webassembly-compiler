@@ -1,6 +1,7 @@
 use crate::backend::integer_encoding::encode_unsigned_int;
-use crate::backend::wasm_instructions::ToBytes;
+use crate::backend::to_bytes::ToBytes;
 
+#[derive(Debug, Clone)]
 pub struct TypeIdx {
     x: u32,
 }
@@ -11,6 +12,7 @@ impl ToBytes for TypeIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct TableIdx {
     x: u32,
 }
@@ -21,6 +23,7 @@ impl ToBytes for TableIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ElemIdx {
     x: u32,
 }
@@ -31,6 +34,7 @@ impl ToBytes for ElemIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DataIdx {
     x: u32,
 }
@@ -41,6 +45,7 @@ impl ToBytes for DataIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FuncIdx {
     x: u32,
 }
@@ -51,6 +56,7 @@ impl ToBytes for FuncIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LocalIdx {
     x: u32,
 }
@@ -61,6 +67,7 @@ impl ToBytes for LocalIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct GlobalIdx {
     x: u32,
 }
@@ -71,6 +78,7 @@ impl ToBytes for GlobalIdx {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LabelIdx {
     l: u32,
 }

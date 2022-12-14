@@ -1,15 +1,12 @@
 use crate::backend::float_encoding::encode_float;
 use crate::backend::integer_encoding::{encode_signed_int, encode_unsigned_int};
+use crate::backend::to_bytes::ToBytes;
 use crate::backend::vector_encoding::encode_vector;
 use crate::backend::wasm_indices::{
     DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, TableIdx, TypeIdx,
 };
 use crate::backend::wasm_types::{RefType, ValType};
 use crate::middle_end::instructions::Instruction;
-
-pub trait ToBytes {
-    fn to_bytes(&self) -> Vec<u8>;
-}
 
 pub struct WasmExpression {
     instrs: Vec<WasmInstruction>,
@@ -36,8 +33,17 @@ impl ToBytes for BlockType {
 }
 
 pub struct MemArg {
-    align: u32,
-    offset: u32,
+    pub align: u32,
+    pub offset: u32,
+}
+
+impl MemArg {
+    pub fn zero() -> Self {
+        MemArg {
+            align: 0,
+            offset: 0,
+        }
+    }
 }
 
 impl ToBytes for MemArg {

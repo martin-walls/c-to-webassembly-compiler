@@ -370,7 +370,9 @@ fn convert_statement_to_ir(
                                     )?;
                                     prog.add_var_type(var.to_owned(), type_info.to_owned())?;
                                     // allocate memory for the variable
-                                    let byte_size = match type_info.get_byte_size(prog) {
+                                    let byte_size = match type_info
+                                        .get_byte_size(&prog.program_metadata)
+                                    {
                                         TypeSize::CompileTime(size) => {
                                             Src::Constant(Constant::Int(size as i128))
                                         }
@@ -497,7 +499,9 @@ fn convert_statement_to_ir(
                                                 dest_type.to_owned(),
                                             )?;
 
-                                            let byte_size = match dest_type.get_byte_size(prog) {
+                                            let byte_size = match dest_type
+                                                .get_byte_size(&prog.program_metadata)
+                                            {
                                                 TypeSize::CompileTime(size) => {
                                                     Src::Constant(Constant::Int(size as i128))
                                                 }
@@ -537,7 +541,9 @@ fn convert_statement_to_ir(
                                                 dest_type.to_owned(),
                                             )?;
 
-                                            let byte_size = match dest_type.get_byte_size(prog) {
+                                            let byte_size = match dest_type
+                                                .get_byte_size(&prog.program_metadata)
+                                            {
                                                 TypeSize::CompileTime(size) => {
                                                     Src::Constant(Constant::Int(size as i128))
                                                 }
@@ -1079,7 +1085,7 @@ pub fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
             let expr_var_type = expr_var.get_type(prog)?;
-            let byte_size = match expr_var_type.get_byte_size(prog) {
+            let byte_size = match expr_var_type.get_byte_size(&prog.program_metadata) {
                 TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
                 TypeSize::Runtime(size_expr) => {
                     let (mut size_expr_instrs, size_var) =
@@ -1098,7 +1104,7 @@ pub fn convert_expression_to_ir(
                 None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                 Some(x) => x,
             };
-            let byte_size = match type_info.get_byte_size(prog) {
+            let byte_size = match type_info.get_byte_size(&prog.program_metadata) {
                 TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
                 TypeSize::Runtime(size_expr) => {
                     let (mut size_expr_instrs, size_var) =
@@ -1193,18 +1199,19 @@ pub fn convert_expression_to_ir(
                         // add to pointer in multiples of the byte size of the type it points to
                         let temp = prog.new_var(right_var.get_value_type());
                         prog.add_var_type(temp.to_owned(), right_var_type)?;
-                        let ptr_object_byte_size =
-                            match left_var_type.get_pointer_object_byte_size(prog)? {
-                                TypeSize::CompileTime(size) => {
-                                    Src::Constant(Constant::Int(size as i128))
-                                }
-                                TypeSize::Runtime(size_expr) => {
-                                    let (mut size_expr_instrs, size_var) =
-                                        convert_expression_to_ir(size_expr, prog, context)?;
-                                    instrs.append(&mut size_expr_instrs);
-                                    size_var
-                                }
-                            };
+                        let ptr_object_byte_size = match left_var_type
+                            .get_pointer_object_byte_size(&prog.program_metadata)?
+                        {
+                            TypeSize::CompileTime(size) => {
+                                Src::Constant(Constant::Int(size as i128))
+                            }
+                            TypeSize::Runtime(size_expr) => {
+                                let (mut size_expr_instrs, size_var) =
+                                    convert_expression_to_ir(size_expr, prog, context)?;
+                                instrs.append(&mut size_expr_instrs);
+                                size_var
+                            }
+                        };
                         instrs.push(Instruction::Mult(
                             temp.to_owned(),
                             right_var,

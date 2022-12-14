@@ -62,6 +62,7 @@ pub enum MiddleEndError {
     AssignNonAggregateValueToAggregateType,
     AssignAggregateValueToNonAggregateType,
     MismatchedArrayInitialiserLength,
+    ByteSizeNotKnownAtCompileTime,
 }
 
 impl fmt::Display for MiddleEndError {

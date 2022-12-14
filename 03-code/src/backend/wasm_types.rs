@@ -1,4 +1,4 @@
-use crate::backend::wasm_instructions::ToBytes;
+use crate::backend::to_bytes::ToBytes;
 
 pub enum ValType {
     NumType(NumType),

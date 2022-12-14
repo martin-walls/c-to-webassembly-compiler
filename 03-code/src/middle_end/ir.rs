@@ -15,7 +15,7 @@ pub struct Function {
     pub type_info: Box<IrType>,
     // for each parameter, store which var it maps to
     pub param_var_mappings: Vec<VarId>,
-    body_is_defined: bool,
+    pub body_is_defined: bool,
 }
 
 impl Function {
@@ -117,6 +117,8 @@ pub struct ProgramMetadata {
     union_id_generator: IdGenerator<UnionId>,
     pub label_ids: HashMap<String, LabelId>,
     pub function_ids: HashMap<String, FunId>,
+    pub function_types: HashMap<FunId, Box<IrType>>,
+    pub function_param_var_mappings: HashMap<FunId, Vec<VarId>>,
     pub string_literals: HashMap<StringLiteralId, String>,
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
@@ -135,6 +137,8 @@ impl ProgramMetadata {
             union_id_generator: IdGenerator::new(),
             label_ids: HashMap::new(),
             function_ids: HashMap::new(),
+            function_types: HashMap::new(),
+            function_param_var_mappings: HashMap::new(),
             string_literals: HashMap::new(),
             var_types: HashMap::new(),
             structs: HashMap::new(),
@@ -305,6 +309,12 @@ impl Program {
         fun: Function,
     ) -> Result<FunId, MiddleEndError> {
         let fun_id = self.program_metadata.new_fun_declaration(name)?;
+        self.program_metadata
+            .function_types
+            .insert(fun_id.to_owned(), fun.type_info.to_owned());
+        self.program_metadata
+            .function_param_var_mappings
+            .insert(fun_id.to_owned(), fun.param_var_mappings.to_vec());
         self.program_instructions
             .insert_function(fun_id.to_owned(), fun);
         Ok(fun_id)
@@ -324,6 +334,12 @@ impl Program {
                 if existing_fun.type_info != fun.type_info {
                     return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
                 }
+                self.program_metadata
+                    .function_types
+                    .insert(existing_fun_id.to_owned(), fun.type_info.to_owned());
+                self.program_metadata
+                    .function_param_var_mappings
+                    .insert(existing_fun_id.to_owned(), fun.param_var_mappings.to_vec());
                 self.program_instructions
                     .insert_function(existing_fun_id.to_owned(), fun);
                 Ok(existing_fun_id.to_owned())

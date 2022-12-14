@@ -31,8 +31,15 @@ impl<'a> RelooperContext<'a> {
     }
 }
 
+pub struct ReloopedFunction {
+    pub block: Option<Box<Block>>,
+    pub type_info: Box<IrType>,
+    pub param_var_mappings: Vec<VarId>,
+    pub body_is_defined: bool,
+}
+
 pub struct ProgramBlocks {
-    pub functions: HashMap<FunId, Option<Box<Block>>>,
+    pub functions: HashMap<FunId, ReloopedFunction>,
     pub global_instrs: Option<Box<Block>>,
 }
 
@@ -50,15 +57,23 @@ pub struct ReloopedProgram {
     pub program_metadata: Box<ProgramMetadata>,
 }
 
-pub fn reloop(mut prog: Box<Program>) -> Box<ReloopedProgram> {
+pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
     let mut program_blocks = ProgramBlocks::new();
 
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
     let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
     for (fun_id, mut function) in prog.program_instructions.functions {
         // function with no body (ie. one that we'll link to in JS runtime)
-        if function.instrs.is_empty() {
-            program_blocks.functions.insert(fun_id, None);
+        if !function.body_is_defined || function.instrs.is_empty() {
+            program_blocks.functions.insert(
+                fun_id,
+                ReloopedFunction {
+                    block: None,
+                    type_info: function.type_info,
+                    param_var_mappings: function.param_var_mappings,
+                    body_is_defined: function.body_is_defined,
+                },
+            );
             continue;
         }
         let label_var = init_label_variable(&mut function.instrs, &mut prog.program_metadata);
@@ -77,7 +92,15 @@ pub fn reloop(mut prog: Box<Program>) -> Box<ReloopedProgram> {
             Some(block) => {
                 info!("Created block for function {}:\n{}", fun_id, block);
                 assert_no_branch_instrs_left(&block);
-                program_blocks.functions.insert(fun_id, Some(block));
+                program_blocks.functions.insert(
+                    fun_id,
+                    ReloopedFunction {
+                        block: Some(block),
+                        type_info: function.type_info,
+                        param_var_mappings: function.param_var_mappings,
+                        body_is_defined: function.body_is_defined,
+                    },
+                );
             }
             None => error!(
                 "No block created for function {}, even though it had instructions",
@@ -110,10 +133,11 @@ pub fn reloop(mut prog: Box<Program>) -> Box<ReloopedProgram> {
             None => error!("No block created for global instructions, even though non-empty"),
         }
     }
-    Box::new(ReloopedProgram {
+
+    ReloopedProgram {
         program_blocks: Box::new(program_blocks),
         program_metadata: prog.program_metadata,
-    })
+    }
 }
 
 fn init_label_variable(

@@ -19,7 +19,7 @@ pub fn array_initialiser(
 
     let array_member_type = dest_type_info.unwrap_array_type()?;
     // sizes of array members must be known at compile time
-    let array_member_byte_size = match array_member_type.get_byte_size(prog) {
+    let array_member_byte_size = match array_member_type.get_byte_size(&prog.program_metadata) {
         TypeSize::CompileTime(size) => size,
         TypeSize::Runtime(_) => return Err(MiddleEndError::ArrayMemberSizeNotKnownAtCompileTime),
     };

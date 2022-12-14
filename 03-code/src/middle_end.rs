@@ -2,6 +2,7 @@ mod aggregate_type_initialisers;
 pub mod ast_to_ir;
 mod compile_time_eval;
 mod context;
+mod convert_to_wasm_types;
 mod get_ast_type_info;
 pub mod ids;
 pub mod instructions;

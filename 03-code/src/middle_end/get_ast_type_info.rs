@@ -76,7 +76,11 @@ pub fn get_type_info(
                         if member_name == None {
                             return Err(MiddleEndError::UnnamedStructMember);
                         }
-                        struct_type.push_member(member_name.unwrap(), member_type_info, prog)?;
+                        struct_type.push_member(
+                            member_name.unwrap(),
+                            member_type_info,
+                            &prog.program_metadata,
+                        )?;
                     }
                 }
                 let struct_type_id = prog.add_struct_type(struct_type)?;
@@ -120,7 +124,11 @@ pub fn get_type_info(
                         if member_name == None {
                             return Err(MiddleEndError::UnnamedUnionMember);
                         }
-                        union_type.push_member(member_name.unwrap(), member_type_info, prog)?;
+                        union_type.push_member(
+                            member_name.unwrap(),
+                            member_type_info,
+                            &prog.program_metadata,
+                        )?;
                     }
                 }
                 let union_type_id = prog.add_union_type(union_type)?;

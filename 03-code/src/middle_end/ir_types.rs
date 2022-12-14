@@ -1,5 +1,5 @@
 use crate::middle_end::ids::{StructId, UnionId};
-use crate::middle_end::ir::Program;
+use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast::{BinaryOperator, Constant, Expression, Initialiser};
 use std::collections::HashMap;
@@ -18,15 +18,31 @@ pub enum TypeSize {
     Runtime(Box<Expression>),
 }
 
+impl TypeSize {
+    pub fn get_compile_time_value(&self) -> Result<u64, MiddleEndError> {
+        match self {
+            TypeSize::CompileTime(size) => Ok(size.to_owned()),
+            TypeSize::Runtime(_) => Err(MiddleEndError::ByteSizeNotKnownAtCompileTime),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum IrType {
-    I8,  // signed char
-    U8,  // unsigned char
-    I16, // signed short
-    U16, // unsigned short
-    I32, // signed int
-    U32, // unsigned int
-    I64, // signed long
+    I8,
+    // signed char
+    U8,
+    // unsigned char
+    I16,
+    // signed short
+    U16,
+    // unsigned short
+    I32,
+    // signed int
+    U32,
+    // unsigned int
+    I64,
+    // signed long
     U64, // unsigned long
     F32, // float
     F64, // double
@@ -43,10 +59,7 @@ pub enum IrType {
 impl IrType {
     /// Get the size of this type in bytes, if known at compile time.
     /// For arrays, the size may not be known until runtime.
-    ///
-    /// Returns Some(size) if size is known, and None if size isn't known at compile
-    /// time.
-    pub fn get_byte_size(&self, prog: &Box<Program>) -> TypeSize {
+    pub fn get_byte_size(&self, prog: &Box<ProgramMetadata>) -> TypeSize {
         match &self {
             IrType::I8 | IrType::U8 => TypeSize::CompileTime(1),
             IrType::I16 | IrType::U16 => TypeSize::CompileTime(2),
@@ -82,7 +95,7 @@ impl IrType {
 
     pub fn get_pointer_object_byte_size(
         &self,
-        prog: &Box<Program>,
+        prog: &Box<ProgramMetadata>,
     ) -> Result<TypeSize, MiddleEndError> {
         match self {
             IrType::PointerTo(inner_type) => Ok(inner_type.get_byte_size(prog)),
@@ -332,6 +345,15 @@ impl IrType {
             (t, _) => Ok(Box::new(t.to_owned())),
         }
     }
+
+    pub fn is_wasm_type(&self) -> bool {
+        match self {
+            IrType::I32 | IrType::U32 | IrType::I64 | IrType::U64 | IrType::F32 | IrType::F64 => {
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for IrType {
@@ -434,7 +456,7 @@ impl StructType {
         &mut self,
         member_name: String,
         member_type: Box<IrType>,
-        prog: &Box<Program>,
+        prog: &Box<ProgramMetadata>,
     ) -> Result<(), MiddleEndError> {
         // check if member with same name already exists
         if self.has_member(&member_name) {
@@ -555,7 +577,7 @@ impl UnionType {
         &mut self,
         member_name: String,
         member_type: Box<IrType>,
-        prog: &Box<Program>,
+        prog: &Box<ProgramMetadata>,
     ) -> Result<(), MiddleEndError> {
         // check if another member with same name already exists
         if self.has_member(&member_name) {
