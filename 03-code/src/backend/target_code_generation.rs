@@ -20,10 +20,12 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
     for (fun_id, function) in prog.program_blocks.functions {
         if let Some(block) = function.block {
             println!("calculating var offsets for function {}", fun_id);
-            let var_offsets = calculate_var_offsets_after_params(&block, &prog.program_metadata);
-        }
+            let var_offsets =
+                calculate_var_offsets_from_fp(&block, function.type_info, &prog.program_metadata);
 
-        // let stack_frame_context = StackFrameContext::new();
+            let mut stack_frame_context = StackFrameContext::new();
+            stack_frame_context.var_fp_offsets = var_offsets;
+        }
 
         // let mut function_instrs = Vec::new();
 
@@ -164,14 +166,15 @@ fn get_vars_with_types(
     }
 }
 
-fn calculate_var_offsets_after_params(
+fn calculate_var_offsets_from_fp(
     block: &Box<Block>,
+    fun_type: Box<IrType>,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> HashMap<VarId, u32> {
     let block_vars = get_vars_with_types(block, prog_metadata);
 
     let mut var_offsets = HashMap::new();
-    let mut offset = 0;
+    let mut offset = calculate_start_of_vars_offset_from_fp(fun_type, prog_metadata);
 
     for (var_id, var_type) in block_vars {
         let byte_size = match var_type.get_byte_size(prog_metadata) {
@@ -180,12 +183,43 @@ fn calculate_var_offsets_after_params(
                 unreachable!()
             }
         };
-        println!("  var {}: offset {}", var_id, offset);
+        println!("  var {} ({}): offset {}", var_id, var_type, offset);
         var_offsets.insert(var_id, offset);
         offset += byte_size as u32;
     }
 
     var_offsets
+}
+
+fn calculate_start_of_vars_offset_from_fp(
+    fun_type: Box<IrType>,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> u32 {
+    let mut offset = PTR_SIZE; // account for prev frame pointer
+
+    let (return_type, param_types) = match *fun_type {
+        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
+        _ => unreachable!(),
+    };
+    let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => {
+            unreachable!()
+        }
+    };
+    offset += return_type_byte_size as u32;
+
+    for param_type in param_types {
+        let param_byte_size = match param_type.get_byte_size(prog_metadata) {
+            TypeSize::CompileTime(size) => size,
+            TypeSize::Runtime(_) => {
+                unreachable!()
+            }
+        };
+        offset += param_byte_size as u32;
+    }
+
+    offset
 }
 
 // fn generate_target_function(relooped_function: ReloopedFunction) -> WasmFunction {}
