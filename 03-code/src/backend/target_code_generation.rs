@@ -186,116 +186,15 @@ fn convert_ir_instr_to_wasm(
         Instruction::Equal(_, _, _) => {}
         Instruction::NotEqual(_, _, _) => {}
         Instruction::Call(dest, fun_id, params) => {
-            // create a new stack frame for the callee
-            // ----------------------
-            // | previous frame ptr |
-            // | return value       |
-            // | ------------------ |
-            // | | params         | |
-            // | ------------------ |
-            // | ------------------ |
-            // | | vars           | |
-            // | ------------------ |
-            // ----------------------
-
-            let mut new_stack_frame_fp_offset = stack_frame_context.top_of_stack_fp_offset;
-            let frame_ptr_increment_value = new_stack_frame_fp_offset;
-
-            // store frame pointer at start of the stack frame
-
-            // address operand for storing frame ptr
-            load_frame_ptr(&mut wasm_instrs);
-            wasm_instrs.push(WasmInstruction::I32Const {
-                n: new_stack_frame_fp_offset as i32,
-            });
-            wasm_instrs.push(WasmInstruction::I32Add);
-
-            // value to store: current value of frame ptr
-            load_frame_ptr(&mut wasm_instrs);
-            // store frame ptr to start of new stack frame
-            wasm_instrs.push(WasmInstruction::I32Store {
-                mem_arg: MemArg {
-                    align: 2,
-                    offset: 0,
-                },
-            });
-
-            // leave space for the return value
-            new_stack_frame_fp_offset += PTR_SIZE;
-
             let callee_function_type = prog_metadata.function_types.get(&fun_id).unwrap();
-            let (return_type, param_types) = match &**callee_function_type {
-                IrType::Function(return_type, param_types, _is_variadic) => {
-                    (return_type, param_types)
-                }
-                _ => unreachable!(),
-            };
-            let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
-                TypeSize::CompileTime(size) => size,
-                TypeSize::Runtime(_) => {
-                    unreachable!()
-                }
-            };
 
-            new_stack_frame_fp_offset += return_type_byte_size as u32;
-
-            // store function parameters in callee's stack frame
-            let mut param_index = 0;
-            for param in params {
-                match param {
-                    Src::Var(var_id) => {
-                        // address operand for where to store param
-                        load_frame_ptr(&mut wasm_instrs);
-                        wasm_instrs.push(WasmInstruction::I32Const {
-                            n: new_stack_frame_fp_offset as i32,
-                        });
-                        wasm_instrs.push(WasmInstruction::I32Add);
-
-                        let var_type = prog_metadata.get_var_type(&var_id).unwrap();
-                        let var_byte_size = var_type
-                            .get_byte_size(&prog_metadata)
-                            .get_compile_time_value()
-                            .unwrap();
-
-                        // load var onto the wasm stack (value to store)
-                        load_var(var_id, &mut wasm_instrs, stack_frame_context, prog_metadata);
-
-                        // store param
-                        store(var_type, &mut wasm_instrs);
-
-                        // advance the frame pointer offset
-                        new_stack_frame_fp_offset += var_byte_size as u32;
-                    }
-                    Src::Constant(constant) => {
-                        // address operand for where to store param
-                        load_frame_ptr(&mut wasm_instrs);
-                        wasm_instrs.push(WasmInstruction::I32Const {
-                            n: new_stack_frame_fp_offset as i32,
-                        });
-                        wasm_instrs.push(WasmInstruction::I32Add);
-
-                        // value to store
-                        load_constant(constant, &mut wasm_instrs);
-
-                        // store
-                        let param_type = param_types.get(param_index).unwrap();
-                        let param_byte_size = param_type
-                            .get_byte_size(prog_metadata)
-                            .get_compile_time_value()
-                            .unwrap();
-                        store(param_type.to_owned(), &mut wasm_instrs);
-
-                        new_stack_frame_fp_offset += param_byte_size as u32;
-                    }
-                    Src::StoreAddressVar(_) | Src::Fun(_) => {
-                        unreachable!()
-                    }
-                }
-                param_index += 1;
-            }
-
-            // set the frame pointer to point at the new stack frame
-            increment_frame_pointer(frame_ptr_increment_value, &mut wasm_instrs);
+            set_up_new_stack_frame(
+                callee_function_type,
+                params,
+                &mut wasm_instrs,
+                stack_frame_context,
+                prog_metadata,
+            );
 
             // call the function
             wasm_instrs.push(WasmInstruction::Call {
@@ -304,7 +203,11 @@ fn convert_ir_instr_to_wasm(
                     .get(&fun_id)
                     .unwrap()
                     .to_owned(),
-            })
+            });
+
+            // store result to dest
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            store(dest_type, &mut wasm_instrs);
         }
         Instruction::Ret(_) => {}
         Instruction::Label(_) => {}
@@ -468,4 +371,117 @@ fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
 
 fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>) {
     todo!("push constant to wasm stack with the right type")
+}
+
+fn set_up_new_stack_frame(
+    callee_function_type: &Box<IrType>,
+    params: Vec<Src>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    stack_frame_context: &StackFrameContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    // create a new stack frame for the callee
+    // ----------------------
+    // | previous frame ptr |
+    // | return value       |
+    // | ------------------ |
+    // | | params         | |
+    // | ------------------ |
+    // | ------------------ |
+    // | | vars           | |
+    // | ------------------ |
+    // ----------------------
+    let mut new_stack_frame_fp_offset = stack_frame_context.top_of_stack_fp_offset;
+    let frame_ptr_increment_value = new_stack_frame_fp_offset;
+
+    // store frame pointer at start of the stack frame
+    // address operand for storing frame ptr
+    load_frame_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: new_stack_frame_fp_offset as i32,
+    });
+    wasm_instrs.push(WasmInstruction::I32Add);
+    // value to store: current value of frame ptr
+    load_frame_ptr(wasm_instrs);
+    // store frame ptr to start of new stack frame
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+
+    new_stack_frame_fp_offset += PTR_SIZE;
+
+    let (return_type, param_types) = match &**callee_function_type {
+        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
+        _ => unreachable!(),
+    };
+
+    // leave space for the return value
+    let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => {
+            unreachable!()
+        }
+    };
+    new_stack_frame_fp_offset += return_type_byte_size as u32;
+
+    // store function parameters in callee's stack frame
+    let mut param_index = 0;
+    for param in params {
+        match param {
+            Src::Var(var_id) => {
+                // address operand for where to store param
+                load_frame_ptr(wasm_instrs);
+                wasm_instrs.push(WasmInstruction::I32Const {
+                    n: new_stack_frame_fp_offset as i32,
+                });
+                wasm_instrs.push(WasmInstruction::I32Add);
+
+                let var_type = prog_metadata.get_var_type(&var_id).unwrap();
+                let var_byte_size = var_type
+                    .get_byte_size(&prog_metadata)
+                    .get_compile_time_value()
+                    .unwrap();
+
+                // load var onto the wasm stack (value to store)
+                load_var(var_id, wasm_instrs, stack_frame_context, prog_metadata);
+
+                // store param
+                store(var_type, wasm_instrs);
+
+                // advance the frame pointer offset
+                new_stack_frame_fp_offset += var_byte_size as u32;
+            }
+            Src::Constant(constant) => {
+                // address operand for where to store param
+                load_frame_ptr(wasm_instrs);
+                wasm_instrs.push(WasmInstruction::I32Const {
+                    n: new_stack_frame_fp_offset as i32,
+                });
+                wasm_instrs.push(WasmInstruction::I32Add);
+
+                // value to store
+                load_constant(constant, wasm_instrs);
+
+                // store
+                let param_type = param_types.get(param_index).unwrap();
+                let param_byte_size = param_type
+                    .get_byte_size(prog_metadata)
+                    .get_compile_time_value()
+                    .unwrap();
+                store(param_type.to_owned(), wasm_instrs);
+
+                new_stack_frame_fp_offset += param_byte_size as u32;
+            }
+            Src::StoreAddressVar(_) | Src::Fun(_) => {
+                unreachable!()
+            }
+        }
+        param_index += 1;
+    }
+
+    // set the frame pointer to point at the new stack frame
+    increment_frame_pointer(frame_ptr_increment_value, wasm_instrs);
 }
