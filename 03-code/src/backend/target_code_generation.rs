@@ -1,5 +1,5 @@
 use crate::backend::wasm_indices::{FuncIdx, LocalIdx};
-use crate::backend::wasm_instructions::{MemArg, WasmExpression, WasmInstruction};
+use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_program::{WasmFunction, WasmProgram};
 use crate::middle_end::ids::{FunId, VarId};
 use crate::middle_end::instructions::{Constant, Dest, Instruction, Src};
@@ -23,8 +23,8 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
             let var_offsets =
                 calculate_var_offsets_from_fp(&block, function.type_info, &prog.program_metadata);
 
-            let mut stack_frame_context = StackFrameContext::new();
-            stack_frame_context.var_fp_offsets = var_offsets;
+            let mut function_context =
+                FunctionContext::new(var_offsets, function.label_variable.unwrap());
         }
 
         // let mut function_instrs = Vec::new();
@@ -240,25 +240,127 @@ struct ModuleContext {
     func_idx_mappings: HashMap<FunId, FuncIdx>, // todo we need to calculate these before we convert the instrs
 }
 
-struct StackFrameContext {
+struct FunctionContext {
     var_fp_offsets: HashMap<VarId, u32>,
     return_value_fp_offset: u32,
     top_of_stack_fp_offset: u32,
+    label_variable: VarId,
 }
 
-impl StackFrameContext {
-    fn new() -> Self {
-        StackFrameContext {
-            var_fp_offsets: HashMap::new(),
+impl FunctionContext {
+    fn new(var_fp_offsets: HashMap<VarId, u32>, label_variable: VarId) -> Self {
+        FunctionContext {
+            var_fp_offsets,
             return_value_fp_offset: PTR_SIZE,
             top_of_stack_fp_offset: 0,
+            label_variable,
         }
     }
 }
 
+fn convert_block_to_wasm(
+    block: Box<Block>,
+    function_context: &mut FunctionContext,
+    module_context: &ModuleContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> Vec<WasmInstruction> {
+    let mut wasm_instrs = Vec::new();
+
+    match *block {
+        Block::Simple { internal, next } => {
+            for instr in internal.instrs {
+                wasm_instrs.append(&mut convert_ir_instr_to_wasm(
+                    instr,
+                    function_context,
+                    module_context,
+                    prog_metadata,
+                ));
+            }
+
+            match next {
+                None => {}
+                Some(next) => {
+                    wasm_instrs.append(&mut convert_block_to_wasm(
+                        next,
+                        function_context,
+                        module_context,
+                        prog_metadata,
+                    ));
+                }
+            }
+        }
+        Block::Loop { id, inner, next } => {
+            let loop_instrs =
+                convert_block_to_wasm(inner, function_context, module_context, prog_metadata);
+            wasm_instrs.push(WasmInstruction::Loop {
+                blocktype: BlockType::None,
+                instrs: loop_instrs,
+            });
+
+            match next {
+                None => {}
+                Some(next) => {
+                    wasm_instrs.append(&mut convert_block_to_wasm(
+                        next,
+                        function_context,
+                        module_context,
+                        prog_metadata,
+                    ));
+                }
+            }
+        }
+        Block::Multiple {
+            id,
+            handled_blocks,
+            next,
+        } => {
+            // select which of the handled blocks to execute (if any)
+            //
+            // load the label variable
+            load_var(
+                function_context.label_variable.to_owned(),
+                &mut wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+
+            for handled_block in handled_blocks {
+                let handled_block_label = match *handled_block {
+                    Block::Simple { internal, next } => {}
+                    Block::Loop { id, inner, next } => {}
+                    Block::Multiple {
+                        id,
+                        handled_blocks,
+                        next,
+                    } => {}
+                };
+                // todo get possible entry labels for handled block
+
+                // todo check if label variable matches handled block label
+            }
+
+            // todo select between handled blocks
+
+            match next {
+                None => {}
+                Some(next) => {
+                    wasm_instrs.append(&mut convert_block_to_wasm(
+                        next,
+                        function_context,
+                        module_context,
+                        prog_metadata,
+                    ));
+                }
+            }
+        }
+    }
+
+    wasm_instrs
+}
+
 fn convert_ir_instr_to_wasm(
     instr: Instruction,
-    stack_frame_context: &mut StackFrameContext,
+    function_context: &mut FunctionContext,
     module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> Vec<WasmInstruction> {
@@ -384,7 +486,7 @@ fn convert_ir_instr_to_wasm(
                 callee_function_type,
                 params,
                 &mut wasm_instrs,
-                stack_frame_context,
+                function_context,
                 prog_metadata,
             );
 
@@ -401,7 +503,7 @@ fn convert_ir_instr_to_wasm(
                 dest,
                 callee_function_type,
                 &mut wasm_instrs,
-                stack_frame_context,
+                function_context,
                 prog_metadata,
             );
         }
@@ -560,10 +662,10 @@ fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
 fn load_var(
     var_id: VarId,
     wasm_instrs: &mut Vec<WasmInstruction>,
-    stack_frame_context: &StackFrameContext,
+    function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
-    match stack_frame_context.var_fp_offsets.get(&var_id) {
+    match function_context.var_fp_offsets.get(&var_id) {
         None => {
             // todo check if var is a global variable, and calculate the address from that
         }
@@ -619,10 +721,10 @@ fn store_var(
     var_id: VarId,
     mut store_value_instrs: Vec<WasmInstruction>,
     wasm_instrs: &mut Vec<WasmInstruction>,
-    stack_frame_context: &StackFrameContext,
+    function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
-    match stack_frame_context.var_fp_offsets.get(&var_id) {
+    match function_context.var_fp_offsets.get(&var_id) {
         None => {
             // todo check if var is a global variable, and calculate the address from that
         }
@@ -677,7 +779,7 @@ fn set_up_new_stack_frame(
     callee_function_type: &Box<IrType>,
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
-    stack_frame_context: &StackFrameContext,
+    function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // create a new stack frame for the callee
@@ -693,7 +795,7 @@ fn set_up_new_stack_frame(
     // | ------------------ |
     // ---------------------- <-- stack ptr
     //
-    let mut new_stack_frame_fp_offset = stack_frame_context.top_of_stack_fp_offset;
+    let mut new_stack_frame_fp_offset = function_context.top_of_stack_fp_offset;
     let frame_ptr_increment_value = new_stack_frame_fp_offset;
 
     // store frame pointer at start of the stack frame
@@ -745,7 +847,7 @@ fn set_up_new_stack_frame(
                     .unwrap();
 
                 // load var onto the wasm stack (value to store)
-                load_var(var_id, wasm_instrs, stack_frame_context, prog_metadata);
+                load_var(var_id, wasm_instrs, function_context, prog_metadata);
 
                 // store param
                 store(var_type, wasm_instrs);
@@ -789,7 +891,7 @@ fn pop_stack_frame(
     result_dest: Dest,
     callee_function_type: &Box<IrType>,
     wasm_instrs: &mut Vec<WasmInstruction>,
-    stack_frame_context: &StackFrameContext,
+    function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // pop the top stack frame
@@ -818,7 +920,7 @@ fn pop_stack_frame(
         result_dest,
         store_value_instrs,
         wasm_instrs,
-        stack_frame_context,
+        function_context,
         prog_metadata,
     );
 }

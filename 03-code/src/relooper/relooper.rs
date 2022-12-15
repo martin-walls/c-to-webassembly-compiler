@@ -33,6 +33,8 @@ impl<'a> RelooperContext<'a> {
 
 pub struct ReloopedFunction {
     pub block: Option<Box<Block>>,
+    pub label_variable: Option<VarId>,
+    // only None if block is None
     pub type_info: Box<IrType>,
     pub param_var_mappings: Vec<VarId>,
     pub body_is_defined: bool,
@@ -69,6 +71,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
                 fun_id,
                 ReloopedFunction {
                     block: None,
+                    label_variable: None,
                     type_info: function.type_info,
                     param_var_mappings: function.param_var_mappings,
                     body_is_defined: function.body_is_defined,
@@ -96,6 +99,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
                     fun_id,
                     ReloopedFunction {
                         block: Some(block),
+                        label_variable: Some(label_var),
                         type_info: function.type_info,
                         param_var_mappings: function.param_var_mappings,
                         body_is_defined: function.body_is_defined,

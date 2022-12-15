@@ -24,7 +24,9 @@ impl ToBytes for WasmExpression {
     }
 }
 
-pub enum BlockType {}
+pub enum BlockType {
+    None,
+}
 
 impl ToBytes for BlockType {
     fn to_bytes(&self) -> Vec<u8> {
