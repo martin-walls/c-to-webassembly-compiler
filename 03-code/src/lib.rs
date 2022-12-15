@@ -7,6 +7,7 @@ mod parser;
 mod preprocessor;
 mod relooper;
 
+use crate::backend::target_code_generation::generate_target_code;
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
 use log::info;
@@ -31,5 +32,6 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let ir = convert_to_ir(ast)?;
     info!("IR: {}", ir);
     let relooped_ir = reloop(ir);
+    generate_target_code(relooped_ir);
     Ok(())
 }

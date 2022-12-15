@@ -15,10 +15,15 @@ const FRAME_PTR_ADDR: u32 = 0;
 const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
 pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
-    let mut wasm_program = WasmProgram::new();
+    // let mut wasm_program = WasmProgram::new();
 
     for (fun_id, function) in prog.program_blocks.functions {
-        let stack_frame_context = StackFrameContext::new();
+        if let Some(block) = function.block {
+            println!("calculating var offsets for function {}", fun_id);
+            let var_offsets = calculate_var_offsets_after_params(&block, &prog.program_metadata);
+        }
+
+        // let stack_frame_context = StackFrameContext::new();
 
         // let mut function_instrs = Vec::new();
 
@@ -27,7 +32,160 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
         // push params onto stack
     }
 
-    wasm_program
+    todo!()
+}
+
+fn get_vars_with_types(
+    block: &Box<Block>,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> HashMap<VarId, Box<IrType>> {
+    match &**block {
+        Block::Simple { internal, next } => {
+            let mut vars = HashMap::new();
+
+            for instr in &internal.instrs {
+                match instr {
+                    Instruction::SimpleAssignment(dest, _)
+                    | Instruction::LoadFromAddress(dest, _)
+                    | Instruction::StoreToAddress(dest, _)
+                    | Instruction::AllocateVariable(dest, _)
+                    | Instruction::AddressOf(dest, _)
+                    | Instruction::BitwiseNot(dest, _)
+                    | Instruction::LogicalNot(dest, _)
+                    | Instruction::Mult(dest, _, _)
+                    | Instruction::Div(dest, _, _)
+                    | Instruction::Mod(dest, _, _)
+                    | Instruction::Add(dest, _, _)
+                    | Instruction::Sub(dest, _, _)
+                    | Instruction::LeftShift(dest, _, _)
+                    | Instruction::RightShift(dest, _, _)
+                    | Instruction::BitwiseAnd(dest, _, _)
+                    | Instruction::BitwiseOr(dest, _, _)
+                    | Instruction::BitwiseXor(dest, _, _)
+                    | Instruction::LogicalAnd(dest, _, _)
+                    | Instruction::LogicalOr(dest, _, _)
+                    | Instruction::LessThan(dest, _, _)
+                    | Instruction::GreaterThan(dest, _, _)
+                    | Instruction::LessThanEq(dest, _, _)
+                    | Instruction::GreaterThanEq(dest, _, _)
+                    | Instruction::Equal(dest, _, _)
+                    | Instruction::NotEqual(dest, _, _)
+                    | Instruction::Call(dest, _, _)
+                    | Instruction::PointerToStringLiteral(dest, _)
+                    | Instruction::I8toI16(dest, _)
+                    | Instruction::I8toU16(dest, _)
+                    | Instruction::U8toI16(dest, _)
+                    | Instruction::U8toU16(dest, _)
+                    | Instruction::I16toI32(dest, _)
+                    | Instruction::U16toI32(dest, _)
+                    | Instruction::I16toU32(dest, _)
+                    | Instruction::U16toU32(dest, _)
+                    | Instruction::I32toU32(dest, _)
+                    | Instruction::I32toU64(dest, _)
+                    | Instruction::U32toU64(dest, _)
+                    | Instruction::I64toU64(dest, _)
+                    | Instruction::I32toI64(dest, _)
+                    | Instruction::U32toI64(dest, _)
+                    | Instruction::U32toF32(dest, _)
+                    | Instruction::I32toF32(dest, _)
+                    | Instruction::U64toF32(dest, _)
+                    | Instruction::I64toF32(dest, _)
+                    | Instruction::U32toF64(dest, _)
+                    | Instruction::I32toF64(dest, _)
+                    | Instruction::U64toF64(dest, _)
+                    | Instruction::I64toF64(dest, _)
+                    | Instruction::F32toF64(dest, _)
+                    | Instruction::I32toI8(dest, _)
+                    | Instruction::U32toI8(dest, _)
+                    | Instruction::I64toI8(dest, _)
+                    | Instruction::U64toI8(dest, _)
+                    | Instruction::I32toU8(dest, _)
+                    | Instruction::U32toU8(dest, _)
+                    | Instruction::I64toU8(dest, _)
+                    | Instruction::U64toU8(dest, _)
+                    | Instruction::I64toI32(dest, _)
+                    | Instruction::U64toI32(dest, _)
+                    | Instruction::U32toPtr(dest, _)
+                    | Instruction::I32toPtr(dest, _) => {
+                        let dest_type = prog_metadata.get_var_type(dest).unwrap();
+                        vars.insert(dest.to_owned(), dest_type);
+                    }
+                    Instruction::Ret(_)
+                    | Instruction::Label(_)
+                    | Instruction::Br(_)
+                    | Instruction::BrIfEq(_, _, _)
+                    | Instruction::BrIfNotEq(_, _, _)
+                    | Instruction::Nop
+                    | Instruction::Break(_)
+                    | Instruction::Continue(_)
+                    | Instruction::EndHandledBlock(_)
+                    | Instruction::IfEqElse(_, _, _, _)
+                    | Instruction::IfNotEqElse(_, _, _, _) => {}
+                }
+            }
+
+            match next {
+                None => vars,
+                Some(next) => {
+                    vars.extend(get_vars_with_types(&next, prog_metadata));
+                    vars
+                }
+            }
+        }
+        Block::Loop { id, inner, next } => {
+            let mut inner_block_vars = get_vars_with_types(&inner, prog_metadata);
+            match next {
+                None => inner_block_vars,
+                Some(next) => {
+                    inner_block_vars.extend(get_vars_with_types(&next, prog_metadata));
+                    inner_block_vars
+                }
+            }
+        }
+        Block::Multiple {
+            id,
+            handled_blocks,
+            next,
+        } => {
+            let mut vars = HashMap::new();
+
+            for handled in handled_blocks {
+                vars.extend(get_vars_with_types(&handled, prog_metadata));
+            }
+
+            match next {
+                None => vars,
+                Some(next) => {
+                    vars.extend(get_vars_with_types(&next, prog_metadata));
+                    vars
+                }
+            }
+        }
+    }
+}
+
+fn calculate_var_offsets_after_params(
+    block: &Box<Block>,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> HashMap<VarId, u32> {
+    let block_vars = get_vars_with_types(block, prog_metadata);
+
+    let mut var_offsets = HashMap::new();
+    let mut offset = 0;
+
+    for (var_id, var_type) in block_vars {
+        let byte_size = match var_type.get_byte_size(prog_metadata) {
+            TypeSize::CompileTime(size) => size,
+            TypeSize::Runtime(_) => {
+                unreachable!()
+            }
+        };
+        println!("  var {}: offset {}", var_id, offset);
+        var_offsets.insert(var_id, offset);
+        offset += byte_size as u32;
+    }
+
+    var_offsets
 }
 
 // fn generate_target_function(relooped_function: ReloopedFunction) -> WasmFunction {}
@@ -205,14 +363,13 @@ fn convert_ir_instr_to_wasm(
                     .to_owned(),
             });
 
-            // todo pop stack frame
-
-            // store result to dest
-            // load result value from stack frame to wasm stack
-            load_frame_ptr(&mut wasm_instrs);
-            // store result value to dest var location
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
-            store(dest_type, &mut wasm_instrs);
+            pop_stack_frame(
+                dest,
+                callee_function_type,
+                &mut wasm_instrs,
+                stack_frame_context,
+                prog_metadata,
+            );
         }
         Instruction::Ret(_) => {}
         Instruction::Label(_) => {}
