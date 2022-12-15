@@ -38,10 +38,10 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
 fn get_vars_with_types(
     block: &Box<Block>,
     prog_metadata: &Box<ProgramMetadata>,
-) -> HashMap<VarId, Box<IrType>> {
+) -> Vec<(VarId, Box<IrType>)> {
     match &**block {
         Block::Simple { internal, next } => {
-            let mut vars = HashMap::new();
+            let mut vars = Vec::new();
 
             for instr in &internal.instrs {
                 match instr {
@@ -108,7 +108,7 @@ fn get_vars_with_types(
                     | Instruction::U32toPtr(dest, _)
                     | Instruction::I32toPtr(dest, _) => {
                         let dest_type = prog_metadata.get_var_type(dest).unwrap();
-                        vars.insert(dest.to_owned(), dest_type);
+                        vars.push((dest.to_owned(), dest_type));
                     }
                     Instruction::Ret(_)
                     | Instruction::Label(_)
@@ -147,7 +147,7 @@ fn get_vars_with_types(
             handled_blocks,
             next,
         } => {
-            let mut vars = HashMap::new();
+            let mut vars = Vec::new();
 
             for handled in handled_blocks {
                 vars.extend(get_vars_with_types(&handled, prog_metadata));
