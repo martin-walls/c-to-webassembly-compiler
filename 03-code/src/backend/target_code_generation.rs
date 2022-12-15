@@ -2,7 +2,7 @@ use crate::backend::wasm_indices::{FuncIdx, LocalIdx};
 use crate::backend::wasm_instructions::{MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_program::{WasmFunction, WasmProgram};
 use crate::middle_end::ids::{FunId, VarId};
-use crate::middle_end::instructions::{Constant, Instruction, Src};
+use crate::middle_end::instructions::{Constant, Dest, Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
@@ -11,8 +11,8 @@ use std::collections::HashMap;
 
 const PTR_SIZE: u32 = 4;
 
-const FRAME_PTR_ADDR: i32 = 0;
-// const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
+const FRAME_PTR_ADDR: u32 = 0;
+const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
 pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
     let mut wasm_program = WasmProgram::new();
@@ -205,7 +205,12 @@ fn convert_ir_instr_to_wasm(
                     .to_owned(),
             });
 
+            // todo pop stack frame
+
             // store result to dest
+            // load result value from stack frame to wasm stack
+            load_frame_ptr(&mut wasm_instrs);
+            // store result value to dest var location
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             store(dest_type, &mut wasm_instrs);
         }
@@ -263,7 +268,9 @@ fn convert_ir_instr_to_wasm(
 
 fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
-    wasm_instrs.push(WasmInstruction::I32Const { n: FRAME_PTR_ADDR });
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
     // load
     wasm_instrs.push(WasmInstruction::I32Load {
         mem_arg: MemArg {
@@ -273,14 +280,83 @@ fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
-fn increment_frame_pointer(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+fn increment_frame_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
-    wasm_instrs.push(WasmInstruction::I32Const { n: FRAME_PTR_ADDR });
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
     // add offset to frame pointer
     load_frame_ptr(wasm_instrs);
     wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
     wasm_instrs.push(WasmInstruction::I32Add);
     // store frame pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+fn restore_previous_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand for storing frame pointer
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // load the previous frame ptr value (the value that the frame ptr currently points at)
+    load_frame_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg::zero(),
+    });
+    // set the frame ptr
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+fn load_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // load
+    wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+fn increment_stack_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // add offset to stack pointer
+    load_stack_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
+    wasm_instrs.push(WasmInstruction::I32Add);
+    // store stack pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // load frame pointer value, to store in stack pointer
+    load_frame_ptr(wasm_instrs);
+    // store stack pointer
     wasm_instrs.push(WasmInstruction::I32Store {
         mem_arg: MemArg {
             align: 2,
@@ -309,35 +385,68 @@ fn load_var(
             wasm_instrs.push(WasmInstruction::I32Add);
 
             // load
-            match *prog_metadata.get_var_type(&var_id).unwrap() {
-                IrType::I8 => wasm_instrs.push(WasmInstruction::I32Load8S {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::U8 => wasm_instrs.push(WasmInstruction::I32Load8U {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::I16 => wasm_instrs.push(WasmInstruction::I32Load16S {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::U16 => wasm_instrs.push(WasmInstruction::I32Load16U {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
-                    wasm_instrs.push(WasmInstruction::I32Load {
-                        mem_arg: MemArg::zero(),
-                    });
-                }
-                IrType::I64 | IrType::U64 => wasm_instrs.push(WasmInstruction::I64Load {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::F32 => wasm_instrs.push(WasmInstruction::F32Load {
-                    mem_arg: MemArg::zero(),
-                }),
-                IrType::F64 => wasm_instrs.push(WasmInstruction::F64Load {
-                    mem_arg: MemArg::zero(),
-                }),
-                _ => unreachable!(),
-            }
+            load(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
+        }
+    }
+}
+
+/// Insert a load instruction of the correct type
+fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
+    match *value_type {
+        IrType::I8 => wasm_instrs.push(WasmInstruction::I32Load8S {
+            mem_arg: MemArg::zero(),
+        }),
+
+        IrType::U8 => wasm_instrs.push(WasmInstruction::I32Load8U {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::I16 => wasm_instrs.push(WasmInstruction::I32Load16S {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::U16 => wasm_instrs.push(WasmInstruction::I32Load16U {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+            wasm_instrs.push(WasmInstruction::I32Load {
+                mem_arg: MemArg::zero(),
+            });
+        }
+        IrType::I64 | IrType::U64 => wasm_instrs.push(WasmInstruction::I64Load {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::F32 => wasm_instrs.push(WasmInstruction::F32Load {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::F64 => wasm_instrs.push(WasmInstruction::F64Load {
+            mem_arg: MemArg::zero(),
+        }),
+        _ => unreachable!(),
+    }
+}
+
+fn store_var(
+    var_id: VarId,
+    mut store_value_instrs: Vec<WasmInstruction>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    stack_frame_context: &StackFrameContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    match stack_frame_context.var_fp_offsets.get(&var_id) {
+        None => {
+            // todo check if var is a global variable, and calculate the address from that
+        }
+        Some(fp_offset) => {
+            // calculate address operand
+            load_frame_ptr(wasm_instrs);
+            wasm_instrs.push(WasmInstruction::I32Const {
+                n: *fp_offset as i32,
+            });
+            wasm_instrs.push(WasmInstruction::I32Add);
+
+            wasm_instrs.append(&mut store_value_instrs);
+
+            // store
+            store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
         }
     }
 }
@@ -381,8 +490,9 @@ fn set_up_new_stack_frame(
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // create a new stack frame for the callee
+    //
     // ----------------------
-    // | previous frame ptr |
+    // | previous frame ptr | <-- frame ptr
     // | return value       |
     // | ------------------ |
     // | | params         | |
@@ -390,7 +500,8 @@ fn set_up_new_stack_frame(
     // | ------------------ |
     // | | vars           | |
     // | ------------------ |
-    // ----------------------
+    // ---------------------- <-- stack ptr
+    //
     let mut new_stack_frame_fp_offset = stack_frame_context.top_of_stack_fp_offset;
     let frame_ptr_increment_value = new_stack_frame_fp_offset;
 
@@ -405,10 +516,7 @@ fn set_up_new_stack_frame(
     load_frame_ptr(wasm_instrs);
     // store frame ptr to start of new stack frame
     wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
+        mem_arg: MemArg::zero(),
     });
 
     new_stack_frame_fp_offset += PTR_SIZE;
@@ -483,5 +591,43 @@ fn set_up_new_stack_frame(
     }
 
     // set the frame pointer to point at the new stack frame
-    increment_frame_pointer(frame_ptr_increment_value, wasm_instrs);
+    increment_frame_ptr(frame_ptr_increment_value, wasm_instrs);
+}
+
+fn pop_stack_frame(
+    result_dest: Dest,
+    callee_function_type: &Box<IrType>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    stack_frame_context: &StackFrameContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    // pop the top stack frame
+    // restore the stack pointer value
+    set_stack_ptr_to_frame_ptr(wasm_instrs);
+    // restore the previous frame ptr value
+    restore_previous_frame_ptr(wasm_instrs);
+
+    // store the result to dest
+    //
+    // return value is stored in the stack frame we're popping, after the previous frame ptr
+    // so, at stack ptr + PTR_SIZE
+    // address operand for loading return value
+    let mut store_value_instrs = Vec::new();
+    load_stack_ptr(&mut store_value_instrs);
+    store_value_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
+    store_value_instrs.push(WasmInstruction::I32Add);
+
+    let return_type = match &**callee_function_type {
+        IrType::Function(return_type, _, _) => return_type,
+        _ => unreachable!(),
+    };
+    load(return_type.to_owned(), &mut store_value_instrs);
+
+    store_var(
+        result_dest,
+        store_value_instrs,
+        wasm_instrs,
+        stack_frame_context,
+        prog_metadata,
+    );
 }

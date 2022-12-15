@@ -33,7 +33,10 @@ impl ToBytes for BlockType {
 }
 
 pub struct MemArg {
+    /// Alignment hint. Memory accesses are more efficient if they line up with the alignment
+    /// hint, but will still work if not.
     pub align: u32,
+    /// Constant offset to add to the memory operand, to get the effective address.
     pub offset: u32,
 }
 
