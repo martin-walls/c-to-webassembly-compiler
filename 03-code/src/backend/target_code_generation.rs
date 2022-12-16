@@ -4,8 +4,8 @@ use std::collections::{HashMap, VecDeque};
 use crate::backend::allocate_local_vars::allocate_local_vars;
 use crate::backend::memory_operations::{load, load_src, load_var, store, store_var};
 use crate::backend::stack_frame_operations::{
-    increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_stack_ptr,
-    pop_stack_frame, set_up_new_stack_frame,
+    increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
+    load_stack_ptr, pop_stack_frame, set_up_new_stack_frame,
 };
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
@@ -13,8 +13,9 @@ use crate::backend::target_code_generation_context::{
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmInstruction};
 use crate::backend::wasm_program::WasmProgram;
 use crate::middle_end::ids::{FunId, Id, LabelId};
-use crate::middle_end::instructions::Instruction;
+use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
+use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
@@ -287,9 +288,117 @@ fn convert_ir_instr_to_wasm(
             // increment stack pointer
             increment_stack_ptr_dynamic(load_byte_size_instrs, wasm_instrs);
         }
-        Instruction::AddressOf(_, _) => {}
-        Instruction::BitwiseNot(_, _) => {}
-        Instruction::LogicalNot(_, _) => {}
+        Instruction::AddressOf(dest, src) => {
+            // store the address of src in dest
+            // src can only be a Var, not a Constant
+            let src_var = match src {
+                Src::Var(var_id) => var_id,
+                Src::Constant(_) | Src::StoreAddressVar(_) | Src::Fun(_) => {
+                    unreachable!()
+                }
+            };
+
+            match function_context.var_fp_offsets.get(&src_var) {
+                None => {
+                    // todo check if src_var is a global variable, and get its address
+                }
+                Some(fp_offset) => {
+                    // load the frame pointer, add the offset to it, and store the result in dest
+                    let mut load_instrs = Vec::new();
+                    load_frame_ptr(&mut load_instrs);
+                    wasm_instrs.push(WasmInstruction::I32Const {
+                        n: *fp_offset as i32,
+                    });
+                    wasm_instrs.push(WasmInstruction::I32Add);
+                    store_var(
+                        dest,
+                        load_instrs,
+                        wasm_instrs,
+                        function_context,
+                        prog_metadata,
+                    );
+                }
+            }
+        }
+        Instruction::BitwiseNot(dest, src) => {
+            // bitwise not is implemented as XORing with -1
+            //
+            // load src
+            let src_type = src.get_type(prog_metadata).unwrap();
+
+            let mut temp_instrs = Vec::new();
+            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+
+            // bitwise not
+            match *src_type {
+                IrType::I32 | IrType::U32 => {
+                    temp_instrs.push(WasmInstruction::I32Const { n: -1 });
+                    temp_instrs.push(WasmInstruction::I32Xor);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Const { n: -1 });
+                    temp_instrs.push(WasmInstruction::I64Xor);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LogicalNot(dest, src) => {
+            // logical not is implemented as a test-for-zero and set
+            //
+            // load src
+            let src_type = src.get_type(prog_metadata).unwrap();
+
+            let mut temp_instrs = Vec::new();
+            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+
+            // logical not
+            // test if src is zero
+            match *src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eqz);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eqz);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            // if so, result is 1, else 0
+            temp_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+            });
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
         Instruction::Mult(_, _, _) => {}
         Instruction::Div(_, _, _) => {}
         Instruction::Mod(_, _, _) => {}

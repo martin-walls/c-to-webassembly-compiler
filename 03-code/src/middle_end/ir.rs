@@ -244,6 +244,13 @@ impl ProgramMetadata {
             Some(t) => Ok(t.to_owned()),
         }
     }
+
+    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+        match self.function_types.get(fun_id) {
+            None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
+            Some(fun_type) => Ok(fun_type.to_owned()),
+        }
+    }
 }
 
 impl fmt::Display for ProgramMetadata {

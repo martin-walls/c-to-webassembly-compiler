@@ -8,7 +8,7 @@ pub fn unary_convert(
     src: Src,
     prog: &mut Box<Program>,
 ) -> Result<(Vec<Instruction>, Src), MiddleEndError> {
-    let src_type = src.get_type(prog)?;
+    let src_type = src.get_type(&prog.program_metadata)?;
     let unary_converted_type = src_type.unary_convert();
     if src_type != unary_converted_type {
         let (instrs, converted_var) =
@@ -40,8 +40,8 @@ pub fn binary_convert_separately(
     left_instrs.append(&mut left_unary_convert_instrs);
     let (mut right_unary_convert_instrs, unary_right) = unary_convert(right, prog)?;
     right_instrs.append(&mut right_unary_convert_instrs);
-    let left_type = unary_left.get_type(prog)?;
-    let right_type = unary_right.get_type(prog)?;
+    let left_type = unary_left.get_type(&prog.program_metadata)?;
+    let right_type = unary_right.get_type(&prog.program_metadata)?;
     if left_type == right_type
         || !left_type.is_arithmetic_type()
         || !right_type.is_arithmetic_type()

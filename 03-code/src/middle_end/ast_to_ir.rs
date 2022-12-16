@@ -447,7 +447,7 @@ fn convert_statement_to_ir(
                                         };
 
                                         // convert src to dest type
-                                        let src_type = src.get_type(prog)?;
+                                        let src_type = src.get_type(&prog.program_metadata)?;
                                         if src_type != dest_type_info {
                                             if let Src::Constant(c) = &src {
                                                 let temp = prog.new_var(ValueType::RValue);
@@ -464,7 +464,7 @@ fn convert_statement_to_ir(
                                             let (mut convert_instrs, converted_var) =
                                                 convert_type_for_assignment(
                                                     src.to_owned(),
-                                                    src.get_type(prog)?,
+                                                    src.get_type(&prog.program_metadata)?,
                                                     dest_type_info.to_owned(),
                                                     prog,
                                                 )?;
@@ -473,7 +473,10 @@ fn convert_statement_to_ir(
                                         }
 
                                         let dest = prog.new_var(ValueType::ModifiableLValue);
-                                        prog.add_var_type(dest.to_owned(), src.get_type(prog)?)?;
+                                        prog.add_var_type(
+                                            dest.to_owned(),
+                                            src.get_type(&prog.program_metadata)?,
+                                        )?;
                                         instrs.push(Instruction::SimpleAssignment(
                                             dest.to_owned(),
                                             src,
@@ -704,9 +707,9 @@ pub fn convert_expression_to_ir(
             instrs.append(&mut unary_convert_arr_instrs);
             let (mut unary_convert_index_instrs, index_var) = unary_convert(index_var, prog)?;
             instrs.append(&mut unary_convert_index_instrs);
-            let arr_var_type = arr_var.get_type(prog)?;
+            let arr_var_type = arr_var.get_type(&prog.program_metadata)?;
             arr_var_type.require_pointer_type()?;
-            let index_var_type = index_var.get_type(prog)?;
+            let index_var_type = index_var.get_type(&prog.program_metadata)?;
             index_var_type.require_integral_type()?;
 
             // array variable is a pointer to the start of the array
@@ -749,7 +752,7 @@ pub fn convert_expression_to_ir(
         Expression::DirectMemberSelection(obj, Identifier(member_name)) => {
             let (mut obj_instrs, obj_var) = convert_expression_to_ir(obj, prog, context)?;
             instrs.append(&mut obj_instrs);
-            let obj_var_type = obj_var.get_type(prog)?;
+            let obj_var_type = obj_var.get_type(&prog.program_metadata)?;
             obj_var_type.require_struct_or_union_type()?;
 
             // obj_ptr = &obj_var
@@ -803,7 +806,7 @@ pub fn convert_expression_to_ir(
         Expression::IndirectMemberSelection(obj, Identifier(member_name)) => {
             let (mut obj_instrs, obj_var) = convert_expression_to_ir(obj, prog, context)?;
             instrs.append(&mut obj_instrs);
-            let obj_var_type = obj_var.get_type(prog)?;
+            let obj_var_type = obj_var.get_type(&prog.program_metadata)?;
             obj_var_type.require_pointer_type()?;
             let inner_type = obj_var_type.dereference_pointer_type()?;
             inner_type.require_struct_or_union_type()?;
@@ -851,7 +854,7 @@ pub fn convert_expression_to_ir(
             // propagate the type of dest: same as src
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             // check type is valid to be incremented
             if !expr_var_type.is_scalar_type() {
                 return Err(MiddleEndError::InvalidOperation(
@@ -884,7 +887,7 @@ pub fn convert_expression_to_ir(
             // propagate the type of dest: same as src
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             // check type is valid to be incremented
             if !expr_var_type.is_scalar_type() {
                 return Err(MiddleEndError::InvalidOperation(
@@ -919,7 +922,7 @@ pub fn convert_expression_to_ir(
             // check type is valid to be incremented
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             if !expr_var_type.is_scalar_type() {
                 return Err(MiddleEndError::InvalidOperation(
                     "Incrementing a non-scalar type",
@@ -951,7 +954,7 @@ pub fn convert_expression_to_ir(
             // check type is valid to be incremented
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             if !expr_var_type.is_scalar_type() {
                 return Err(MiddleEndError::InvalidOperation(
                     "Incrementing a non-scalar type",
@@ -980,7 +983,7 @@ pub fn convert_expression_to_ir(
             // unary convert type if necessary
             let (mut unary_convert_instrs, expr_var) = unary_convert(expr_var, prog)?;
             instrs.append(&mut unary_convert_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             match op {
                 UnaryOperator::AddressOf => {
                     let dest = prog.new_var(ValueType::RValue);
@@ -1084,7 +1087,7 @@ pub fn convert_expression_to_ir(
         Expression::SizeOfExpr(e) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             let byte_size = match expr_var_type.get_byte_size(&prog.program_metadata) {
                 TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
                 TypeSize::Runtime(size_expr) => {
@@ -1124,15 +1127,15 @@ pub fn convert_expression_to_ir(
             let (mut right_instrs, right_var) = convert_expression_to_ir(right, prog, context)?;
             instrs.append(&mut right_instrs);
             let dest = prog.new_var(ValueType::RValue);
-            let left_var_type = left_var.get_type(prog)?;
-            let right_var_type = right_var.get_type(prog)?;
+            let left_var_type = left_var.get_type(&prog.program_metadata)?;
+            let right_var_type = right_var.get_type(&prog.program_metadata)?;
             match op {
                 BinaryOperator::Mult => {
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_arithmetic_type()?;
                     right_var_type.require_arithmetic_type()?;
                     // left_var_type and right_var_type are the same cos of binary conversion
@@ -1143,8 +1146,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_arithmetic_type()?;
                     right_var_type.require_arithmetic_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1154,8 +1157,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1165,8 +1168,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, mut left_var, mut right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let mut left_var_type = left_var.get_type(prog)?;
-                    let mut right_var_type = right_var.get_type(prog)?;
+                    let mut left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let mut right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // must be either two arithmetic types, or a pointer and an integer
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_object_pointer_type()
@@ -1225,8 +1228,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // must be either arithmetic - arithmetic, or pointer - integer, or pointer - pointer
                     // todo check for pointers being compatible types
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
@@ -1272,8 +1275,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
@@ -1291,8 +1294,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
@@ -1314,8 +1317,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
@@ -1337,8 +1340,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // either both arithmetic or both pointers
                     // todo check pointer types are compatible
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
@@ -1390,8 +1393,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1405,8 +1408,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1416,8 +1419,8 @@ pub fn convert_expression_to_ir(
                     let (mut convert_instrs, left_var, right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
-                    let left_var_type = left_var.get_type(prog)?;
-                    let right_var_type = right_var.get_type(prog)?;
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
@@ -1468,7 +1471,7 @@ pub fn convert_expression_to_ir(
             // unary convert result of the expression
             let (mut unary_convert_true_instrs, mut true_var) = unary_convert(true_var, prog)?;
             instrs.append(&mut unary_convert_true_instrs);
-            let true_var_type = true_var.get_type(prog)?;
+            let true_var_type = true_var.get_type(&prog.program_metadata)?;
 
             // convert the false expr already, so we can do type checking and conversion, but don't insert
             // the instructions just yet
@@ -1476,7 +1479,7 @@ pub fn convert_expression_to_ir(
                 convert_expression_to_ir(false_expr, prog, context)?;
             // unary convert result of the expression
             let (mut unary_convert_false_instrs, mut false_var) = unary_convert(false_var, prog)?;
-            let false_var_type = false_var.get_type(prog)?;
+            let false_var_type = false_var.get_type(&prog.program_metadata)?;
 
             let mut false_binary_convert_instrs = Vec::new();
             if true_var_type != false_var_type {
@@ -1491,7 +1494,7 @@ pub fn convert_expression_to_ir(
                 false_binary_convert_instrs = false_convert_instrs;
                 instrs.append(&mut true_binary_convert_instrs);
             }
-            prog.add_var_type(dest.to_owned(), true_var.get_type(prog)?)?;
+            prog.add_var_type(dest.to_owned(), true_var.get_type(&prog.program_metadata)?)?;
 
             // assign the result to dest
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), true_var));
@@ -1512,7 +1515,7 @@ pub fn convert_expression_to_ir(
             let (mut src_expr_instrs, mut src_var) =
                 convert_expression_to_ir(src_expr, prog, context)?;
             instrs.append(&mut src_expr_instrs);
-            let src_var_type = src_var.get_type(prog)?;
+            let src_var_type = src_var.get_type(&prog.program_metadata)?;
 
             context.directly_on_lhs_of_assignment = true;
             let (mut dest_expr_instrs, dest_var) =
@@ -1525,7 +1528,7 @@ pub fn convert_expression_to_ir(
                 return Err(MiddleEndError::AttemptToModifyNonLValue);
             }
 
-            let mut dest_var_type = dest_var.get_type(prog)?;
+            let mut dest_var_type = dest_var.get_type(&prog.program_metadata)?;
             match dest_var {
                 Src::Var(_) => {}
                 Src::StoreAddressVar(_) => {
@@ -1567,7 +1570,7 @@ pub fn convert_expression_to_ir(
                     Some(x) => x,
                 };
             // get conversion instrs into cast type
-            let expr_var_type = expr_var.get_type(prog)?;
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             let (mut cast_instrs, dest) =
                 get_type_conversion_instrs(expr_var, expr_var_type, cast_type, prog)?;
             instrs.append(&mut cast_instrs);

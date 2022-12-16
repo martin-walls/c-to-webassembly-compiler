@@ -1,5 +1,5 @@
 use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
-use crate::middle_end::ir::Program;
+use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
@@ -61,11 +61,14 @@ pub enum Src {
 }
 
 impl Src {
-    pub fn get_type(&self, prog: &Box<Program>) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_type(
+        &self,
+        prog_metadata: &Box<ProgramMetadata>,
+    ) -> Result<Box<IrType>, MiddleEndError> {
         match self {
-            Src::Var(var) | Src::StoreAddressVar(var) => prog.get_var_type(var),
+            Src::Var(var) | Src::StoreAddressVar(var) => prog_metadata.get_var_type(var),
             Src::Constant(c) => Ok(c.get_type(None)),
-            Src::Fun(fun_id) => prog.get_fun_type(fun_id),
+            Src::Fun(fun_id) => prog_metadata.get_fun_type(fun_id),
         }
     }
 

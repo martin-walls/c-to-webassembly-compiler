@@ -56,7 +56,7 @@ pub fn array_initialiser(
                 instrs.append(&mut expr_instrs);
 
                 // check type of the expression and convert if necessary
-                let expr_var_type = expr_var.get_type(prog)?;
+                let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
                 if expr_var_type != array_member_type {
                     if let Src::Constant(c) = &expr_var {
                         let temp = prog.new_var(ValueType::RValue);
@@ -69,7 +69,7 @@ pub fn array_initialiser(
                     }
                     let (mut convert_instrs, converted_var) = convert_type_for_assignment(
                         expr_var.to_owned(),
-                        expr_var.get_type(prog)?,
+                        expr_var.get_type(&prog.program_metadata)?,
                         array_member_type.to_owned(),
                         prog,
                     )?;
@@ -190,7 +190,7 @@ pub fn struct_initialiser(
                 instrs.append(&mut expr_instrs);
 
                 // check type of the expression and convert if necessary
-                let expr_var_type = expr_var.get_type(prog)?;
+                let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
                 if expr_var_type != member_type {
                     if let Src::Constant(c) = &expr_var {
                         let temp = prog.new_var(ValueType::RValue);
@@ -203,7 +203,7 @@ pub fn struct_initialiser(
                     }
                     let (mut convert_instrs, converted_var) = convert_type_for_assignment(
                         expr_var.to_owned(),
-                        expr_var.get_type(prog)?,
+                        expr_var.get_type(&prog.program_metadata)?,
                         member_type.to_owned(),
                         prog,
                     )?;
