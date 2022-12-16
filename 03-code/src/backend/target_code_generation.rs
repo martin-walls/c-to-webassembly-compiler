@@ -1,7 +1,7 @@
 use crate::backend::wasm_indices::{FuncIdx, LocalIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_program::{WasmFunction, WasmProgram};
-use crate::middle_end::ids::{FunId, VarId};
+use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
 use crate::middle_end::instructions::{Constant, Dest, Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
@@ -292,9 +292,12 @@ fn convert_block_to_wasm(
         Block::Loop { id, inner, next } => {
             let loop_instrs =
                 convert_block_to_wasm(inner, function_context, module_context, prog_metadata);
-            wasm_instrs.push(WasmInstruction::Loop {
+            wasm_instrs.push(WasmInstruction::Block {
                 blocktype: BlockType::None,
-                instrs: loop_instrs,
+                instrs: vec![WasmInstruction::Loop {
+                    blocktype: BlockType::None,
+                    instrs: loop_instrs,
+                }],
             });
 
             match next {
@@ -311,7 +314,7 @@ fn convert_block_to_wasm(
         }
         Block::Multiple {
             id,
-            handled_blocks,
+            mut handled_blocks,
             next,
         } => {
             // select which of the handled blocks to execute (if any)
@@ -324,22 +327,37 @@ fn convert_block_to_wasm(
                 prog_metadata,
             );
 
+            // iterate over the handled blocks backwards, to get the nested if/else stmts to work
+            let mut inner_else_instrs = Vec::new();
+            handled_blocks.reverse();
             for handled_block in handled_blocks {
-                let handled_block_label = match *handled_block {
-                    Block::Simple { internal, next } => {}
-                    Block::Loop { id, inner, next } => {}
-                    Block::Multiple {
-                        id,
-                        handled_blocks,
-                        next,
-                    } => {}
-                };
-                // todo get possible entry labels for handled block
+                let mut new_inner_else_instrs = Vec::new();
+                // get possible entry labels for handled block
+                let handled_block_entries = handled_block.get_entry_labels();
 
-                // todo check if label variable matches handled block label
+                // check if label variable matches any of handled block entry labels
+                test_label_equality(
+                    handled_block_entries,
+                    &mut new_inner_else_instrs,
+                    function_context,
+                    prog_metadata,
+                );
+
+                // if so, execute the handled block
+                new_inner_else_instrs.push(WasmInstruction::IfElse {
+                    blocktype: BlockType::None,
+                    if_instrs: convert_block_to_wasm(
+                        handled_block,
+                        function_context,
+                        module_context,
+                        prog_metadata,
+                    ),
+                    else_instrs: inner_else_instrs,
+                });
+
+                inner_else_instrs = new_inner_else_instrs;
             }
-
-            // todo select between handled blocks
+            wasm_instrs.append(&mut inner_else_instrs);
 
             match next {
                 None => {}
@@ -923,4 +941,52 @@ fn pop_stack_frame(
         function_context,
         prog_metadata,
     );
+}
+
+/// Inserts instructions to compare the label variable against some number of label values,
+/// leaving a single boolean value on the stack
+fn test_label_equality(
+    labels: Vec<LabelId>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    function_context: &FunctionContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    assert!(!labels.is_empty());
+
+    if labels.len() == 1 {
+        // load value of label variable
+        load_var(
+            function_context.label_variable.to_owned(),
+            wasm_instrs,
+            function_context,
+            prog_metadata,
+        );
+        // label value to compare against
+        wasm_instrs.push(WasmInstruction::I64Const {
+            n: labels.first().unwrap().as_u64() as i64,
+        });
+        // equality comparison
+        wasm_instrs.push(WasmInstruction::I64Eq);
+    } else {
+        // there's more than one label to compare against, so do multiple equality tests and OR them together
+        for label in labels {
+            // load value of label variable
+            load_var(
+                function_context.label_variable.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // label value to compare against
+            wasm_instrs.push(WasmInstruction::I64Const {
+                n: label.as_u64() as i64,
+            });
+            // equality comparison
+            wasm_instrs.push(WasmInstruction::I64Eq);
+        }
+        // OR all the results together. With n labels to test against, we need n-1 OR instructions.
+        for _ in 0..labels.len() - 1 {
+            wasm_instrs.push(WasmInstruction::I32Or);
+        }
+    }
 }

@@ -70,6 +70,35 @@ pub enum Block {
     },
 }
 
+impl Block {
+    pub fn get_entry_labels(&self) -> Vec<LabelId> {
+        match self {
+            Block::Simple { internal, .. } => {
+                vec![internal.label]
+            }
+            Block::Loop { inner, .. } => inner.get_entry_labels(),
+            Block::Multiple {
+                handled_blocks,
+                next,
+                ..
+            } => {
+                let mut labels = Vec::new();
+
+                for handled_block in handled_blocks {
+                    labels.append(&mut handled_block.get_entry_labels());
+                }
+
+                // could be that none of the handled blocks are executed
+                if let Some(next) = next {
+                    labels.append(&mut next.get_entry_labels());
+                }
+
+                labels
+            }
+        }
+    }
+}
+
 impl FmtIndented for Block {
     fn fmt_indented(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
         match self {
