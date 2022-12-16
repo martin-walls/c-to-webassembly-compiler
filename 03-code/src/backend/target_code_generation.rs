@@ -2,12 +2,15 @@ use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
 use crate::backend::allocate_local_vars::allocate_local_vars;
-use crate::backend::memory_operations::load_var;
-use crate::backend::stack_frame_operations::{pop_stack_frame, set_up_new_stack_frame};
+use crate::backend::memory_operations::{load, load_src, load_var, store, store_var};
+use crate::backend::stack_frame_operations::{
+    increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_stack_ptr,
+    pop_stack_frame, set_up_new_stack_frame,
+};
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_instructions::{BlockType, WasmInstruction};
+use crate::backend::wasm_instructions::{BlockType, MemArg, WasmInstruction};
 use crate::backend::wasm_program::WasmProgram;
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::Instruction;
@@ -111,12 +114,13 @@ fn convert_block_to_wasm(
     match *block {
         Block::Simple { internal, next } => {
             for instr in internal.instrs {
-                wasm_instrs.append(&mut convert_ir_instr_to_wasm(
+                convert_ir_instr_to_wasm(
                     instr,
+                    &mut wasm_instrs,
                     function_context,
                     module_context,
                     prog_metadata,
-                ));
+                );
             }
 
             match next {
@@ -205,17 +209,84 @@ fn convert_block_to_wasm(
 
 fn convert_ir_instr_to_wasm(
     instr: Instruction,
+    wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &mut FunctionContext,
     module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
-) -> Vec<WasmInstruction> {
-    let mut wasm_instrs = Vec::new();
-
+) {
     match instr {
-        Instruction::SimpleAssignment(_, _) => {}
-        Instruction::LoadFromAddress(_, _) => {}
-        Instruction::StoreToAddress(_, _) => {}
-        Instruction::AllocateVariable(_, _) => {}
+        Instruction::SimpleAssignment(dest, src) => {
+            // load src onto wasm stack
+            let mut load_src_instrs = Vec::new();
+            load_src(src, &mut load_src_instrs, function_context, prog_metadata);
+
+            // store to dest
+            store_var(
+                dest,
+                load_src_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LoadFromAddress(dest, src) => {
+            // load the ptr address onto wasm stack
+            let mut load_instrs = Vec::new();
+            load_src(src, &mut load_instrs, function_context, prog_metadata);
+
+            // load the value at that pointer, which should have the same type as dest
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load(dest_type, &mut load_instrs);
+
+            // store to dest
+            store_var(
+                dest,
+                load_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::StoreToAddress(dest, src) => {
+            // store the value of src to the location pointed to by dest
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let inner_dest_type = dest_type.dereference_pointer_type().unwrap();
+
+            // load the value of dest - the address operand
+            load_var(dest, wasm_instrs, function_context, prog_metadata);
+
+            // load the value to store
+            load_src(src, wasm_instrs, function_context, prog_metadata);
+
+            store(inner_dest_type, wasm_instrs);
+        }
+        Instruction::AllocateVariable(dest, byte_size) => {
+            // allocate byte_size many bytes on the stack, and set dest to be a pointer to there
+            //
+            // store the current stack pointer to dest
+            let mut load_stack_ptr_instrs = Vec::new();
+            load_stack_ptr(&mut load_stack_ptr_instrs);
+            store_var(
+                dest,
+                load_stack_ptr_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+
+            let mut load_byte_size_instrs = Vec::new();
+
+            // load the number of bytes to allocate
+            load_src(
+                byte_size,
+                &mut load_byte_size_instrs,
+                function_context,
+                prog_metadata,
+            );
+
+            // increment stack pointer
+            increment_stack_ptr_dynamic(load_byte_size_instrs, wasm_instrs);
+        }
         Instruction::AddressOf(_, _) => {}
         Instruction::BitwiseNot(_, _) => {}
         Instruction::LogicalNot(_, _) => {}
@@ -243,7 +314,7 @@ fn convert_ir_instr_to_wasm(
             set_up_new_stack_frame(
                 callee_function_type,
                 params,
-                &mut wasm_instrs,
+                wasm_instrs,
                 function_context,
                 prog_metadata,
             );
@@ -260,7 +331,7 @@ fn convert_ir_instr_to_wasm(
             pop_stack_frame(
                 dest,
                 callee_function_type,
-                &mut wasm_instrs,
+                wasm_instrs,
                 function_context,
                 prog_metadata,
             );
@@ -313,8 +384,6 @@ fn convert_ir_instr_to_wasm(
         Instruction::IfEqElse(_, _, _, _) => {}
         Instruction::IfNotEqElse(_, _, _, _) => {}
     }
-
-    wasm_instrs
 }
 
 fn convert_handled_blocks(

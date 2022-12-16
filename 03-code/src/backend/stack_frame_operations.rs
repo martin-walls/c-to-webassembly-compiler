@@ -20,24 +20,6 @@ pub fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
-pub fn increment_frame_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: FRAME_PTR_ADDR as i32,
-    });
-    // add offset to frame pointer
-    load_frame_ptr(wasm_instrs);
-    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
-    wasm_instrs.push(WasmInstruction::I32Add);
-    // store frame pointer
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
 pub fn restore_previous_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand for storing frame pointer
     wasm_instrs.push(WasmInstruction::I32Const {
@@ -71,7 +53,7 @@ pub fn load_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
-pub fn increment_stack_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+pub fn increment_stack_ptr_by_known_offset(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
     wasm_instrs.push(WasmInstruction::I32Const {
         n: STACK_PTR_ADDR as i32,
@@ -81,6 +63,29 @@ pub fn increment_stack_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) 
     wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
     wasm_instrs.push(WasmInstruction::I32Add);
     // store stack pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn increment_stack_ptr_dynamic(
+    mut load_byte_size_instrs: Vec<WasmInstruction>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+
+    // load stack pointer and byte size, and add them together
+    load_stack_ptr(wasm_instrs);
+    wasm_instrs.append(&mut load_byte_size_instrs);
+    wasm_instrs.push(WasmInstruction::I32Add);
+
+    // store to stack pointer
     wasm_instrs.push(WasmInstruction::I32Store {
         mem_arg: MemArg {
             align: 2,
@@ -156,7 +161,7 @@ pub fn set_up_new_stack_frame(
     set_frame_ptr_to_stack_ptr(wasm_instrs);
 
     // increment stack pointer
-    increment_stack_ptr(PTR_SIZE, wasm_instrs);
+    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs);
 
     let (return_type, param_types) = match &**callee_function_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
@@ -170,7 +175,7 @@ pub fn set_up_new_stack_frame(
             unreachable!()
         }
     };
-    increment_stack_ptr(return_type_byte_size as u32, wasm_instrs);
+    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs);
 
     // store function parameters in callee's stack frame
     let mut param_index = 0;
@@ -193,7 +198,7 @@ pub fn set_up_new_stack_frame(
                 store(var_type, wasm_instrs);
 
                 // advance the stack pointer
-                increment_stack_ptr(var_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(var_byte_size as u32, wasm_instrs);
             }
             Src::Constant(constant) => {
                 // address operand for where to store param
@@ -211,7 +216,7 @@ pub fn set_up_new_stack_frame(
                 store(param_type.to_owned(), wasm_instrs);
 
                 // advance the stack pointer
-                increment_stack_ptr(param_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(param_byte_size as u32, wasm_instrs);
             }
             Src::StoreAddressVar(_) | Src::Fun(_) => {
                 unreachable!()

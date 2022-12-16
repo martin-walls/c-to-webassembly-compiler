@@ -1,4 +1,4 @@
-use crate::backend::stack_frame_operations::increment_stack_ptr;
+use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation::PTR_SIZE;
 use crate::backend::wasm_instructions::WasmInstruction;
 use crate::middle_end::ids::VarId;
@@ -44,10 +44,6 @@ pub fn allocate_local_vars(
                 unreachable!()
             }
         };
-        println!(
-            "  param {} ({}): offset {}",
-            param_var_id, param_type, offset
-        );
         var_offsets.insert(param_var_id.to_owned(), offset);
         offset += param_byte_size as u32;
     }
@@ -60,13 +56,12 @@ pub fn allocate_local_vars(
                 unreachable!()
             }
         };
-        println!("  var {} ({}): offset {}", var_id, var_type, offset);
         var_offsets.insert(var_id, offset);
         offset += byte_size as u32;
     }
 
     // update stack pointer to after allocated vars
-    increment_stack_ptr(offset, wasm_instrs);
+    increment_stack_ptr_by_known_offset(offset, wasm_instrs);
 
     var_offsets
 }

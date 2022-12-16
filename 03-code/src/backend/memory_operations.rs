@@ -2,7 +2,7 @@ use crate::backend::stack_frame_operations::load_frame_ptr;
 use crate::backend::target_code_generation_context::FunctionContext;
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::ids::VarId;
-use crate::middle_end::instructions::Constant;
+use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
 
@@ -122,4 +122,19 @@ pub fn store_var(
 
 pub fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>) {
     todo!("push constant to wasm stack with the right type")
+}
+
+pub fn load_src(
+    src: Src,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    function_context: &FunctionContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    match src {
+        Src::Var(var_id) => load_var(var_id, wasm_instrs, function_context, prog_metadata),
+        Src::Constant(constant) => load_constant(constant, wasm_instrs),
+        Src::StoreAddressVar(_) | Src::Fun(_) => {
+            unreachable!()
+        }
+    }
 }
