@@ -1,6 +1,7 @@
 use crate::fmt_indented::{FmtIndented, IndentLevel};
 use crate::middle_end::ids::{Id, LabelId};
 use crate::middle_end::instructions::Instruction;
+use crate::middle_end::ir::ProgramMetadata;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -74,7 +75,7 @@ impl Block {
     pub fn get_entry_labels(&self) -> Vec<LabelId> {
         match self {
             Block::Simple { internal, .. } => {
-                vec![internal.label]
+                vec![internal.label.to_owned()]
             }
             Block::Loop { inner, .. } => inner.get_entry_labels(),
             Block::Multiple {

@@ -23,8 +23,12 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
     for (fun_id, function) in prog.program_blocks.functions {
         if let Some(block) = function.block {
             println!("calculating var offsets for function {}", fun_id);
-            let var_offsets =
-                calculate_var_offsets_from_fp(&block, function.type_info, &prog.program_metadata);
+            let var_offsets = calculate_var_offsets_from_fp(
+                &block,
+                function.type_info,
+                function.param_var_mappings,
+                &prog.program_metadata,
+            );
 
             let mut function_context =
                 FunctionContext::new(var_offsets, function.label_variable.unwrap());
@@ -172,13 +176,47 @@ fn get_vars_with_types(
 fn calculate_var_offsets_from_fp(
     block: &Box<Block>,
     fun_type: Box<IrType>,
+    fun_param_var_mappings: Vec<VarId>,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> HashMap<VarId, u32> {
     let block_vars = get_vars_with_types(block, prog_metadata);
 
     let mut var_offsets = HashMap::new();
-    let mut offset = calculate_start_of_vars_offset_from_fp(fun_type, prog_metadata);
+    let mut offset = PTR_SIZE;
 
+    let (return_type, param_types) = match *fun_type {
+        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
+        _ => unreachable!(),
+    };
+
+    // increment offset by return value size
+    let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => {
+            unreachable!()
+        }
+    };
+    offset += return_type_byte_size as u32;
+
+    // calculate offset of each param variable
+    for param_i in 0..param_types.len() {
+        let param_type = param_types.get(param_i).unwrap();
+        let param_var_id = fun_param_var_mappings.get(param_i).unwrap();
+        let param_byte_size = match param_type.get_byte_size(prog_metadata) {
+            TypeSize::CompileTime(size) => size,
+            TypeSize::Runtime(_) => {
+                unreachable!()
+            }
+        };
+        println!(
+            "  param {} ({}): offset {}",
+            param_var_id, param_type, offset
+        );
+        var_offsets.insert(param_var_id.to_owned(), offset);
+        offset += param_byte_size as u32;
+    }
+
+    // calculate offset of each local variable
     for (var_id, var_type) in block_vars {
         let byte_size = match var_type.get_byte_size(prog_metadata) {
             TypeSize::CompileTime(size) => size,
@@ -193,51 +231,6 @@ fn calculate_var_offsets_from_fp(
 
     var_offsets
 }
-
-fn calculate_start_of_vars_offset_from_fp(
-    fun_type: Box<IrType>,
-    prog_metadata: &Box<ProgramMetadata>,
-) -> u32 {
-    let mut offset = PTR_SIZE; // account for prev frame pointer
-
-    let (return_type, param_types) = match *fun_type {
-        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
-        _ => unreachable!(),
-    };
-    let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
-        TypeSize::CompileTime(size) => size,
-        TypeSize::Runtime(_) => {
-            unreachable!()
-        }
-    };
-    offset += return_type_byte_size as u32;
-
-    for param_type in param_types {
-        let param_byte_size = match param_type.get_byte_size(prog_metadata) {
-            TypeSize::CompileTime(size) => size,
-            TypeSize::Runtime(_) => {
-                unreachable!()
-            }
-        };
-        offset += param_byte_size as u32;
-    }
-
-    offset
-}
-
-// fn generate_target_function(relooped_function: ReloopedFunction) -> WasmFunction {}
-
-// fn generate_function_body_instructions(block: Box<Block>) -> Vec<WasmInstruction> {
-//     match *block {
-//         Block::Simple { internal, next } => {}
-//         Block::Loop { id, inner, next } => {}
-//         Block::Multiple {
-//             id,
-//             handled_blocks,
-//             next,
-//         } => {}
-//     }
-// }
 
 fn convert_block_to_wasm(
     block: Box<Block>,
@@ -852,7 +845,7 @@ fn test_label_equality(
         wasm_instrs.push(WasmInstruction::I64Eq);
     } else {
         // there's more than one label to compare against, so do multiple equality tests and OR them together
-        for label in labels {
+        for label in &labels {
             // load value of label variable
             load_var(
                 function_context.label_variable.to_owned(),
