@@ -1,3 +1,6 @@
+use crate::backend::target_code_generation_context::{
+    ControlFlowElement, FunctionContext, ModuleContext,
+};
 use crate::backend::wasm_indices::{FuncIdx, LocalIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_program::{WasmFunction, WasmProgram};
@@ -235,33 +238,6 @@ fn calculate_start_of_vars_offset_from_fp(
 //         } => {}
 //     }
 // }
-
-struct ModuleContext {
-    func_idx_mappings: HashMap<FunId, FuncIdx>, // todo we need to calculate these before we convert the instrs
-}
-
-enum ControlFlowElement {
-    Block(LoopBlockId),
-    Loop(LoopBlockId),
-    If(MultipleBlockId),
-    UnlabelledIf,
-}
-
-struct FunctionContext {
-    var_fp_offsets: HashMap<VarId, u32>,
-    label_variable: VarId,
-    control_flow_stack: Vec<ControlFlowElement>,
-}
-
-impl FunctionContext {
-    fn new(var_fp_offsets: HashMap<VarId, u32>, label_variable: VarId) -> Self {
-        FunctionContext {
-            var_fp_offsets,
-            label_variable,
-            control_flow_stack: Vec::new(),
-        }
-    }
-}
 
 fn convert_block_to_wasm(
     block: Box<Block>,

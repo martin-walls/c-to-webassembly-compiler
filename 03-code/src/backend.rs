@@ -1,6 +1,7 @@
 mod float_encoding;
 mod integer_encoding;
 pub mod target_code_generation;
+mod target_code_generation_context;
 mod to_bytes;
 mod vector_encoding;
 mod wasm_indices;
