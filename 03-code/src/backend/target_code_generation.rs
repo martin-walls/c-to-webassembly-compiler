@@ -242,8 +242,6 @@ struct ModuleContext {
 
 struct FunctionContext {
     var_fp_offsets: HashMap<VarId, u32>,
-    return_value_fp_offset: u32,
-    top_of_stack_fp_offset: u32,
     label_variable: VarId,
 }
 
@@ -251,8 +249,6 @@ impl FunctionContext {
     fn new(var_fp_offsets: HashMap<VarId, u32>, label_variable: VarId) -> Self {
         FunctionContext {
             var_fp_offsets,
-            return_value_fp_offset: PTR_SIZE,
-            top_of_stack_fp_offset: 0,
             label_variable,
         }
     }
@@ -385,52 +381,7 @@ fn convert_ir_instr_to_wasm(
     let mut wasm_instrs = Vec::new();
 
     match instr {
-        Instruction::SimpleAssignment(dest, src) => {
-            // let dest_type = program_metadata.get_var_type(&dest).unwrap();
-            //
-            // let dest_offset = match context.var_fp_offsets.get(&dest) {
-            //     None => {
-            //         // allocate variable on top of stack
-            //         let offset = context.top_of_stack_fp_offset;
-            //         context
-            //             .var_fp_offsets
-            //             .insert(dest.to_owned(), context.top_of_stack_fp_offset);
-            //         context.top_of_stack_fp_offset +=
-            //             dest_type.get_byte_size(&program_metadata);
-            //         offset
-            //     }
-            //     Some(offset) => offset,
-            // };
-            //
-            // match src {
-            //     Src::Var(var_id) => {
-            //         let src_offset = context.var_fp_offsets.get(&var_id);
-            //     }
-            //     Src::Constant(_) => {}
-            //     Src::StoreAddressVar(_) | Src::Fun(_) => {
-            //         unreachable!()
-            //     }
-            // }
-            //
-            // match *dest_type {
-            //     IrType::I8 => {}
-            //     IrType::U8 => {}
-            //     IrType::I16 => {}
-            //     IrType::U16 => {}
-            //     IrType::I32 => {}
-            //     IrType::U32 => {}
-            //     IrType::I64 => {}
-            //     IrType::U64 => {}
-            //     IrType::F32 => {}
-            //     IrType::F64 => {}
-            //     IrType::Struct(_) => {}
-            //     IrType::Union(_) => {}
-            //     IrType::Void => {}
-            //     IrType::PointerTo(_) => {}
-            //     IrType::ArrayOf(_, _) => {}
-            //     IrType::Function(_, _, _) => {}
-            // }
-        }
+        Instruction::SimpleAssignment(_, _) => {}
         Instruction::LoadFromAddress(_, _) => {}
         Instruction::StoreToAddress(_, _) => {}
         Instruction::AllocateVariable(_, _) => {}
@@ -440,49 +391,7 @@ fn convert_ir_instr_to_wasm(
         Instruction::Mult(_, _, _) => {}
         Instruction::Div(_, _, _) => {}
         Instruction::Mod(_, _, _) => {}
-        Instruction::Add(dest, left, right) => {
-            // // push left
-            // match left {
-            //     Src::Var(var_id) => match context.var_to_local_mappings.get(&var_id) {
-            //         Some(local_idx) => wasm_instrs.push(WasmInstruction::LocalGet {
-            //             local_idx: local_idx.to_owned(),
-            //         }),
-            //         None => {
-            //             unreachable!("trying to access an undefined var")
-            //         }
-            //     },
-            //     Src::Constant(constant) => {
-            //         // push constant
-            //         let dest_type = program_metadata.get_var_type(&dest).unwrap();
-            //         todo!()
-            //     }
-            //     Src::StoreAddressVar(_) | Src::Fun(_) => {
-            //         unreachable!()
-            //     }
-            // }
-            // // push right
-            // match right {
-            //     Src::Var(var_id) => match context.var_to_local_mappings.get(&var_id) {
-            //         Some(local_idx) => wasm_instrs.push(WasmInstruction::LocalGet {
-            //             local_idx: local_idx.to_owned(),
-            //         }),
-            //         None => {
-            //             unreachable!("trying to access an undefined var")
-            //         }
-            //     },
-            //     Src::Constant(constant) => {
-            //         // push constant
-            //         let dest_type = program_metadata.get_var_type(&dest).unwrap();
-            //         todo!()
-            //     }
-            //     Src::StoreAddressVar(_) | Src::Fun(_) => {
-            //         unreachable!()
-            //     }
-            // }
-            // // add
-            // wasm_instrs.push(WasmInstruction::Add)
-            // // store result
-        }
+        Instruction::Add(_, _, _) => {}
         Instruction::Sub(_, _, _) => {}
         Instruction::LeftShift(_, _, _) => {}
         Instruction::RightShift(_, _, _) => {}
@@ -676,6 +585,22 @@ fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
+fn set_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // load stack pointer value, to store in frame pointer
+    load_stack_ptr(wasm_instrs);
+    // store frame pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
 /// Insert instructions to load the given variable onto the wasm stack
 fn load_var(
     var_id: VarId,
@@ -813,16 +738,10 @@ fn set_up_new_stack_frame(
     // | ------------------ |
     // ---------------------- <-- stack ptr
     //
-    let mut new_stack_frame_fp_offset = function_context.top_of_stack_fp_offset;
-    let frame_ptr_increment_value = new_stack_frame_fp_offset;
 
     // store frame pointer at start of the stack frame
-    // address operand for storing frame ptr
-    load_frame_ptr(wasm_instrs);
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: new_stack_frame_fp_offset as i32,
-    });
-    wasm_instrs.push(WasmInstruction::I32Add);
+    // address operand for storing frame ptr (current top of stack)
+    load_stack_ptr(wasm_instrs);
     // value to store: current value of frame ptr
     load_frame_ptr(wasm_instrs);
     // store frame ptr to start of new stack frame
@@ -830,7 +749,11 @@ fn set_up_new_stack_frame(
         mem_arg: MemArg::zero(),
     });
 
-    new_stack_frame_fp_offset += PTR_SIZE;
+    // set the frame pointer to point at the new stack frame
+    set_frame_ptr_to_stack_ptr(wasm_instrs);
+
+    // increment stack pointer
+    increment_stack_ptr(PTR_SIZE, wasm_instrs);
 
     let (return_type, param_types) = match &**callee_function_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
@@ -844,7 +767,7 @@ fn set_up_new_stack_frame(
             unreachable!()
         }
     };
-    new_stack_frame_fp_offset += return_type_byte_size as u32;
+    increment_stack_ptr(return_type_byte_size as u32, wasm_instrs);
 
     // store function parameters in callee's stack frame
     let mut param_index = 0;
@@ -852,11 +775,7 @@ fn set_up_new_stack_frame(
         match param {
             Src::Var(var_id) => {
                 // address operand for where to store param
-                load_frame_ptr(wasm_instrs);
-                wasm_instrs.push(WasmInstruction::I32Const {
-                    n: new_stack_frame_fp_offset as i32,
-                });
-                wasm_instrs.push(WasmInstruction::I32Add);
+                load_stack_ptr(wasm_instrs);
 
                 let var_type = prog_metadata.get_var_type(&var_id).unwrap();
                 let var_byte_size = var_type
@@ -870,16 +789,12 @@ fn set_up_new_stack_frame(
                 // store param
                 store(var_type, wasm_instrs);
 
-                // advance the frame pointer offset
-                new_stack_frame_fp_offset += var_byte_size as u32;
+                // advance the stack pointer
+                increment_stack_ptr(var_byte_size as u32, wasm_instrs);
             }
             Src::Constant(constant) => {
                 // address operand for where to store param
-                load_frame_ptr(wasm_instrs);
-                wasm_instrs.push(WasmInstruction::I32Const {
-                    n: new_stack_frame_fp_offset as i32,
-                });
-                wasm_instrs.push(WasmInstruction::I32Add);
+                load_stack_ptr(wasm_instrs);
 
                 // value to store
                 load_constant(constant, wasm_instrs);
@@ -892,7 +807,8 @@ fn set_up_new_stack_frame(
                     .unwrap();
                 store(param_type.to_owned(), wasm_instrs);
 
-                new_stack_frame_fp_offset += param_byte_size as u32;
+                // advance the stack pointer
+                increment_stack_ptr(param_byte_size as u32, wasm_instrs);
             }
             Src::StoreAddressVar(_) | Src::Fun(_) => {
                 unreachable!()
@@ -900,9 +816,6 @@ fn set_up_new_stack_frame(
         }
         param_index += 1;
     }
-
-    // set the frame pointer to point at the new stack frame
-    increment_frame_ptr(frame_ptr_increment_value, wasm_instrs);
 }
 
 fn pop_stack_frame(
