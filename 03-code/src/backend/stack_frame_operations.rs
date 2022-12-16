@@ -1,8 +1,125 @@
+use crate::backend::memory_operations::{load, load_constant, load_var, store, store_var};
+use crate::backend::target_code_generation::{FRAME_PTR_ADDR, PTR_SIZE, STACK_PTR_ADDR};
 use crate::backend::target_code_generation_context::FunctionContext;
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
+
+pub fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // load
+    wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn increment_frame_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // add offset to frame pointer
+    load_frame_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
+    wasm_instrs.push(WasmInstruction::I32Add);
+    // store frame pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn restore_previous_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand for storing frame pointer
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // load the previous frame ptr value (the value that the frame ptr currently points at)
+    load_frame_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg::zero(),
+    });
+    // set the frame ptr
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn load_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // load
+    wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn increment_stack_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // add offset to stack pointer
+    load_stack_ptr(wasm_instrs);
+    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
+    wasm_instrs.push(WasmInstruction::I32Add);
+    // store stack pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: STACK_PTR_ADDR as i32,
+    });
+    // load frame pointer value, to store in stack pointer
+    load_frame_ptr(wasm_instrs);
+    // store stack pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
+
+pub fn set_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+    // address operand
+    wasm_instrs.push(WasmInstruction::I32Const {
+        n: FRAME_PTR_ADDR as i32,
+    });
+    // load stack pointer value, to store in frame pointer
+    load_stack_ptr(wasm_instrs);
+    // store frame pointer
+    wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg {
+            align: 2,
+            offset: 0,
+        },
+    });
+}
 
 pub fn set_up_new_stack_frame(
     callee_function_type: &Box<IrType>,

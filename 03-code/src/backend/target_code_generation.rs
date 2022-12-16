@@ -1,24 +1,24 @@
+use std::borrow::ToOwned;
+use std::collections::{HashMap, VecDeque};
+
 use crate::backend::allocate_local_vars::allocate_local_vars;
+use crate::backend::memory_operations::load_var;
 use crate::backend::stack_frame_operations::{pop_stack_frame, set_up_new_stack_frame};
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::{FuncIdx, LocalIdx};
-use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
-use crate::backend::wasm_program::{WasmFunction, WasmProgram};
-use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
-use crate::middle_end::instructions::{Constant, Dest, Instruction, Src};
+use crate::backend::wasm_instructions::{BlockType, WasmInstruction};
+use crate::backend::wasm_program::WasmProgram;
+use crate::middle_end::ids::{FunId, Id, LabelId};
+use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
-use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
-use std::borrow::ToOwned;
-use std::collections::{HashMap, VecDeque};
 
-const PTR_SIZE: u32 = 4;
+pub const PTR_SIZE: u32 = 4;
 
-const FRAME_PTR_ADDR: u32 = 0;
-const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
+pub const FRAME_PTR_ADDR: u32 = 0;
+pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
 pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
     // let mut wasm_program = WasmProgram::new();
@@ -58,7 +58,7 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
         }
     }
 
-    todo!()
+    todo!("finish implementing target code generation")
 }
 
 fn separate_imported_and_defined_functions(
@@ -165,7 +165,7 @@ fn convert_block_to_wasm(
         }
         Block::Multiple {
             id,
-            mut handled_blocks,
+            handled_blocks,
             next,
         } => {
             // select which of the handled blocks to execute (if any)
@@ -317,286 +317,6 @@ fn convert_ir_instr_to_wasm(
     wasm_instrs
 }
 
-fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: FRAME_PTR_ADDR as i32,
-    });
-    // load
-    wasm_instrs.push(WasmInstruction::I32Load {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn increment_frame_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: FRAME_PTR_ADDR as i32,
-    });
-    // add offset to frame pointer
-    load_frame_ptr(wasm_instrs);
-    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
-    wasm_instrs.push(WasmInstruction::I32Add);
-    // store frame pointer
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn restore_previous_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand for storing frame pointer
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: FRAME_PTR_ADDR as i32,
-    });
-    // load the previous frame ptr value (the value that the frame ptr currently points at)
-    load_frame_ptr(wasm_instrs);
-    wasm_instrs.push(WasmInstruction::I32Load {
-        mem_arg: MemArg::zero(),
-    });
-    // set the frame ptr
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn load_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: STACK_PTR_ADDR as i32,
-    });
-    // load
-    wasm_instrs.push(WasmInstruction::I32Load {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn increment_stack_ptr(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: STACK_PTR_ADDR as i32,
-    });
-    // add offset to stack pointer
-    load_stack_ptr(wasm_instrs);
-    wasm_instrs.push(WasmInstruction::I32Const { n: offset as i32 });
-    wasm_instrs.push(WasmInstruction::I32Add);
-    // store stack pointer
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: STACK_PTR_ADDR as i32,
-    });
-    // load frame pointer value, to store in stack pointer
-    load_frame_ptr(wasm_instrs);
-    // store stack pointer
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-fn set_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
-    // address operand
-    wasm_instrs.push(WasmInstruction::I32Const {
-        n: FRAME_PTR_ADDR as i32,
-    });
-    // load stack pointer value, to store in frame pointer
-    load_stack_ptr(wasm_instrs);
-    // store frame pointer
-    wasm_instrs.push(WasmInstruction::I32Store {
-        mem_arg: MemArg {
-            align: 2,
-            offset: 0,
-        },
-    });
-}
-
-/// Insert instructions to load the given variable onto the wasm stack
-fn load_var(
-    var_id: VarId,
-    wasm_instrs: &mut Vec<WasmInstruction>,
-    function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
-) {
-    match function_context.var_fp_offsets.get(&var_id) {
-        None => {
-            // todo check if var is a global variable, and calculate the address from that
-        }
-        Some(fp_offset) => {
-            // calculate address operand
-            load_frame_ptr(wasm_instrs);
-            wasm_instrs.push(WasmInstruction::I32Const {
-                n: *fp_offset as i32,
-            });
-            wasm_instrs.push(WasmInstruction::I32Add);
-
-            // load
-            load(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
-        }
-    }
-}
-
-/// Insert a load instruction of the correct type
-fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
-    match *value_type {
-        IrType::I8 => wasm_instrs.push(WasmInstruction::I32Load8S {
-            mem_arg: MemArg::zero(),
-        }),
-
-        IrType::U8 => wasm_instrs.push(WasmInstruction::I32Load8U {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::I16 => wasm_instrs.push(WasmInstruction::I32Load16S {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::U16 => wasm_instrs.push(WasmInstruction::I32Load16U {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
-            wasm_instrs.push(WasmInstruction::I32Load {
-                mem_arg: MemArg::zero(),
-            });
-        }
-        IrType::I64 | IrType::U64 => wasm_instrs.push(WasmInstruction::I64Load {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::F32 => wasm_instrs.push(WasmInstruction::F32Load {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::F64 => wasm_instrs.push(WasmInstruction::F64Load {
-            mem_arg: MemArg::zero(),
-        }),
-        _ => unreachable!(),
-    }
-}
-
-fn store_var(
-    var_id: VarId,
-    mut store_value_instrs: Vec<WasmInstruction>,
-    wasm_instrs: &mut Vec<WasmInstruction>,
-    function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
-) {
-    match function_context.var_fp_offsets.get(&var_id) {
-        None => {
-            // todo check if var is a global variable, and calculate the address from that
-        }
-        Some(fp_offset) => {
-            // calculate address operand
-            load_frame_ptr(wasm_instrs);
-            wasm_instrs.push(WasmInstruction::I32Const {
-                n: *fp_offset as i32,
-            });
-            wasm_instrs.push(WasmInstruction::I32Add);
-
-            wasm_instrs.append(&mut store_value_instrs);
-
-            // store
-            store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
-        }
-    }
-}
-
-/// Insert a store instruction of the correct type
-fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
-    match *value_type {
-        IrType::I8 | IrType::U8 => wasm_instrs.push(WasmInstruction::I32Store8 {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::I16 | IrType::U16 => wasm_instrs.push(WasmInstruction::I32Store16 {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
-            wasm_instrs.push(WasmInstruction::I32Store {
-                mem_arg: MemArg::zero(),
-            });
-        }
-        IrType::I64 | IrType::U64 => wasm_instrs.push(WasmInstruction::I64Store {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::F32 => wasm_instrs.push(WasmInstruction::F32Store {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::F64 => wasm_instrs.push(WasmInstruction::F64Store {
-            mem_arg: MemArg::zero(),
-        }),
-        _ => unreachable!(),
-    }
-}
-
-fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>) {
-    todo!("push constant to wasm stack with the right type")
-}
-
-/// Inserts instructions to compare the label variable against some number of label values,
-/// leaving a single boolean value on the stack
-fn test_label_equality(
-    labels: Vec<LabelId>,
-    wasm_instrs: &mut Vec<WasmInstruction>,
-    function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
-) {
-    assert!(!labels.is_empty());
-
-    if labels.len() == 1 {
-        // load value of label variable
-        load_var(
-            function_context.label_variable.to_owned(),
-            wasm_instrs,
-            function_context,
-            prog_metadata,
-        );
-        // label value to compare against
-        wasm_instrs.push(WasmInstruction::I64Const {
-            n: labels.first().unwrap().as_u64() as i64,
-        });
-        // equality comparison
-        wasm_instrs.push(WasmInstruction::I64Eq);
-    } else {
-        // there's more than one label to compare against, so do multiple equality tests and OR them together
-        for label in &labels {
-            // load value of label variable
-            load_var(
-                function_context.label_variable.to_owned(),
-                wasm_instrs,
-                function_context,
-                prog_metadata,
-            );
-            // label value to compare against
-            wasm_instrs.push(WasmInstruction::I64Const {
-                n: label.as_u64() as i64,
-            });
-            // equality comparison
-            wasm_instrs.push(WasmInstruction::I64Eq);
-        }
-        // OR all the results together. With n labels to test against, we need n-1 OR instructions.
-        for _ in 0..labels.len() - 1 {
-            wasm_instrs.push(WasmInstruction::I32Or);
-        }
-    }
-}
-
 fn convert_handled_blocks(
     mut handled_blocks: VecDeque<Box<Block>>,
     multiple_block_id: MultipleBlockId,
@@ -649,4 +369,52 @@ fn convert_handled_blocks(
     function_context.control_flow_stack.pop();
 
     instrs
+}
+
+/// Inserts instructions to compare the label variable against some number of label values,
+/// leaving a single boolean value on the stack
+fn test_label_equality(
+    labels: Vec<LabelId>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    function_context: &FunctionContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    assert!(!labels.is_empty());
+
+    if labels.len() == 1 {
+        // load value of label variable
+        load_var(
+            function_context.label_variable.to_owned(),
+            wasm_instrs,
+            function_context,
+            prog_metadata,
+        );
+        // label value to compare against
+        wasm_instrs.push(WasmInstruction::I64Const {
+            n: labels.first().unwrap().as_u64() as i64,
+        });
+        // equality comparison
+        wasm_instrs.push(WasmInstruction::I64Eq);
+    } else {
+        // there's more than one label to compare against, so do multiple equality tests and OR them together
+        for label in &labels {
+            // load value of label variable
+            load_var(
+                function_context.label_variable.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // label value to compare against
+            wasm_instrs.push(WasmInstruction::I64Const {
+                n: label.as_u64() as i64,
+            });
+            // equality comparison
+            wasm_instrs.push(WasmInstruction::I64Eq);
+        }
+        // OR all the results together. With n labels to test against, we need n-1 OR instructions.
+        for _ in 0..labels.len() - 1 {
+            wasm_instrs.push(WasmInstruction::I32Or);
+        }
+    }
 }

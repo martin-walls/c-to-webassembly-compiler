@@ -1,3 +1,5 @@
+use crate::backend::stack_frame_operations::increment_stack_ptr;
+use crate::backend::target_code_generation::PTR_SIZE;
 use crate::backend::wasm_instructions::WasmInstruction;
 use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::Instruction;
