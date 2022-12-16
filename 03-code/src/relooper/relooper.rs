@@ -31,6 +31,7 @@ impl<'a> RelooperContext<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct ReloopedFunction {
     pub block: Option<Box<Block>>,
     pub label_variable: Option<VarId>,

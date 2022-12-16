@@ -1,9 +1,24 @@
 use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::to_bytes::ToBytes;
 
-#[derive(Debug, Clone)]
+pub trait WasmIdx {
+    fn initial_idx() -> Self;
+    fn next_idx(&self) -> Self;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeIdx {
     x: u32,
+}
+
+impl WasmIdx for TypeIdx {
+    fn initial_idx() -> Self {
+        TypeIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        TypeIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for TypeIdx {
@@ -12,9 +27,19 @@ impl ToBytes for TypeIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TableIdx {
     x: u32,
+}
+
+impl WasmIdx for TableIdx {
+    fn initial_idx() -> Self {
+        TableIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        TableIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for TableIdx {
@@ -23,9 +48,19 @@ impl ToBytes for TableIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ElemIdx {
     x: u32,
+}
+
+impl WasmIdx for ElemIdx {
+    fn initial_idx() -> Self {
+        ElemIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        ElemIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for ElemIdx {
@@ -34,9 +69,19 @@ impl ToBytes for ElemIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DataIdx {
     x: u32,
+}
+
+impl WasmIdx for DataIdx {
+    fn initial_idx() -> Self {
+        DataIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        DataIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for DataIdx {
@@ -45,9 +90,19 @@ impl ToBytes for DataIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncIdx {
     x: u32,
+}
+
+impl WasmIdx for FuncIdx {
+    fn initial_idx() -> Self {
+        FuncIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        FuncIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for FuncIdx {
@@ -56,9 +111,19 @@ impl ToBytes for FuncIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalIdx {
     x: u32,
+}
+
+impl WasmIdx for LocalIdx {
+    fn initial_idx() -> Self {
+        LocalIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        LocalIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for LocalIdx {
@@ -67,9 +132,19 @@ impl ToBytes for LocalIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GlobalIdx {
     x: u32,
+}
+
+impl WasmIdx for GlobalIdx {
+    fn initial_idx() -> Self {
+        GlobalIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        GlobalIdx { x: self.x + 1 }
+    }
 }
 
 impl ToBytes for GlobalIdx {
@@ -78,9 +153,19 @@ impl ToBytes for GlobalIdx {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LabelIdx {
     l: u32,
+}
+
+impl WasmIdx for LabelIdx {
+    fn initial_idx() -> Self {
+        LabelIdx { l: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        LabelIdx { l: self.l + 1 }
+    }
 }
 
 impl ToBytes for LabelIdx {

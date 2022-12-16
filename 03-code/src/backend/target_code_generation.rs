@@ -10,6 +10,7 @@ use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
+use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
 const PTR_SIZE: u32 = 4;
@@ -20,11 +21,22 @@ const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
     // let mut wasm_program = WasmProgram::new();
 
-    for (fun_id, function) in prog.program_blocks.functions {
+    let (imported_functions, defined_functions) = separate_imported_and_defined_functions(
+        &prog.program_metadata,
+        prog.program_blocks.functions,
+    );
+
+    let mut module_context = ModuleContext::new();
+
+    module_context.calculate_func_idxs(&imported_functions, &defined_functions);
+
+    for (fun_id, function) in defined_functions {
         if let Some(block) = function.block {
-            println!("calculating var offsets for function {}", fun_id);
-            let var_offsets = calculate_var_offsets_from_fp(
+            let mut function_wasm_instrs = Vec::new();
+
+            let var_offsets = allocate_local_vars(
                 &block,
+                &mut function_wasm_instrs,
                 function.type_info,
                 function.param_var_mappings,
                 &prog.program_metadata,
@@ -33,24 +45,55 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
             let mut function_context =
                 FunctionContext::new(var_offsets, function.label_variable.unwrap());
 
-            let module_context = ModuleContext::new();
-
-            let block_wasm_instrs = convert_block_to_wasm(
+            function_wasm_instrs.append(&mut convert_block_to_wasm(
                 block,
                 &mut function_context,
                 &module_context,
                 &prog.program_metadata,
-            );
+            ))
         }
-
-        // let mut function_instrs = Vec::new();
-
-        // store current value of frame ptr on top of stack
-        // allocate space for return value
-        // push params onto stack
     }
 
     todo!()
+}
+
+fn separate_imported_and_defined_functions(
+    prog_metadata: &Box<ProgramMetadata>,
+    functions: HashMap<FunId, ReloopedFunction>,
+) -> (
+    Vec<(FunId, String, ReloopedFunction)>,
+    Vec<(FunId, ReloopedFunction)>,
+) {
+    let imported_function_names = vec!["printf".to_owned()];
+
+    let mut imported_functions: Vec<(FunId, String, ReloopedFunction)> = Vec::new();
+    let mut defined_functions: Vec<(FunId, ReloopedFunction)> = Vec::new();
+
+    let mut imported_function_ids: HashMap<FunId, String> = HashMap::new();
+    for imported_function_name in imported_function_names {
+        match prog_metadata.function_ids.get(&imported_function_name) {
+            None => {
+                // this function that could be imported isn't used in this program
+            }
+            Some(fun_id) => {
+                imported_function_ids.insert(fun_id.to_owned(), imported_function_name);
+            }
+        }
+    }
+
+    for (fun_id, function) in functions {
+        // check if this function is an imported one
+        match imported_function_ids.get(&fun_id) {
+            Some(fun_name) => {
+                imported_functions.push((fun_id, fun_name.to_owned(), function));
+            }
+            None => {
+                defined_functions.push((fun_id, function));
+            }
+        }
+    }
+
+    (imported_functions, defined_functions)
 }
 
 fn get_vars_with_types(
@@ -182,8 +225,9 @@ fn get_vars_with_types(
     }
 }
 
-fn calculate_var_offsets_from_fp(
+fn allocate_local_vars(
     block: &Box<Block>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
     fun_type: Box<IrType>,
     fun_param_var_mappings: Vec<VarId>,
     prog_metadata: &Box<ProgramMetadata>,
@@ -237,6 +281,9 @@ fn calculate_var_offsets_from_fp(
         var_offsets.insert(var_id, offset);
         offset += byte_size as u32;
     }
+
+    // update stack pointer to after allocated vars
+    increment_stack_ptr(offset, wasm_instrs);
 
     var_offsets
 }
@@ -392,7 +439,7 @@ fn convert_ir_instr_to_wasm(
             // call the function
             wasm_instrs.push(WasmInstruction::Call {
                 func_idx: module_context
-                    .func_idx_mappings
+                    .fun_id_to_func_idx_map
                     .get(&fun_id)
                     .unwrap()
                     .to_owned(),
