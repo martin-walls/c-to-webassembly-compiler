@@ -5,9 +5,9 @@ use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
 use crate::middle_end::instructions::{Constant, Dest, Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
-use crate::relooper::blocks::Block;
+use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 const PTR_SIZE: u32 = 4;
 
@@ -240,9 +240,17 @@ struct ModuleContext {
     func_idx_mappings: HashMap<FunId, FuncIdx>, // todo we need to calculate these before we convert the instrs
 }
 
+enum ControlFlowElement {
+    Block(LoopBlockId),
+    Loop(LoopBlockId),
+    If(MultipleBlockId),
+    UnlabelledIf,
+}
+
 struct FunctionContext {
     var_fp_offsets: HashMap<VarId, u32>,
     label_variable: VarId,
+    control_flow_stack: Vec<ControlFlowElement>,
 }
 
 impl FunctionContext {
@@ -250,6 +258,7 @@ impl FunctionContext {
         FunctionContext {
             var_fp_offsets,
             label_variable,
+            control_flow_stack: Vec::new(),
         }
     }
 }
@@ -286,6 +295,12 @@ fn convert_block_to_wasm(
             }
         }
         Block::Loop { id, inner, next } => {
+            function_context
+                .control_flow_stack
+                .push(ControlFlowElement::Block(id.to_owned()));
+            function_context
+                .control_flow_stack
+                .push(ControlFlowElement::Loop(id));
             let loop_instrs =
                 convert_block_to_wasm(inner, function_context, module_context, prog_metadata);
             wasm_instrs.push(WasmInstruction::Block {
@@ -295,6 +310,9 @@ fn convert_block_to_wasm(
                     instrs: loop_instrs,
                 }],
             });
+            // pop the block and loop control flows we pushed before
+            function_context.control_flow_stack.pop();
+            function_context.control_flow_stack.pop();
 
             match next {
                 None => {}
@@ -323,37 +341,13 @@ fn convert_block_to_wasm(
                 prog_metadata,
             );
 
-            // iterate over the handled blocks backwards, to get the nested if/else stmts to work
-            let mut inner_else_instrs = Vec::new();
-            handled_blocks.reverse();
-            for handled_block in handled_blocks {
-                let mut new_inner_else_instrs = Vec::new();
-                // get possible entry labels for handled block
-                let handled_block_entries = handled_block.get_entry_labels();
-
-                // check if label variable matches any of handled block entry labels
-                test_label_equality(
-                    handled_block_entries,
-                    &mut new_inner_else_instrs,
-                    function_context,
-                    prog_metadata,
-                );
-
-                // if so, execute the handled block
-                new_inner_else_instrs.push(WasmInstruction::IfElse {
-                    blocktype: BlockType::None,
-                    if_instrs: convert_block_to_wasm(
-                        handled_block,
-                        function_context,
-                        module_context,
-                        prog_metadata,
-                    ),
-                    else_instrs: inner_else_instrs,
-                });
-
-                inner_else_instrs = new_inner_else_instrs;
-            }
-            wasm_instrs.append(&mut inner_else_instrs);
+            wasm_instrs.append(&mut convert_handled_blocks(
+                handled_blocks.into(),
+                id,
+                function_context,
+                module_context,
+                prog_metadata,
+            ));
 
             match next {
                 None => {}
@@ -902,4 +896,58 @@ fn test_label_equality(
             wasm_instrs.push(WasmInstruction::I32Or);
         }
     }
+}
+
+fn convert_handled_blocks(
+    mut handled_blocks: VecDeque<Box<Block>>,
+    multiple_block_id: MultipleBlockId,
+    function_context: &mut FunctionContext,
+    module_context: &ModuleContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> Vec<WasmInstruction> {
+    if handled_blocks.is_empty() {
+        return Vec::new();
+    }
+
+    let mut instrs = Vec::new();
+
+    let first_handled_block = handled_blocks.pop_front().unwrap();
+
+    // get possible entry labels for handled block
+    let handled_block_entries = first_handled_block.get_entry_labels();
+
+    // check if label variable matches any of handled block entry labels
+    test_label_equality(
+        handled_block_entries,
+        &mut instrs,
+        function_context,
+        prog_metadata,
+    );
+
+    function_context
+        .control_flow_stack
+        .push(ControlFlowElement::If(multiple_block_id.to_owned()));
+
+    // if so, execute the handled block
+    instrs.push(WasmInstruction::IfElse {
+        blocktype: BlockType::None,
+        if_instrs: convert_block_to_wasm(
+            first_handled_block,
+            function_context,
+            module_context,
+            prog_metadata,
+        ),
+        else_instrs: convert_handled_blocks(
+            handled_blocks,
+            multiple_block_id,
+            function_context,
+            module_context,
+            prog_metadata,
+        ),
+    });
+
+    // pop the if control flow we pushed before
+    function_context.control_flow_stack.pop();
+
+    instrs
 }
