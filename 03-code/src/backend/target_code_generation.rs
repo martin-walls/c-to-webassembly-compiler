@@ -32,6 +32,15 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
 
             let mut function_context =
                 FunctionContext::new(var_offsets, function.label_variable.unwrap());
+
+            let module_context = ModuleContext::new();
+
+            let block_wasm_instrs = convert_block_to_wasm(
+                block,
+                &mut function_context,
+                &module_context,
+                &prog.program_metadata,
+            );
         }
 
         // let mut function_instrs = Vec::new();

@@ -4,7 +4,15 @@ use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use std::collections::HashMap;
 
 pub struct ModuleContext {
-    pub func_idx_mappings: HashMap<FunId, FuncIdx>, // todo we need to calculate these before we convert the instrs
+    pub func_idx_mappings: HashMap<FunId, FuncIdx>,
+}
+
+impl ModuleContext {
+    pub fn new() -> Self {
+        ModuleContext {
+            func_idx_mappings: HashMap::new(), // todo we need to calculate these before we convert the instrs
+        }
+    }
 }
 
 pub enum ControlFlowElement {
