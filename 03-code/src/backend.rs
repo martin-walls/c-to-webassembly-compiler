@@ -1,3 +1,4 @@
+mod allocate_local_vars;
 mod float_encoding;
 mod integer_encoding;
 pub mod target_code_generation;
