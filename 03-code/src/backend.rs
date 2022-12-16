@@ -1,6 +1,7 @@
 mod allocate_local_vars;
 mod float_encoding;
 mod integer_encoding;
+mod stack_frame_operations;
 pub mod target_code_generation;
 mod target_code_generation_context;
 mod to_bytes;
