@@ -32,6 +32,7 @@ pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
         }
     }
     optimise_ir(&mut prog)?;
+    assert_no_var_has_runtime_byte_size(&prog);
     Ok(prog)
 }
 
@@ -1578,6 +1579,157 @@ pub fn convert_expression_to_ir(
         }
         Expression::ExpressionList(_, _) => {
             todo!("expression lists")
+        }
+    }
+}
+
+fn assert_no_var_has_runtime_byte_size(prog: &Box<Program>) {
+    for (_, function) in &prog.program_instructions.functions {
+        for instr in &function.instrs {
+            match instr {
+                Instruction::SimpleAssignment(dest, _)
+                | Instruction::LoadFromAddress(dest, _)
+                | Instruction::StoreToAddress(dest, _)
+                | Instruction::AllocateVariable(dest, _)
+                | Instruction::AddressOf(dest, _)
+                | Instruction::BitwiseNot(dest, _)
+                | Instruction::LogicalNot(dest, _)
+                | Instruction::Mult(dest, _, _)
+                | Instruction::Div(dest, _, _)
+                | Instruction::Mod(dest, _, _)
+                | Instruction::Add(dest, _, _)
+                | Instruction::Sub(dest, _, _)
+                | Instruction::LeftShift(dest, _, _)
+                | Instruction::RightShift(dest, _, _)
+                | Instruction::BitwiseAnd(dest, _, _)
+                | Instruction::BitwiseOr(dest, _, _)
+                | Instruction::BitwiseXor(dest, _, _)
+                | Instruction::LogicalAnd(dest, _, _)
+                | Instruction::LogicalOr(dest, _, _)
+                | Instruction::LessThan(dest, _, _)
+                | Instruction::GreaterThan(dest, _, _)
+                | Instruction::LessThanEq(dest, _, _)
+                | Instruction::GreaterThanEq(dest, _, _)
+                | Instruction::Equal(dest, _, _)
+                | Instruction::NotEqual(dest, _, _)
+                | Instruction::Call(dest, _, _)
+                | Instruction::PointerToStringLiteral(dest, _)
+                | Instruction::I8toI16(dest, _)
+                | Instruction::I8toU16(dest, _)
+                | Instruction::U8toI16(dest, _)
+                | Instruction::U8toU16(dest, _)
+                | Instruction::I16toI32(dest, _)
+                | Instruction::U16toI32(dest, _)
+                | Instruction::I16toU32(dest, _)
+                | Instruction::U16toU32(dest, _)
+                | Instruction::I32toU32(dest, _)
+                | Instruction::I32toU64(dest, _)
+                | Instruction::U32toU64(dest, _)
+                | Instruction::I64toU64(dest, _)
+                | Instruction::I32toI64(dest, _)
+                | Instruction::U32toI64(dest, _)
+                | Instruction::U32toF32(dest, _)
+                | Instruction::I32toF32(dest, _)
+                | Instruction::U64toF32(dest, _)
+                | Instruction::I64toF32(dest, _)
+                | Instruction::U32toF64(dest, _)
+                | Instruction::I32toF64(dest, _)
+                | Instruction::U64toF64(dest, _)
+                | Instruction::I64toF64(dest, _)
+                | Instruction::F32toF64(dest, _)
+                | Instruction::I32toI8(dest, _)
+                | Instruction::U32toI8(dest, _)
+                | Instruction::I64toI8(dest, _)
+                | Instruction::U64toI8(dest, _)
+                | Instruction::I32toU8(dest, _)
+                | Instruction::U32toU8(dest, _)
+                | Instruction::I64toU8(dest, _)
+                | Instruction::U64toU8(dest, _)
+                | Instruction::I64toI32(dest, _)
+                | Instruction::U64toI32(dest, _)
+                | Instruction::U32toPtr(dest, _)
+                | Instruction::I32toPtr(dest, _) => {
+                    let dest_type = prog.program_metadata.get_var_type(dest).unwrap();
+                    assert!(dest_type
+                        .get_byte_size(&prog.program_metadata)
+                        .get_compile_time_value()
+                        .is_ok());
+                }
+                _ => {}
+            }
+        }
+    }
+    for instr in &prog.program_instructions.global_instrs {
+        match instr {
+            Instruction::SimpleAssignment(dest, _)
+            | Instruction::LoadFromAddress(dest, _)
+            | Instruction::StoreToAddress(dest, _)
+            | Instruction::AllocateVariable(dest, _)
+            | Instruction::AddressOf(dest, _)
+            | Instruction::BitwiseNot(dest, _)
+            | Instruction::LogicalNot(dest, _)
+            | Instruction::Mult(dest, _, _)
+            | Instruction::Div(dest, _, _)
+            | Instruction::Mod(dest, _, _)
+            | Instruction::Add(dest, _, _)
+            | Instruction::Sub(dest, _, _)
+            | Instruction::LeftShift(dest, _, _)
+            | Instruction::RightShift(dest, _, _)
+            | Instruction::BitwiseAnd(dest, _, _)
+            | Instruction::BitwiseOr(dest, _, _)
+            | Instruction::BitwiseXor(dest, _, _)
+            | Instruction::LogicalAnd(dest, _, _)
+            | Instruction::LogicalOr(dest, _, _)
+            | Instruction::LessThan(dest, _, _)
+            | Instruction::GreaterThan(dest, _, _)
+            | Instruction::LessThanEq(dest, _, _)
+            | Instruction::GreaterThanEq(dest, _, _)
+            | Instruction::Equal(dest, _, _)
+            | Instruction::NotEqual(dest, _, _)
+            | Instruction::Call(dest, _, _)
+            | Instruction::PointerToStringLiteral(dest, _)
+            | Instruction::I8toI16(dest, _)
+            | Instruction::I8toU16(dest, _)
+            | Instruction::U8toI16(dest, _)
+            | Instruction::U8toU16(dest, _)
+            | Instruction::I16toI32(dest, _)
+            | Instruction::U16toI32(dest, _)
+            | Instruction::I16toU32(dest, _)
+            | Instruction::U16toU32(dest, _)
+            | Instruction::I32toU32(dest, _)
+            | Instruction::I32toU64(dest, _)
+            | Instruction::U32toU64(dest, _)
+            | Instruction::I64toU64(dest, _)
+            | Instruction::I32toI64(dest, _)
+            | Instruction::U32toI64(dest, _)
+            | Instruction::U32toF32(dest, _)
+            | Instruction::I32toF32(dest, _)
+            | Instruction::U64toF32(dest, _)
+            | Instruction::I64toF32(dest, _)
+            | Instruction::U32toF64(dest, _)
+            | Instruction::I32toF64(dest, _)
+            | Instruction::U64toF64(dest, _)
+            | Instruction::I64toF64(dest, _)
+            | Instruction::F32toF64(dest, _)
+            | Instruction::I32toI8(dest, _)
+            | Instruction::U32toI8(dest, _)
+            | Instruction::I64toI8(dest, _)
+            | Instruction::U64toI8(dest, _)
+            | Instruction::I32toU8(dest, _)
+            | Instruction::U32toU8(dest, _)
+            | Instruction::I64toU8(dest, _)
+            | Instruction::U64toU8(dest, _)
+            | Instruction::I64toI32(dest, _)
+            | Instruction::U64toI32(dest, _)
+            | Instruction::U32toPtr(dest, _)
+            | Instruction::I32toPtr(dest, _) => {
+                let dest_type = prog.program_metadata.get_var_type(dest).unwrap();
+                assert!(dest_type
+                    .get_byte_size(&prog.program_metadata)
+                    .get_compile_time_value()
+                    .is_ok());
+            }
+            _ => {}
         }
     }
 }

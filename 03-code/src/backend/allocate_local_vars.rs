@@ -141,17 +141,7 @@ fn get_vars_with_types(
                         let dest_type = prog_metadata.get_var_type(dest).unwrap();
                         vars.push((dest.to_owned(), dest_type));
                     }
-                    Instruction::Ret(_)
-                    | Instruction::Label(_)
-                    | Instruction::Br(_)
-                    | Instruction::BrIfEq(_, _, _)
-                    | Instruction::BrIfNotEq(_, _, _)
-                    | Instruction::Nop
-                    | Instruction::Break(_)
-                    | Instruction::Continue(_)
-                    | Instruction::EndHandledBlock(_)
-                    | Instruction::IfEqElse(_, _, _, _)
-                    | Instruction::IfNotEqElse(_, _, _, _) => {}
+                    _ => {}
                 }
             }
 
