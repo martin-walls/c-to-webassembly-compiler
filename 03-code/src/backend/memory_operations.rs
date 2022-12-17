@@ -121,7 +121,38 @@ pub fn store_var(
 }
 
 pub fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>) {
-    todo!("push constant to wasm stack with the right type")
+    let constant_type = constant.get_type(None);
+    match *constant_type {
+        IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
+            match constant {
+                Constant::Int(n) => wasm_instrs.push(WasmInstruction::I32Const { n: n as i32 }),
+                Constant::Float(_) => {
+                    unreachable!()
+                }
+            }
+        }
+        IrType::I64 | IrType::U64 => match constant {
+            Constant::Int(n) => wasm_instrs.push(WasmInstruction::I64Const { n: n as i64 }),
+            Constant::Float(_) => {
+                unreachable!()
+            }
+        },
+        IrType::F32 => match constant {
+            Constant::Float(z) => wasm_instrs.push(WasmInstruction::F32Const { z: z as f32 }),
+            Constant::Int(_) => {
+                unreachable!()
+            }
+        },
+        IrType::F64 => match constant {
+            Constant::Float(z) => wasm_instrs.push(WasmInstruction::F64Const { z }),
+            Constant::Int(_) => {
+                unreachable!()
+            }
+        },
+        _ => {
+            unreachable!()
+        }
+    }
 }
 
 pub fn load_src(

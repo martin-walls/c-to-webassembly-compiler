@@ -56,7 +56,9 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
                 &mut function_context,
                 &module_context,
                 &prog.program_metadata,
-            ))
+            ));
+
+            // println!("{:#?}", function_wasm_instrs);
 
             // todo attach function to module
         }
@@ -399,24 +401,740 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
         }
-        Instruction::Mult(_, _, _) => {}
-        Instruction::Div(_, _, _) => {}
-        Instruction::Mod(_, _, _) => {}
-        Instruction::Add(_, _, _) => {}
-        Instruction::Sub(_, _, _) => {}
-        Instruction::LeftShift(_, _, _) => {}
-        Instruction::RightShift(_, _, _) => {}
-        Instruction::BitwiseAnd(_, _, _) => {}
-        Instruction::BitwiseOr(_, _, _) => {}
-        Instruction::BitwiseXor(_, _, _) => {}
-        Instruction::LogicalAnd(_, _, _) => {}
-        Instruction::LogicalOr(_, _, _) => {}
-        Instruction::LessThan(_, _, _) => {}
-        Instruction::GreaterThan(_, _, _) => {}
-        Instruction::LessThanEq(_, _, _) => {}
-        Instruction::GreaterThanEq(_, _, _) => {}
-        Instruction::Equal(_, _, _) => {}
-        Instruction::NotEqual(_, _, _) => {}
+        Instruction::Mult(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // mult
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Mul);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Mul);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Mul);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Mul);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::Div(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // div
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 => temp_instrs.push(WasmInstruction::I32DivS),
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32DivU);
+                }
+                IrType::I64 => temp_instrs.push(WasmInstruction::I64DivS),
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64DivU);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Div);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Div);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::Mod(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // remainder
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 => temp_instrs.push(WasmInstruction::I32RemS),
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32RemU);
+                }
+                IrType::I64 => temp_instrs.push(WasmInstruction::I64RemS),
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64RemU);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::Add(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // add
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Add);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Add);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Add);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Add);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::Sub(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // sub
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Sub);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Sub);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Sub);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Sub);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LeftShift(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // shift left
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Shl);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Shl);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::RightShift(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // shift right
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 => temp_instrs.push(WasmInstruction::I32ShrS),
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32ShrU);
+                }
+                IrType::I64 => temp_instrs.push(WasmInstruction::I64ShrS),
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64ShrU);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::BitwiseAnd(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // bitwise AND
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32And);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64And);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::BitwiseOr(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // bitwise OR
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Or);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Or);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::BitwiseXor(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // bitwise XOR
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Xor);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Xor);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LogicalAnd(dest, left_src, right_src) => {
+            // logical AND:
+            //   load left src, test eq zero -> int 0/1
+            //   load right src, test eq zero -> int 0/1
+            //   bitwise AND
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            let left_src_type = left_src.get_type(prog_metadata).unwrap();
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            // test it left_src is zero
+            match *left_src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eqz);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eqz);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            // if so, push 1, else 0
+            temp_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+            });
+
+            let right_src_type = right_src.get_type(prog_metadata).unwrap();
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            // test it right_src is zero
+            match *right_src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eqz);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eqz);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            // if so, push 1, else 0
+            temp_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+            });
+
+            // bitwise AND
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32And);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64And);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LogicalOr(dest, left_src, right_src) => {
+            // logical OR:
+            //   load left src, test eq zero -> int 0/1
+            //   load right src, test eq zero -> int 0/1
+            //   bitwise OR
+            let mut temp_instrs = Vec::new();
+            // load srcs onto wasm stack
+            let left_src_type = left_src.get_type(prog_metadata).unwrap();
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            // test it left_src is zero
+            match *left_src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eqz);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eqz);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            // if so, push 1, else 0
+            temp_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+            });
+
+            let right_src_type = right_src.get_type(prog_metadata).unwrap();
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            // test it right_src is zero
+            match *right_src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eqz);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eqz);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Const { z: 0. });
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            // if so, push 1, else 0
+            temp_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+            });
+
+            // bitwise OR
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            match *dest_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Or);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Or);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LessThan(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // less than
+            match *src_type {
+                IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32LtS);
+                }
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32LtU);
+                }
+                IrType::I64 => {
+                    temp_instrs.push(WasmInstruction::I64LtS);
+                }
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64LtU);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Lt);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Lt);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::GreaterThan(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // greater than
+            match *src_type {
+                IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32GtS);
+                }
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32GtU);
+                }
+                IrType::I64 => {
+                    temp_instrs.push(WasmInstruction::I64GtS);
+                }
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64GtU);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Gt);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Gt);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::LessThanEq(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // less than or equal
+            match *src_type {
+                IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32LeS);
+                }
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32LeU);
+                }
+                IrType::I64 => {
+                    temp_instrs.push(WasmInstruction::I64LeS);
+                }
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64LeU);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Le);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Le);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::GreaterThanEq(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // greater than or equal
+            match *src_type {
+                IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32GeS);
+                }
+                IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32GeU);
+                }
+                IrType::I64 => {
+                    temp_instrs.push(WasmInstruction::I64GeS);
+                }
+                IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64GeU);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Ge);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Ge);
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::Equal(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // equal
+            match *src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Eq);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Eq);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Eq);
+                }
+                t => {
+                    println!("{:?}", t);
+                    todo!("need to binary convert operands to ==");
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::NotEqual(dest, left_src, right_src) => {
+            let mut temp_instrs = Vec::new();
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            // load srcs onto wasm stack
+            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+
+            // not equal
+            match *src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    temp_instrs.push(WasmInstruction::I32Ne);
+                }
+                IrType::I64 | IrType::U64 => {
+                    temp_instrs.push(WasmInstruction::I64Ne);
+                }
+                IrType::F32 => {
+                    temp_instrs.push(WasmInstruction::F32Ne);
+                }
+                IrType::F64 => {
+                    temp_instrs.push(WasmInstruction::F64Ne);
+                }
+                t => {
+                    println!("{:?}", t);
+                    todo!("need to binary convert operands to !=");
+                    unreachable!()
+                }
+            }
+
+            // store to dest
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
         Instruction::Call(dest, fun_id, params) => {
             let callee_function_type = prog_metadata.function_types.get(&fun_id).unwrap();
 
@@ -445,8 +1163,22 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
         }
-        Instruction::Ret(_) => {}
-        Instruction::Label(_) => {}
+        Instruction::Ret(return_value_src) => {
+            if let Some(return_value_src) = return_value_src {
+                // load return value onto wasm stack
+                load_src(
+                    return_value_src,
+                    wasm_instrs,
+                    function_context,
+                    prog_metadata,
+                );
+            }
+
+            wasm_instrs.push(WasmInstruction::Return);
+        }
+        Instruction::Label(_) => {
+            // labels don't do anything anymore at this stage, so just ignore them
+        }
         Instruction::Br(_) => {}
         Instruction::BrIfEq(_, _, _) => {}
         Instruction::BrIfNotEq(_, _, _) => {}

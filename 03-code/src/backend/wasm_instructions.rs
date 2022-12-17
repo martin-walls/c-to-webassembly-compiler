@@ -8,6 +8,7 @@ use crate::backend::wasm_indices::{
 use crate::backend::wasm_types::{RefType, ValType};
 use crate::middle_end::instructions::Instruction;
 
+#[derive(Debug)]
 pub struct WasmExpression {
     instrs: Vec<WasmInstruction>,
 }
@@ -24,6 +25,7 @@ impl ToBytes for WasmExpression {
     }
 }
 
+#[derive(Debug)]
 pub enum BlockType {
     None,
 }
@@ -34,6 +36,7 @@ impl ToBytes for BlockType {
     }
 }
 
+#[derive(Debug)]
 pub struct MemArg {
     /// Alignment hint. Memory accesses are more efficient if they line up with the alignment
     /// hint, but will still work if not.
@@ -60,6 +63,7 @@ impl ToBytes for MemArg {
 }
 
 /// See https://webassembly.github.io/spec/core/binary/instructions.html
+#[derive(Debug)]
 pub enum WasmInstruction {
     // Control instructions
     Unreachable,

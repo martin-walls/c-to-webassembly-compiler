@@ -1,5 +1,6 @@
 use crate::backend::to_bytes::ToBytes;
 
+#[derive(Debug)]
 pub enum ValType {
     NumType(NumType),
     RefType(RefType),
@@ -14,6 +15,7 @@ impl ToBytes for ValType {
     }
 }
 
+#[derive(Debug)]
 pub enum NumType {
     I32,
     I64,
@@ -40,6 +42,7 @@ impl ToBytes for NumType {
     }
 }
 
+#[derive(Debug)]
 pub enum RefType {
     FuncRef,
     ExternRef,
