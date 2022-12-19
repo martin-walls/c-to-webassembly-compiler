@@ -333,7 +333,7 @@ fn convert_ir_instr_to_wasm(
 
             // bitwise not
             match *src_type {
-                IrType::I32 | IrType::U32 => {
+                IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
                     temp_instrs.push(WasmInstruction::I32Const { n: -1 });
                     temp_instrs.push(WasmInstruction::I32Xor);
                 }
@@ -367,7 +367,13 @@ fn convert_ir_instr_to_wasm(
             // logical not
             // test if src is zero
             match *src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_) => {
                     temp_instrs.push(WasmInstruction::I32Eqz);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -410,7 +416,14 @@ fn convert_ir_instr_to_wasm(
             // mult
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Mul);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -445,8 +458,14 @@ fn convert_ir_instr_to_wasm(
             // div
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 => temp_instrs.push(WasmInstruction::I32DivS),
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32DivS)
+                }
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32DivU);
                 }
                 IrType::I64 => temp_instrs.push(WasmInstruction::I64DivS),
@@ -482,8 +501,14 @@ fn convert_ir_instr_to_wasm(
             // remainder
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 => temp_instrs.push(WasmInstruction::I32RemS),
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32RemS)
+                }
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32RemU);
                 }
                 IrType::I64 => temp_instrs.push(WasmInstruction::I64RemS),
@@ -513,7 +538,14 @@ fn convert_ir_instr_to_wasm(
             // add
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Add);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -548,7 +580,14 @@ fn convert_ir_instr_to_wasm(
             // sub
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Sub);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -583,7 +622,14 @@ fn convert_ir_instr_to_wasm(
             // shift left
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Shl);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -612,8 +658,14 @@ fn convert_ir_instr_to_wasm(
             // shift right
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 => temp_instrs.push(WasmInstruction::I32ShrS),
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
+                    temp_instrs.push(WasmInstruction::I32ShrS)
+                }
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32ShrU);
                 }
                 IrType::I64 => temp_instrs.push(WasmInstruction::I64ShrS),
@@ -643,7 +695,14 @@ fn convert_ir_instr_to_wasm(
             // bitwise AND
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32And);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -672,7 +731,14 @@ fn convert_ir_instr_to_wasm(
             // bitwise OR
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Or);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -701,7 +767,14 @@ fn convert_ir_instr_to_wasm(
             // bitwise XOR
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Xor);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -732,7 +805,14 @@ fn convert_ir_instr_to_wasm(
             load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
             // test it left_src is zero
             match *left_src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Eqz);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -761,7 +841,14 @@ fn convert_ir_instr_to_wasm(
             load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
             // test it right_src is zero
             match *right_src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Eqz);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -789,7 +876,14 @@ fn convert_ir_instr_to_wasm(
             // bitwise AND
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32And);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -820,7 +914,14 @@ fn convert_ir_instr_to_wasm(
             load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
             // test it left_src is zero
             match *left_src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Eqz);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -849,7 +950,14 @@ fn convert_ir_instr_to_wasm(
             load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
             // test it right_src is zero
             match *right_src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Eqz);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -877,7 +985,14 @@ fn convert_ir_instr_to_wasm(
             // bitwise OR
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Or);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -906,10 +1021,14 @@ fn convert_ir_instr_to_wasm(
 
             // less than
             match *src_type {
-                IrType::I32 => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LtS);
                 }
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32LtU);
                 }
                 IrType::I64 => {
@@ -947,10 +1066,14 @@ fn convert_ir_instr_to_wasm(
 
             // greater than
             match *src_type {
-                IrType::I32 => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GtS);
                 }
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32GtU);
                 }
                 IrType::I64 => {
@@ -988,10 +1111,14 @@ fn convert_ir_instr_to_wasm(
 
             // less than or equal
             match *src_type {
-                IrType::I32 => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LeS);
                 }
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32LeU);
                 }
                 IrType::I64 => {
@@ -1029,10 +1156,14 @@ fn convert_ir_instr_to_wasm(
 
             // greater than or equal
             match *src_type {
-                IrType::I32 => {
+                IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GeS);
                 }
-                IrType::U32 | IrType::PointerTo(_) => {
+                IrType::U8
+                | IrType::U16
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32GeU);
                 }
                 IrType::I64 => {
@@ -1070,7 +1201,14 @@ fn convert_ir_instr_to_wasm(
 
             // equal
             match *src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Eq);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -1107,7 +1245,14 @@ fn convert_ir_instr_to_wasm(
 
             // not equal
             match *src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     temp_instrs.push(WasmInstruction::I32Ne);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -1244,7 +1389,14 @@ fn convert_ir_instr_to_wasm(
             load_src(right_src, wasm_instrs, function_context, prog_metadata);
             // test for equality
             match *src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     wasm_instrs.push(WasmInstruction::I32Eq);
                 }
                 IrType::I64 | IrType::U64 => {
@@ -1304,7 +1456,14 @@ fn convert_ir_instr_to_wasm(
             load_src(right_src, wasm_instrs, function_context, prog_metadata);
             // test for equality
             match *src_type {
-                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                IrType::I8
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::PointerTo(_)
+                | IrType::ArrayOf(_, _) => {
                     wasm_instrs.push(WasmInstruction::I32Ne);
                 }
                 IrType::I64 | IrType::U64 => {
