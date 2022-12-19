@@ -1361,6 +1361,11 @@ pub fn convert_expression_to_ir(
                     ));
                 }
                 BinaryOperator::Equal => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // both arithmetic, both pointer, or pointer compared to NULL (int 0)
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
@@ -1376,6 +1381,11 @@ pub fn convert_expression_to_ir(
                     instrs.push(Instruction::Equal(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::NotEqual => {
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     // both arithmetic, both pointer, or pointer compared to NULL (int 0)
                     if !(left_var_type.is_arithmetic_type() && right_var_type.is_arithmetic_type())
                         && !(left_var_type.is_pointer_type() && right_var_type.is_pointer_type())
