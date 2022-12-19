@@ -1179,51 +1179,184 @@ fn convert_ir_instr_to_wasm(
         Instruction::Label(_) => {
             // labels don't do anything anymore at this stage, so just ignore them
         }
-        Instruction::Br(_) => {}
-        Instruction::BrIfEq(_, _, _) => {}
-        Instruction::BrIfNotEq(_, _, _) => {}
-        Instruction::PointerToStringLiteral(_, _) => {}
-        Instruction::I8toI16(_, _) => {}
-        Instruction::I8toU16(_, _) => {}
-        Instruction::U8toI16(_, _) => {}
-        Instruction::U8toU16(_, _) => {}
-        Instruction::I16toI32(_, _) => {}
-        Instruction::U16toI32(_, _) => {}
-        Instruction::I16toU32(_, _) => {}
-        Instruction::U16toU32(_, _) => {}
-        Instruction::I32toU32(_, _) => {}
-        Instruction::I32toU64(_, _) => {}
-        Instruction::U32toU64(_, _) => {}
-        Instruction::I64toU64(_, _) => {}
-        Instruction::I32toI64(_, _) => {}
-        Instruction::U32toI64(_, _) => {}
-        Instruction::U32toF32(_, _) => {}
-        Instruction::I32toF32(_, _) => {}
-        Instruction::U64toF32(_, _) => {}
-        Instruction::I64toF32(_, _) => {}
-        Instruction::U32toF64(_, _) => {}
-        Instruction::I32toF64(_, _) => {}
-        Instruction::U64toF64(_, _) => {}
-        Instruction::I64toF64(_, _) => {}
-        Instruction::F32toF64(_, _) => {}
-        Instruction::I32toI8(_, _) => {}
-        Instruction::U32toI8(_, _) => {}
-        Instruction::I64toI8(_, _) => {}
-        Instruction::U64toI8(_, _) => {}
-        Instruction::I32toU8(_, _) => {}
-        Instruction::U32toU8(_, _) => {}
-        Instruction::I64toU8(_, _) => {}
-        Instruction::U64toU8(_, _) => {}
-        Instruction::I64toI32(_, _) => {}
-        Instruction::U64toI32(_, _) => {}
-        Instruction::U32toPtr(_, _) => {}
-        Instruction::I32toPtr(_, _) => {}
-        Instruction::Nop => {}
+        Instruction::Br(_) | Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
+            unreachable!("Br instructions have all been replaced by this point")
+        }
+        Instruction::PointerToStringLiteral(dest, str_literal_id) => {
+            todo!("pointer to string literal")
+        }
+        Instruction::I8toI16(dest, src)
+        | Instruction::I8toU16(dest, src)
+        | Instruction::U8toI16(dest, src)
+        | Instruction::U8toU16(dest, src)
+        | Instruction::I16toI32(dest, src)
+        | Instruction::U16toI32(dest, src)
+        | Instruction::I16toU32(dest, src)
+        | Instruction::U16toU32(dest, src)
+        | Instruction::I32toU32(dest, src)
+        | Instruction::I32toU64(dest, src)
+        | Instruction::U32toU64(dest, src)
+        | Instruction::I64toU64(dest, src)
+        | Instruction::I32toI64(dest, src)
+        | Instruction::U32toI64(dest, src)
+        | Instruction::U32toF32(dest, src)
+        | Instruction::I32toF32(dest, src)
+        | Instruction::U64toF32(dest, src)
+        | Instruction::I64toF32(dest, src)
+        | Instruction::U32toF64(dest, src)
+        | Instruction::I32toF64(dest, src)
+        | Instruction::U64toF64(dest, src)
+        | Instruction::I64toF64(dest, src)
+        | Instruction::F32toF64(dest, src)
+        | Instruction::I32toI8(dest, src)
+        | Instruction::U32toI8(dest, src)
+        | Instruction::I64toI8(dest, src)
+        | Instruction::U64toI8(dest, src)
+        | Instruction::I32toU8(dest, src)
+        | Instruction::U32toU8(dest, src)
+        | Instruction::I64toU8(dest, src)
+        | Instruction::U64toU8(dest, src)
+        | Instruction::I64toI32(dest, src)
+        | Instruction::U64toI32(dest, src)
+        | Instruction::U32toPtr(dest, src)
+        | Instruction::I32toPtr(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+
+        Instruction::Nop => {
+            // do nothing
+        }
         Instruction::Break(_) => {}
         Instruction::Continue(_) => {}
         Instruction::EndHandledBlock(_) => {}
-        Instruction::IfEqElse(_, _, _, _) => {}
-        Instruction::IfNotEqElse(_, _, _, _) => {}
+        Instruction::IfEqElse(left_src, right_src, true_instrs, false_instrs) => {
+            // load operands for comparison
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            load_src(left_src, wasm_instrs, function_context, prog_metadata);
+            load_src(right_src, wasm_instrs, function_context, prog_metadata);
+            // test for equality
+            match *src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    wasm_instrs.push(WasmInstruction::I32Eq);
+                }
+                IrType::I64 | IrType::U64 => {
+                    wasm_instrs.push(WasmInstruction::I64Eq);
+                }
+                IrType::F32 => {
+                    wasm_instrs.push(WasmInstruction::F32Eq);
+                }
+                IrType::F64 => {
+                    wasm_instrs.push(WasmInstruction::F64Eq);
+                }
+                t => {
+                    println!("{:?}", t);
+                    todo!("need to binary convert operands to ==");
+                    unreachable!()
+                }
+            }
+
+            function_context
+                .control_flow_stack
+                .push(ControlFlowElement::UnlabelledIf);
+
+            let mut if_instrs = Vec::new();
+            for instr in true_instrs {
+                convert_ir_instr_to_wasm(
+                    instr,
+                    &mut if_instrs,
+                    function_context,
+                    module_context,
+                    prog_metadata,
+                );
+            }
+
+            let mut else_instrs = Vec::new();
+            for instr in false_instrs {
+                convert_ir_instr_to_wasm(
+                    instr,
+                    &mut else_instrs,
+                    function_context,
+                    module_context,
+                    prog_metadata,
+                );
+            }
+
+            wasm_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs,
+                else_instrs,
+            });
+
+            function_context.control_flow_stack.pop();
+        }
+        Instruction::IfNotEqElse(left_src, right_src, true_instrs, false_instrs) => {
+            // load operands for comparison
+            let src_type = left_src.get_type(prog_metadata).unwrap();
+            load_src(left_src, wasm_instrs, function_context, prog_metadata);
+            load_src(right_src, wasm_instrs, function_context, prog_metadata);
+            // test for equality
+            match *src_type {
+                IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+                    wasm_instrs.push(WasmInstruction::I32Ne);
+                }
+                IrType::I64 | IrType::U64 => {
+                    wasm_instrs.push(WasmInstruction::I64Ne);
+                }
+                IrType::F32 => {
+                    wasm_instrs.push(WasmInstruction::F32Ne);
+                }
+                IrType::F64 => {
+                    wasm_instrs.push(WasmInstruction::F64Ne);
+                }
+                t => {
+                    println!("{:?}", t);
+                    todo!("need to binary convert operands to !=");
+                    unreachable!()
+                }
+            }
+
+            function_context
+                .control_flow_stack
+                .push(ControlFlowElement::UnlabelledIf);
+
+            let mut if_instrs = Vec::new();
+            for instr in true_instrs {
+                convert_ir_instr_to_wasm(
+                    instr,
+                    &mut if_instrs,
+                    function_context,
+                    module_context,
+                    prog_metadata,
+                );
+            }
+
+            let mut else_instrs = Vec::new();
+            for instr in false_instrs {
+                convert_ir_instr_to_wasm(
+                    instr,
+                    &mut else_instrs,
+                    function_context,
+                    module_context,
+                    prog_metadata,
+                );
+            }
+
+            wasm_instrs.push(WasmInstruction::IfElse {
+                blocktype: BlockType::None,
+                if_instrs,
+                else_instrs,
+            });
+
+            function_context.control_flow_stack.pop();
+        }
     }
 }
 
