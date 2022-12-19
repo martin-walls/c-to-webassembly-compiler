@@ -1,0 +1,12 @@
+mod code_section;
+mod data_section;
+mod element_section;
+mod exports_section;
+mod functions_section;
+mod globals_section;
+mod imports_section;
+mod memory_section;
+pub mod module;
+mod start_section;
+mod tables_section;
+mod types_section;

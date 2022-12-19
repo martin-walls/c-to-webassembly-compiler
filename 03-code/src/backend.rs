@@ -9,5 +9,5 @@ mod to_bytes;
 mod vector_encoding;
 mod wasm_indices;
 mod wasm_instructions;
-mod wasm_program;
+mod wasm_module;
 mod wasm_types;

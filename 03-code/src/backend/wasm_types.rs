@@ -60,3 +60,27 @@ impl ToBytes for RefType {
         }
     }
 }
+
+pub struct TableType {}
+
+impl ToBytes for TableType {
+    fn to_bytes(&self) -> Vec<u8> {
+        todo!()
+    }
+}
+
+pub struct MemoryType {}
+
+impl ToBytes for MemoryType {
+    fn to_bytes(&self) -> Vec<u8> {
+        todo!()
+    }
+}
+
+pub struct GlobalType {}
+
+impl ToBytes for GlobalType {
+    fn to_bytes(&self) -> Vec<u8> {
+        todo!()
+    }
+}

@@ -11,7 +11,7 @@ use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmInstruction};
-use crate::backend::wasm_program::WasmProgram;
+use crate::backend::wasm_module::module::WasmModule;
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -24,8 +24,8 @@ pub const PTR_SIZE: u32 = 4;
 pub const FRAME_PTR_ADDR: u32 = 0;
 pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
-pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
-    // let mut wasm_program = WasmProgram::new();
+pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
+    let mut wasm_module = WasmModule::new();
 
     let (imported_functions, defined_functions) = separate_imported_and_defined_functions(
         &prog.program_metadata,
@@ -64,7 +64,7 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmProgram {
         }
     }
 
-    todo!("finish implementing target code generation")
+    wasm_module
 }
 
 fn separate_imported_and_defined_functions(
