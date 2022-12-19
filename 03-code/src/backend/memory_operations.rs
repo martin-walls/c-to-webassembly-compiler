@@ -22,7 +22,7 @@ pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::U16 => wasm_instrs.push(WasmInstruction::I32Load16U {
             mem_arg: MemArg::zero(),
         }),
-        IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+        IrType::I32 | IrType::U32 | IrType::PointerTo(_) | IrType::ArrayOf(_, _) => {
             wasm_instrs.push(WasmInstruction::I32Load {
                 mem_arg: MemArg::zero(),
             });
@@ -49,7 +49,8 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::I16 | IrType::U16 => wasm_instrs.push(WasmInstruction::I32Store16 {
             mem_arg: MemArg::zero(),
         }),
-        IrType::I32 | IrType::U32 | IrType::PointerTo(_) => {
+        IrType::I32 | IrType::U32 | IrType::PointerTo(_) | IrType::ArrayOf(_, _) => {
+            // if storing to an 'array' type, it's storing a pointer to the array
             wasm_instrs.push(WasmInstruction::I32Store {
                 mem_arg: MemArg::zero(),
             });
@@ -63,7 +64,9 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Store {
             mem_arg: MemArg::zero(),
         }),
-        _ => unreachable!(),
+        _ => {
+            unreachable!()
+        }
     }
 }
 
