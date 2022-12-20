@@ -1,6 +1,7 @@
 use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::to_bytes::ToBytes;
 use crate::backend::vector_encoding::encode_vector;
+use crate::backend::wasm_module::module::encode_section;
 use crate::backend::wasm_types::ValType;
 
 pub struct TypesSection {
@@ -17,18 +18,9 @@ impl TypesSection {
 
 impl ToBytes for TypesSection {
     fn to_bytes(&self) -> Vec<u8> {
-        // body of section
-        let mut body_bytes = encode_vector(&self.function_types);
+        let body_bytes = encode_vector(&self.function_types);
 
-        let mut bytes = Vec::new();
-        // section code
-        bytes.push(0x01);
-        // section size
-        bytes.append(&mut encode_unsigned_int(body_bytes.len() as u128));
-        // body
-        bytes.append(&mut body_bytes);
-
-        bytes
+        encode_section(0x01, body_bytes)
     }
 }
 

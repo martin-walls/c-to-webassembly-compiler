@@ -49,6 +49,27 @@ impl ToBytes for TableIdx {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MemIdx {
+    x: u32,
+}
+
+impl WasmIdx for MemIdx {
+    fn initial_idx() -> Self {
+        MemIdx { x: 0 }
+    }
+
+    fn next_idx(&self) -> Self {
+        MemIdx { x: self.x + 1 }
+    }
+}
+
+impl ToBytes for MemIdx {
+    fn to_bytes(&self) -> Vec<u8> {
+        encode_unsigned_int(self.x as u128)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ElemIdx {
     x: u32,
 }

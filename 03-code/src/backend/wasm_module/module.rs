@@ -1,3 +1,4 @@
+use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::wasm_indices::TypeIdx;
 use crate::backend::wasm_instructions::WasmExpression;
 use crate::backend::wasm_module::code_section::CodeSection;
@@ -49,4 +50,15 @@ pub struct WasmFunction {
     type_idx: TypeIdx,
     local_declarations: Vec<ValType>,
     body: WasmExpression,
+}
+
+pub fn encode_section(section_code: u8, mut body: Vec<u8>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    // section code
+    bytes.push(section_code);
+    // section size
+    bytes.append(&mut encode_unsigned_int(body.len() as u128));
+    // body
+    bytes.append(&mut body);
+    bytes
 }
