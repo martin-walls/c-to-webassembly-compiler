@@ -72,6 +72,12 @@ impl ToBytes for WasmModule {
 
 pub fn encode_section(section_code: u8, mut body: Vec<u8>) -> Vec<u8> {
     let mut bytes = Vec::new();
+
+    // don't need to output anything for empty section
+    if body.len() == 0 {
+        return bytes;
+    }
+
     // section code
     bytes.push(section_code);
     // section size

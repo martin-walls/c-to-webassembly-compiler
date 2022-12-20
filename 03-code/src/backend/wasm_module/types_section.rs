@@ -25,8 +25,8 @@ impl ToBytes for TypesSection {
 }
 
 pub struct WasmFunctionType {
-    param_types: Vec<ValType>,
-    result_types: Vec<ValType>,
+    pub param_types: Vec<ValType>,
+    pub result_types: Vec<ValType>,
 }
 
 impl ToBytes for WasmFunctionType {

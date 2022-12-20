@@ -10,8 +10,11 @@ use crate::backend::stack_frame_operations::{
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
+use crate::backend::wasm_indices::FuncIdx;
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmInstruction};
 use crate::backend::wasm_module::module::WasmModule;
+use crate::backend::wasm_module::types_section::WasmFunctionType;
+use crate::backend::wasm_types::{NumType, ValType};
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -36,7 +39,15 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
 
     module_context.calculate_func_idxs(&imported_functions, &defined_functions);
 
+    let mut function_types_by_func_idx: HashMap<FuncIdx, WasmFunctionType> = HashMap::new();
+
     for (fun_id, function) in defined_functions {
+        let wasm_func_idx = module_context.fun_id_to_func_idx_map.get(&fun_id).unwrap();
+
+        // function type
+        let wasm_function_type = convert_function_type_to_wasm(&function.type_info);
+        function_types_by_func_idx.insert(wasm_func_idx.to_owned(), wasm_function_type);
+
         if let Some(block) = function.block {
             let mut function_wasm_instrs = Vec::new();
 
@@ -61,6 +72,8 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
             // println!("{:#?}", function_wasm_instrs);
 
             // todo attach function to module
+        } else {
+            // empty function body
         }
     }
 
@@ -104,6 +117,62 @@ fn separate_imported_and_defined_functions(
     }
 
     (imported_functions, defined_functions)
+}
+
+fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
+    let (fun_return_type, fun_param_types) = match &**ir_type {
+        IrType::Function(return_type, param_types, _) => (return_type, param_types),
+        _ => unreachable!(),
+    };
+
+    let mut param_types = Vec::new();
+
+    for fun_param_type in fun_param_types {
+        match **fun_param_type {
+            IrType::I8
+            | IrType::U8
+            | IrType::I16
+            | IrType::U16
+            | IrType::I32
+            | IrType::U32
+            | IrType::PointerTo(_)
+            | IrType::ArrayOf(_, _)
+            | IrType::Struct(_)
+            | IrType::Union(_) => param_types.push(ValType::NumType(NumType::I32)),
+            IrType::I64 | IrType::U64 => param_types.push(ValType::NumType(NumType::I64)),
+            IrType::F32 => param_types.push(ValType::NumType(NumType::F32)),
+            IrType::F64 => param_types.push(ValType::NumType(NumType::F64)),
+            _ => {
+                unreachable!()
+            }
+        }
+    }
+
+    let mut result_types = Vec::new();
+    match **fun_return_type {
+        IrType::I8
+        | IrType::U8
+        | IrType::I16
+        | IrType::U16
+        | IrType::I32
+        | IrType::U32
+        | IrType::PointerTo(_)
+        | IrType::ArrayOf(_, _)
+        | IrType::Struct(_)
+        | IrType::Union(_) => result_types.push(ValType::NumType(NumType::I32)),
+        IrType::I64 | IrType::U64 => result_types.push(ValType::NumType(NumType::I64)),
+        IrType::F32 => result_types.push(ValType::NumType(NumType::F32)),
+        IrType::F64 => result_types.push(ValType::NumType(NumType::F64)),
+        IrType::Void => {}
+        _ => {
+            unreachable!()
+        }
+    }
+
+    WasmFunctionType {
+        param_types,
+        result_types,
+    }
 }
 
 fn convert_block_to_wasm(
