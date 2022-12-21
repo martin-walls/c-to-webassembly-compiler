@@ -4,7 +4,7 @@ use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::{Block, Label, LoopBlockId, MultipleBlockId};
 use crate::relooper::soupify::soupify;
-use log::{error, info, trace};
+use log::{error, info};
 use std::collections::{HashMap, HashSet};
 
 pub type Labels = HashMap<LabelId, Label>;
@@ -131,7 +131,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
         let block = create_block_from_labels(labels, vec![entry], &mut context);
         match block {
             Some(block) => {
-                trace!("Created block for global instructions:\n{}", block);
+                info!("Created block for global instructions:\n{}", block);
                 assert_no_branch_instrs_left(&block);
                 program_blocks.global_instrs = Some(block);
             }

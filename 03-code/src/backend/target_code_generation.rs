@@ -17,7 +17,7 @@ use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{Limits, MemoryType, NumType, ValType};
-use crate::middle_end::ids::{FunId, Id, LabelId};
+use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
@@ -98,6 +98,46 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
             );
         }
     }
+
+    if let Some(global_block) = prog.program_blocks.global_instrs {
+        // create a wasm function for the global instructions
+        let mut global_wasm_instrs = Vec::new();
+        let global_instrs_func_idx = module_context.new_defined_func_idx();
+
+        func_idx_to_type_idx_map
+            .insert(global_instrs_func_idx.to_owned(), empty_type_idx.to_owned());
+
+        let var_offsets = allocate_local_vars(
+            &global_block,
+            &mut global_wasm_instrs,
+            Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)), // global instructions have a void function type
+            Vec::new(),                                                            // no parameters
+            &prog.program_metadata,
+        );
+
+        let mut function_context = FunctionContext::new(
+            var_offsets,
+            VarId::initial_id(), // global instructions don't have any control flow, so just put a dummy var here
+        );
+
+        global_wasm_instrs.append(&mut convert_block_to_wasm(
+            global_block,
+            &mut function_context,
+            &module_context,
+            &prog.program_metadata,
+        ));
+
+        func_idx_to_body_code_map.insert(
+            global_instrs_func_idx.to_owned(),
+            WasmExpression {
+                instrs: global_wasm_instrs,
+            },
+        );
+
+        // run global instructions on initialisation
+        wasm_module.start_section.start_func_idx = Some(global_instrs_func_idx);
+    }
+
     wasm_module.insert_defined_functions(
         func_idx_to_body_code_map,
         func_idx_to_type_idx_map,
@@ -121,8 +161,6 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
         imported_func_idx_to_name_map,
         &module_context,
     );
-
-    // todo create function for global instrs, and set start section to is
 
     // todo export main function, and handle params
 

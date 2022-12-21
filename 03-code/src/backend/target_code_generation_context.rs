@@ -1,4 +1,4 @@
-use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
+use crate::backend::wasm_indices::{FuncIdx, WasmIdx, WasmIdxGenerator};
 use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
@@ -16,12 +16,19 @@ pub struct ModuleContext {
 impl ModuleContext {
     pub fn new() -> Self {
         ModuleContext {
-            fun_id_to_func_idx_map: HashMap::new(), // todo we need to calculate these before we convert the instrs
+            fun_id_to_func_idx_map: HashMap::new(),
             func_idx_to_fun_id_map: HashMap::new(),
             imported_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             defined_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             string_literal_id_to_ptr_map: HashMap::new(),
         }
+    }
+
+    pub fn new_defined_func_idx(&mut self) -> FuncIdx {
+        let new_func_idx = self.defined_func_idx_range.1.to_owned();
+        let new_max_func_idx = new_func_idx.next_idx();
+        self.defined_func_idx_range.1 = new_max_func_idx.to_owned();
+        new_func_idx
     }
 
     pub fn calculate_func_idxs(

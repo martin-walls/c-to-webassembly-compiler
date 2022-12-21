@@ -3,7 +3,7 @@ use crate::backend::wasm_indices::FuncIdx;
 use crate::backend::wasm_module::module::encode_section;
 
 pub struct StartSection {
-    start_func_idx: Option<FuncIdx>,
+    pub start_func_idx: Option<FuncIdx>,
 }
 
 impl StartSection {
