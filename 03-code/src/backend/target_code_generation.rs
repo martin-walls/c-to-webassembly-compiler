@@ -104,7 +104,23 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
         &module_context,
     );
 
-    // todo insert imported functions to module
+    let mut imported_func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx> = HashMap::new();
+    let mut imported_func_idx_to_name_map: HashMap<FuncIdx, String> = HashMap::new();
+
+    for (fun_id, fun_name, _) in imported_functions {
+        let wasm_func_idx = module_context.fun_id_to_func_idx_map.get(&fun_id).unwrap();
+
+        // imported functions also have the empty type, cos they obey the same calling convention
+        imported_func_idx_to_type_idx_map
+            .insert(wasm_func_idx.to_owned(), empty_type_idx.to_owned());
+
+        imported_func_idx_to_name_map.insert(wasm_func_idx.to_owned(), fun_name);
+    }
+    wasm_module.insert_imported_functions(
+        imported_func_idx_to_type_idx_map,
+        imported_func_idx_to_name_map,
+        &module_context,
+    );
 
     // todo create function for global instrs, and set start section to is
 

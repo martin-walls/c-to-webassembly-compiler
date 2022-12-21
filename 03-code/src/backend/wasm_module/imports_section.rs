@@ -6,7 +6,7 @@ use crate::backend::wasm_module::module::encode_section;
 use crate::backend::wasm_types::{GlobalType, MemoryType, TableType};
 
 pub struct ImportsSection {
-    imports: Vec<WasmImport>,
+    pub imports: Vec<WasmImport>,
 }
 
 impl ImportsSection {
@@ -26,9 +26,9 @@ impl ToBytes for ImportsSection {
 }
 
 pub struct WasmImport {
-    module_name: String,
-    field_name: String,
-    import_descriptor: ImportDescriptor,
+    pub module_name: String,
+    pub field_name: String,
+    pub import_descriptor: ImportDescriptor,
 }
 
 impl ToBytes for WasmImport {

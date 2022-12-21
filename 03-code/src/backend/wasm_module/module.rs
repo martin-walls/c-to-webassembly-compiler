@@ -9,14 +9,17 @@ use crate::backend::wasm_module::element_section::ElementSection;
 use crate::backend::wasm_module::exports_section::ExportsSection;
 use crate::backend::wasm_module::functions_section::FunctionsSection;
 use crate::backend::wasm_module::globals_section::GlobalsSection;
-use crate::backend::wasm_module::imports_section::ImportsSection;
+use crate::backend::wasm_module::imports_section::{ImportDescriptor, ImportsSection, WasmImport};
 use crate::backend::wasm_module::memory_section::MemorySection;
 use crate::backend::wasm_module::start_section::StartSection;
 use crate::backend::wasm_module::tables_section::TablesSection;
 use crate::backend::wasm_module::types_section::{TypesSection, WasmFunctionType};
 use crate::backend::wasm_types::ValType;
+use crate::relooper::relooper::ReloopedFunction;
 use log::info;
 use std::collections::HashMap;
+
+const IMPORTS_MODULE_NAME: &str = "wasm_stdlib";
 
 pub struct WasmModule {
     pub types_section: TypesSection,
@@ -69,7 +72,6 @@ impl WasmModule {
             }
             match func_idx_to_type_idx_map.remove(&func_idx) {
                 None => {
-                    // reached the end of the functions
                     break;
                 }
                 Some(type_idx) => {
@@ -90,6 +92,40 @@ impl WasmModule {
         // because we remove each entry as we process it, the maps should be empty at the end
         assert!(func_idx_to_type_idx_map.is_empty());
         assert!(func_idx_to_body_code_map.is_empty());
+    }
+
+    pub fn insert_imported_functions(
+        &mut self,
+        mut imported_func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx>,
+        mut imported_func_idx_to_name_map: HashMap<FuncIdx, String>,
+        module_context: &ModuleContext,
+    ) {
+        let mut func_idx = module_context.imported_func_idx_range.0.to_owned();
+        loop {
+            if func_idx == module_context.imported_func_idx_range.1 {
+                break;
+            }
+            match imported_func_idx_to_type_idx_map.remove(&func_idx) {
+                None => break,
+                Some(type_idx) => {
+                    let name = imported_func_idx_to_name_map.remove(&func_idx).unwrap();
+                    info!("importing function {:?} ({}) to module", func_idx, name);
+
+                    let import = WasmImport {
+                        module_name: IMPORTS_MODULE_NAME.to_owned(),
+                        field_name: name,
+                        import_descriptor: ImportDescriptor::Func {
+                            func_type_idx: type_idx,
+                        },
+                    };
+                    self.imports_section.imports.push(import);
+                }
+            }
+            func_idx = func_idx.next_idx();
+        }
+        // because we remove each entry as we process it, the maps should be empty at the end
+        assert!(imported_func_idx_to_type_idx_map.is_empty());
+        assert!(imported_func_idx_to_name_map.is_empty());
     }
 }
 
