@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 pub struct ModuleContext {
     pub fun_id_to_func_idx_map: HashMap<FunId, FuncIdx>,
-    pub func_idx_to_fun_id_map: HashMap<FuncIdx, FunId>,
     // (inclusive, exclusive)
     pub imported_func_idx_range: (FuncIdx, FuncIdx),
     pub defined_func_idx_range: (FuncIdx, FuncIdx),
@@ -17,7 +16,7 @@ impl ModuleContext {
     pub fn new() -> Self {
         ModuleContext {
             fun_id_to_func_idx_map: HashMap::new(),
-            func_idx_to_fun_id_map: HashMap::new(),
+            // func_idx_to_fun_id_map: HashMap::new(),
             imported_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             defined_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             string_literal_id_to_ptr_map: HashMap::new(),
@@ -42,8 +41,6 @@ impl ModuleContext {
         for (imported_fun_id, _, _) in imported_functions {
             self.fun_id_to_func_idx_map
                 .insert(imported_fun_id.to_owned(), func_idx.to_owned());
-            self.func_idx_to_fun_id_map
-                .insert(func_idx.to_owned(), imported_fun_id.to_owned());
             func_idx = func_idx.next_idx();
         }
         self.imported_func_idx_range = (imported_funcs_start_idx, func_idx.to_owned());
@@ -52,8 +49,6 @@ impl ModuleContext {
         for (defined_fun_id, _) in defined_functions {
             self.fun_id_to_func_idx_map
                 .insert(defined_fun_id.to_owned(), func_idx.to_owned());
-            self.func_idx_to_fun_id_map
-                .insert(func_idx.to_owned(), defined_fun_id.to_owned());
             func_idx = func_idx.next_idx();
         }
         self.defined_func_idx_range = (defined_funcs_start_idx, func_idx.to_owned());
