@@ -10,7 +10,7 @@ use crate::backend::stack_frame_operations::{
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::{FuncIdx, TypeIdx};
+use crate::backend::wasm_indices::{FuncIdx, LabelIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
@@ -90,7 +90,11 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
             );
         }
     }
-    wasm_module.insert_functions(func_idx_to_body_code_map, func_idx_to_type_idx_map);
+    wasm_module.insert_defined_functions(
+        func_idx_to_body_code_map,
+        func_idx_to_type_idx_map,
+        &module_context,
+    );
 
     // todo insert imported functions to module
 
@@ -239,8 +243,12 @@ fn convert_block_to_wasm(
             function_context
                 .control_flow_stack
                 .push(ControlFlowElement::Loop(id));
-            let loop_instrs =
+            let mut loop_instrs =
                 convert_block_to_wasm(inner, function_context, module_context, prog_metadata);
+            // explicit branch back to the start of the loop
+            loop_instrs.push(WasmInstruction::Br {
+                label_idx: LabelIdx { l: 0 },
+            });
             wasm_instrs.push(WasmInstruction::Block {
                 blocktype: BlockType::None,
                 instrs: vec![WasmInstruction::Loop {
@@ -1316,7 +1324,6 @@ fn convert_ir_instr_to_wasm(
                 }
                 t => {
                     println!("{:?}", t);
-                    todo!("need to binary convert operands to ==");
                     unreachable!()
                 }
             }
@@ -1360,7 +1367,6 @@ fn convert_ir_instr_to_wasm(
                 }
                 t => {
                     println!("{:?}", t);
-                    todo!("need to binary convert operands to !=");
                     unreachable!()
                 }
             }
@@ -1484,14 +1490,28 @@ fn convert_ir_instr_to_wasm(
         Instruction::Nop => {
             // do nothing
         }
-        Instruction::Break(_) => {
-            todo!("break")
+        Instruction::Break(loop_block_id) => {
+            // get depth of block to br out of
+            let depth = function_context.get_depth_of_block(&loop_block_id).unwrap();
+            wasm_instrs.push(WasmInstruction::Br {
+                label_idx: LabelIdx { l: depth },
+            });
         }
-        Instruction::Continue(_) => {
-            todo!("continue")
+        Instruction::Continue(loop_block_id) => {
+            // get depth of loop to br to start of
+            let depth = function_context.get_depth_of_loop(&loop_block_id).unwrap();
+            wasm_instrs.push(WasmInstruction::Br {
+                label_idx: LabelIdx { l: depth },
+            });
         }
-        Instruction::EndHandledBlock(_) => {
-            todo!("end handled block")
+        Instruction::EndHandledBlock(multiple_block_id) => {
+            // get depth of if to br out of
+            let depth = function_context
+                .get_depth_of_if(&multiple_block_id)
+                .unwrap();
+            wasm_instrs.push(WasmInstruction::Br {
+                label_idx: LabelIdx { l: depth },
+            });
         }
         Instruction::IfEqElse(left_src, right_src, true_instrs, false_instrs) => {
             // load operands for comparison
@@ -1521,7 +1541,6 @@ fn convert_ir_instr_to_wasm(
                 }
                 t => {
                     println!("{:?}", t);
-                    todo!("need to binary convert operands to ==");
                     unreachable!()
                 }
             }
@@ -1588,7 +1607,6 @@ fn convert_ir_instr_to_wasm(
                 }
                 t => {
                     println!("{:?}", t);
-                    todo!("need to binary convert operands to !=");
                     unreachable!()
                 }
             }

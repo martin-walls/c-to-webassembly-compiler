@@ -1,4 +1,5 @@
 use crate::backend::integer_encoding::encode_unsigned_int;
+use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::to_bytes::ToBytes;
 use crate::backend::wasm_indices::{FuncIdx, TypeIdx, WasmIdx, WasmIdxGenerator};
 use crate::backend::wasm_instructions::WasmExpression;
@@ -54,13 +55,17 @@ impl WasmModule {
         self.type_idx_generator.new_idx()
     }
 
-    pub fn insert_functions(
+    pub fn insert_defined_functions(
         &mut self,
         mut func_idx_to_body_code_map: HashMap<FuncIdx, WasmExpression>,
         mut func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx>,
+        module_context: &ModuleContext,
     ) {
-        let mut func_idx = FuncIdx::initial_idx();
+        let mut func_idx = module_context.defined_func_idx_range.0.to_owned();
         loop {
+            if func_idx == module_context.defined_func_idx_range.1 {
+                break;
+            }
             match func_idx_to_type_idx_map.remove(&func_idx) {
                 None => {
                     // reached the end of the functions

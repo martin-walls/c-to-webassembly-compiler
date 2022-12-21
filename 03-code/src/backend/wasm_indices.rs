@@ -196,18 +196,18 @@ impl ToBytes for GlobalIdx {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LabelIdx {
-    l: u32,
+    pub l: u32,
 }
 
-impl WasmIdx for LabelIdx {
-    fn initial_idx() -> Self {
-        LabelIdx { l: 0 }
-    }
-
-    fn next_idx(&self) -> Self {
-        LabelIdx { l: self.l + 1 }
-    }
-}
+// impl WasmIdx for LabelIdx {
+//     fn initial_idx() -> Self {
+//         LabelIdx { l: 0 }
+//     }
+//
+//     fn next_idx(&self) -> Self {
+//         LabelIdx { l: self.l + 1 }
+//     }
+// }
 
 impl ToBytes for LabelIdx {
     fn to_bytes(&self) -> Vec<u8> {
