@@ -6,7 +6,7 @@ use crate::backend::wasm_instructions::WasmExpression;
 use crate::backend::wasm_module::module::encode_section;
 
 pub struct DataSection {
-    data_segments: Vec<DataSegment>,
+    pub data_segments: Vec<DataSegment>,
 }
 
 impl DataSection {
@@ -26,14 +26,14 @@ impl ToBytes for DataSection {
 }
 
 pub enum DataSegment {
-    ActiveSegmentIndexZero {
+    ActiveSegmentMemIndexZero {
         offset_expr: WasmExpression,
         data: Vec<u8>,
     },
     PassiveSegment {
         data: Vec<u8>,
     },
-    ActiveSegmentExplicitIndex {
+    ActiveSegmentExplicitMemIndex {
         memory_idx: MemIdx,
         offset_expr: WasmExpression,
         data: Vec<u8>,
@@ -43,7 +43,7 @@ pub enum DataSegment {
 impl ToBytes for DataSegment {
     fn to_bytes(&self) -> Vec<u8> {
         match self {
-            DataSegment::ActiveSegmentIndexZero { offset_expr, data } => {
+            DataSegment::ActiveSegmentMemIndexZero { offset_expr, data } => {
                 let mut bytes = encode_unsigned_int(0);
                 bytes.append(&mut offset_expr.to_bytes());
                 bytes.append(&mut data.clone());
@@ -54,7 +54,7 @@ impl ToBytes for DataSegment {
                 bytes.append(&mut data.clone());
                 bytes
             }
-            DataSegment::ActiveSegmentExplicitIndex {
+            DataSegment::ActiveSegmentExplicitMemIndex {
                 memory_idx,
                 offset_expr,
                 data,

@@ -15,6 +15,7 @@ use crate::backend::wasm_module::start_section::StartSection;
 use crate::backend::wasm_module::tables_section::TablesSection;
 use crate::backend::wasm_module::types_section::{TypesSection, WasmFunctionType};
 use crate::backend::wasm_types::ValType;
+use log::info;
 use std::collections::HashMap;
 
 pub struct WasmModule {
@@ -72,6 +73,7 @@ impl WasmModule {
                     break;
                 }
                 Some(type_idx) => {
+                    info!("adding function {:?} to module", func_idx);
                     let body_code = func_idx_to_body_code_map.remove(&func_idx).unwrap();
                     self.functions_section.function_type_idxs.push(type_idx);
 

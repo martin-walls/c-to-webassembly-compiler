@@ -1,5 +1,5 @@
 use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
-use crate::middle_end::ids::{FunId, VarId};
+use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
 use std::collections::HashMap;
@@ -10,6 +10,7 @@ pub struct ModuleContext {
     // (inclusive, exclusive)
     pub imported_func_idx_range: (FuncIdx, FuncIdx),
     pub defined_func_idx_range: (FuncIdx, FuncIdx),
+    pub string_literal_id_to_ptr_map: HashMap<StringLiteralId, u32>,
 }
 
 impl ModuleContext {
@@ -19,6 +20,7 @@ impl ModuleContext {
             func_idx_to_fun_id_map: HashMap::new(),
             imported_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             defined_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
+            string_literal_id_to_ptr_map: HashMap::new(),
         }
     }
 

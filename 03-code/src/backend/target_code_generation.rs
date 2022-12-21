@@ -1,3 +1,4 @@
+use log::info;
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
@@ -12,6 +13,7 @@ use crate::backend::target_code_generation_context::{
 };
 use crate::backend::wasm_indices::{FuncIdx, LabelIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
+use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
@@ -38,6 +40,12 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
     let mut module_context = ModuleContext::new();
 
     module_context.calculate_func_idxs(&imported_functions, &defined_functions);
+
+    initialise_memory(
+        &mut wasm_module,
+        &mut module_context,
+        &prog.program_metadata,
+    );
 
     // insert empty function type to module
     let empty_type = WasmFunctionType {
@@ -98,8 +106,6 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
 
     // todo insert imported functions to module
 
-    // todo insert string literals into data section, and initialise frame+stack ptrs
-
     // todo create function for global instrs, and set start section to is
 
     // todo export main function, and handle params
@@ -146,6 +152,59 @@ fn separate_imported_and_defined_functions(
     }
 
     (imported_functions, defined_functions)
+}
+
+fn initialise_memory(
+    wasm_module: &mut WasmModule,
+    module_context: &mut ModuleContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    // ------------------------------------------------
+    // | FP | SP | String literals | ...stack frames...
+    // ------------------------------------------------
+    let mut data: Vec<u8> = Vec::new();
+    // temp placeholder values for frame ptr and stack ptr
+    for _ in 0..2 {
+        // for each ptr
+        for _ in 0..PTR_SIZE {
+            // allocate PTR_SIZE bytes
+            data.push(0x00);
+        }
+    }
+
+    // store string literals in memory
+    for (string_literal_id, string) in &prog_metadata.string_literals {
+        // store the pointer to the string
+        let ptr_to_string = data.len();
+        info!(
+            "Storing string literal {:?} at addr {}",
+            string, ptr_to_string
+        );
+        module_context
+            .string_literal_id_to_ptr_map
+            .insert(string_literal_id.to_owned(), ptr_to_string as u32);
+        // insert the string
+        data.append(&mut string.as_bytes().to_vec());
+        // null terminate the string
+        data.push(0x00);
+    }
+
+    // set stack ptr to point at top of stack
+    let stack_ptr_value = data.len();
+    info!("Setting stack ptr to {}", stack_ptr_value);
+    data[PTR_SIZE as usize] = (stack_ptr_value & 0xFF) as u8;
+    data[(PTR_SIZE + 1) as usize] = ((stack_ptr_value >> 8) & 0xFF) as u8;
+    data[(PTR_SIZE + 2) as usize] = ((stack_ptr_value >> 16) & 0xFF) as u8;
+    data[(PTR_SIZE + 3) as usize] = ((stack_ptr_value >> 24) & 0xFF) as u8;
+
+    // insert data segment to module
+    let data_segment = DataSegment::ActiveSegmentMemIndexZero {
+        offset_expr: WasmExpression {
+            instrs: vec![WasmInstruction::I32Const { n: 0 }],
+        },
+        data,
+    };
+    wasm_module.data_section.data_segments.push(data_segment);
 }
 
 // fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
@@ -1439,7 +1498,20 @@ fn convert_ir_instr_to_wasm(
             unreachable!("Br instructions have all been replaced by this point")
         }
         Instruction::PointerToStringLiteral(dest, str_literal_id) => {
-            todo!("pointer to string literal")
+            let ptr_value = module_context
+                .string_literal_id_to_ptr_map
+                .get(&str_literal_id)
+                .unwrap();
+            let temp_instrs = vec![WasmInstruction::I32Const {
+                n: ptr_value.to_owned() as i32,
+            }];
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
         }
         Instruction::I8toI16(dest, src)
         | Instruction::I8toU16(dest, src)
