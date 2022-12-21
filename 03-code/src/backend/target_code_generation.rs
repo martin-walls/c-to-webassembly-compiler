@@ -16,7 +16,7 @@ use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmI
 use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
-use crate::backend::wasm_types::{NumType, ValType};
+use crate::backend::wasm_types::{Limits, MemoryType, NumType, ValType};
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -109,8 +109,6 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
     // todo create function for global instrs, and set start section to is
 
     // todo export main function, and handle params
-
-    // todo declare memory
 
     wasm_module
 }
@@ -205,6 +203,11 @@ fn initialise_memory(
         data,
     };
     wasm_module.data_section.data_segments.push(data_segment);
+
+    // declare memory, with min 1 page, no max
+    wasm_module.memory_section.memory_types.push(MemoryType {
+        limits: Limits { min: 1, max: None },
+    });
 }
 
 // fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {

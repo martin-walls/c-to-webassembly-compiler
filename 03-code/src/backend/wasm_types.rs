@@ -1,3 +1,4 @@
+use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::to_bytes::ToBytes;
 
 #[derive(Debug)]
@@ -61,26 +62,65 @@ impl ToBytes for RefType {
     }
 }
 
-pub struct TableType {}
+pub struct TableType {
+    pub element_ref_type: RefType,
+    pub limits: Limits,
+}
 
 impl ToBytes for TableType {
     fn to_bytes(&self) -> Vec<u8> {
-        todo!()
+        let mut bytes = self.element_ref_type.to_bytes();
+        bytes.append(&mut self.limits.to_bytes());
+        bytes
     }
 }
 
-pub struct MemoryType {}
+pub struct MemoryType {
+    /// Memory limits in units of page size
+    pub limits: Limits,
+}
 
 impl ToBytes for MemoryType {
     fn to_bytes(&self) -> Vec<u8> {
-        todo!()
+        self.limits.to_bytes()
     }
 }
 
-pub struct GlobalType {}
+pub struct GlobalType {
+    pub value_type: ValType,
+    pub is_mutable: bool,
+}
 
 impl ToBytes for GlobalType {
     fn to_bytes(&self) -> Vec<u8> {
-        todo!()
+        let mut bytes = self.value_type.to_bytes();
+        match self.is_mutable {
+            false => bytes.push(0x00),
+            true => bytes.push(0x01),
+        }
+        bytes
+    }
+}
+
+pub struct Limits {
+    pub min: u32,
+    pub max: Option<u32>,
+}
+
+impl ToBytes for Limits {
+    fn to_bytes(&self) -> Vec<u8> {
+        match self.max {
+            None => {
+                let mut bytes = vec![0x00];
+                bytes.append(&mut encode_unsigned_int(self.min as u128));
+                bytes
+            }
+            Some(max) => {
+                let mut bytes = vec![0x01];
+                bytes.append(&mut encode_unsigned_int(self.min as u128));
+                bytes.append(&mut encode_unsigned_int(max as u128));
+                bytes
+            }
+        }
     }
 }

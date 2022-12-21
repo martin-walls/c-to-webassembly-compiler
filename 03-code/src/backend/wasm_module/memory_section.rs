@@ -5,7 +5,7 @@ use crate::backend::wasm_module::module::encode_section;
 use crate::backend::wasm_types::MemoryType;
 
 pub struct MemorySection {
-    memory_types: Vec<MemoryType>,
+    pub memory_types: Vec<MemoryType>,
 }
 
 impl MemorySection {
