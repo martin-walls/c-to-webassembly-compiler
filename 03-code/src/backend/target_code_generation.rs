@@ -3,6 +3,7 @@ use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
 use crate::backend::allocate_local_vars::allocate_local_vars;
+use crate::backend::backend_error::BackendError;
 use crate::backend::memory_operations::{load, load_src, load_var, store, store_var};
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
@@ -14,6 +15,7 @@ use crate::backend::target_code_generation_context::{
 use crate::backend::wasm_indices::{FuncIdx, LabelIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::data_section::DataSegment;
+use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{Limits, MemoryType, NumType, ValType};
@@ -29,7 +31,9 @@ pub const PTR_SIZE: u32 = 4;
 pub const FRAME_PTR_ADDR: u32 = 0;
 pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
-pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
+pub const MAIN_FUNCTION_NAME: &str = "main";
+
+pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
 
     let (imported_functions, defined_functions) = separate_imported_and_defined_functions(
@@ -162,9 +166,38 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
         &module_context,
     );
 
-    // todo export main function, and handle params
+    match prog.program_metadata.function_ids.get(MAIN_FUNCTION_NAME) {
+        None => {
+            // error: main function must be defined
+            return Err(BackendError::NoMainFunctionDefined);
+        }
+        Some(main_fun_id) => {
+            let main_func_idx = module_context
+                .fun_id_to_func_idx_map
+                .get(main_fun_id)
+                .unwrap();
+            info!(
+                "exporting function {:?} ({}) (main) from module",
+                main_func_idx, main_fun_id
+            );
 
-    wasm_module
+            let main_export = WasmExport {
+                name: MAIN_FUNCTION_NAME.to_owned(),
+                export_descriptor: ExportDescriptor::Func {
+                    func_idx: main_func_idx.to_owned(),
+                },
+            };
+
+            wasm_module.exports_section.exports.push(main_export);
+        }
+    }
+
+    // todo handle params for MAIN
+
+    // todo don't put global fun as start function, instead have it call MAIN at the end, and export
+    //      it as the main function
+
+    Ok(wasm_module)
 }
 
 fn separate_imported_and_defined_functions(

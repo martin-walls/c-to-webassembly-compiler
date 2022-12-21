@@ -1,4 +1,5 @@
 mod allocate_local_vars;
+mod backend_error;
 mod float_encoding;
 mod integer_encoding;
 mod memory_operations;

@@ -5,7 +5,7 @@ use crate::backend::wasm_indices::{FuncIdx, GlobalIdx, MemIdx, TableIdx};
 use crate::backend::wasm_module::module::encode_section;
 
 pub struct ExportsSection {
-    exports: Vec<WasmExport>,
+    pub exports: Vec<WasmExport>,
 }
 
 impl ExportsSection {
@@ -25,8 +25,8 @@ impl ToBytes for ExportsSection {
 }
 
 pub struct WasmExport {
-    name: String,
-    export_descriptor: ExportDescriptor,
+    pub name: String,
+    pub export_descriptor: ExportDescriptor,
 }
 
 impl ToBytes for WasmExport {
