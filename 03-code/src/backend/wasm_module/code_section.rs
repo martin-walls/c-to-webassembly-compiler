@@ -6,7 +6,7 @@ use crate::backend::wasm_module::module::encode_section;
 use crate::backend::wasm_types::ValType;
 
 pub struct CodeSection {
-    function_bodies: Vec<WasmFunctionCode>,
+    pub function_bodies: Vec<WasmFunctionCode>,
 }
 
 impl CodeSection {
@@ -26,8 +26,8 @@ impl ToBytes for CodeSection {
 }
 
 pub struct WasmFunctionCode {
-    local_declarations: Vec<LocalDeclaration>,
-    function_body: WasmExpression,
+    pub local_declarations: Vec<LocalDeclaration>,
+    pub function_body: WasmExpression,
 }
 
 impl ToBytes for WasmFunctionCode {
@@ -45,8 +45,8 @@ impl ToBytes for WasmFunctionCode {
 }
 
 pub struct LocalDeclaration {
-    count: u32,
-    value_type: ValType,
+    pub count: u32,
+    pub value_type: ValType,
 }
 
 impl ToBytes for LocalDeclaration {

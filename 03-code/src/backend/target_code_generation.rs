@@ -10,8 +10,8 @@ use crate::backend::stack_frame_operations::{
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::FuncIdx;
-use crate::backend::wasm_instructions::{BlockType, MemArg, WasmInstruction};
+use crate::backend::wasm_indices::{FuncIdx, TypeIdx};
+use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
@@ -39,14 +39,21 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
 
     module_context.calculate_func_idxs(&imported_functions, &defined_functions);
 
-    let mut function_types_by_func_idx: HashMap<FuncIdx, WasmFunctionType> = HashMap::new();
+    // insert empty function type to module
+    let empty_type = WasmFunctionType {
+        param_types: Vec::new(),
+        result_types: Vec::new(),
+    };
+    let empty_type_idx = wasm_module.insert_type(empty_type);
+
+    let mut func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx> = HashMap::new();
+    let mut func_idx_to_body_code_map: HashMap<FuncIdx, WasmExpression> = HashMap::new();
 
     for (fun_id, function) in defined_functions {
         let wasm_func_idx = module_context.fun_id_to_func_idx_map.get(&fun_id).unwrap();
 
-        // function type
-        let wasm_function_type = convert_function_type_to_wasm(&function.type_info);
-        function_types_by_func_idx.insert(wasm_func_idx.to_owned(), wasm_function_type);
+        // all functions have empty type, because params/result are stored in stack frame
+        func_idx_to_type_idx_map.insert(wasm_func_idx.to_owned(), empty_type_idx.to_owned());
 
         if let Some(block) = function.block {
             let mut function_wasm_instrs = Vec::new();
@@ -69,13 +76,31 @@ pub fn generate_target_code(prog: ReloopedProgram) -> WasmModule {
                 &prog.program_metadata,
             ));
 
-            // println!("{:#?}", function_wasm_instrs);
-
-            // todo attach function to module
+            func_idx_to_body_code_map.insert(
+                wasm_func_idx.to_owned(),
+                WasmExpression {
+                    instrs: function_wasm_instrs,
+                },
+            );
         } else {
             // empty function body
+            func_idx_to_body_code_map.insert(
+                wasm_func_idx.to_owned(),
+                WasmExpression { instrs: Vec::new() },
+            );
         }
     }
+    wasm_module.insert_functions(func_idx_to_body_code_map, func_idx_to_type_idx_map);
+
+    // todo insert imported functions to module
+
+    // todo insert string literals into data section, and initialise frame+stack ptrs
+
+    // todo create function for global instrs, and set start section to is
+
+    // todo export main function, and handle params
+
+    // todo declare memory
 
     wasm_module
 }
@@ -119,61 +144,61 @@ fn separate_imported_and_defined_functions(
     (imported_functions, defined_functions)
 }
 
-fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
-    let (fun_return_type, fun_param_types) = match &**ir_type {
-        IrType::Function(return_type, param_types, _) => (return_type, param_types),
-        _ => unreachable!(),
-    };
-
-    let mut param_types = Vec::new();
-
-    for fun_param_type in fun_param_types {
-        match **fun_param_type {
-            IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::PointerTo(_)
-            | IrType::ArrayOf(_, _)
-            | IrType::Struct(_)
-            | IrType::Union(_) => param_types.push(ValType::NumType(NumType::I32)),
-            IrType::I64 | IrType::U64 => param_types.push(ValType::NumType(NumType::I64)),
-            IrType::F32 => param_types.push(ValType::NumType(NumType::F32)),
-            IrType::F64 => param_types.push(ValType::NumType(NumType::F64)),
-            _ => {
-                unreachable!()
-            }
-        }
-    }
-
-    let mut result_types = Vec::new();
-    match **fun_return_type {
-        IrType::I8
-        | IrType::U8
-        | IrType::I16
-        | IrType::U16
-        | IrType::I32
-        | IrType::U32
-        | IrType::PointerTo(_)
-        | IrType::ArrayOf(_, _)
-        | IrType::Struct(_)
-        | IrType::Union(_) => result_types.push(ValType::NumType(NumType::I32)),
-        IrType::I64 | IrType::U64 => result_types.push(ValType::NumType(NumType::I64)),
-        IrType::F32 => result_types.push(ValType::NumType(NumType::F32)),
-        IrType::F64 => result_types.push(ValType::NumType(NumType::F64)),
-        IrType::Void => {}
-        _ => {
-            unreachable!()
-        }
-    }
-
-    WasmFunctionType {
-        param_types,
-        result_types,
-    }
-}
+// fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
+//     let (fun_return_type, fun_param_types) = match &**ir_type {
+//         IrType::Function(return_type, param_types, _) => (return_type, param_types),
+//         _ => unreachable!(),
+//     };
+//
+//     let mut param_types = Vec::new();
+//
+//     for fun_param_type in fun_param_types {
+//         match **fun_param_type {
+//             IrType::I8
+//             | IrType::U8
+//             | IrType::I16
+//             | IrType::U16
+//             | IrType::I32
+//             | IrType::U32
+//             | IrType::PointerTo(_)
+//             | IrType::ArrayOf(_, _)
+//             | IrType::Struct(_)
+//             | IrType::Union(_) => param_types.push(ValType::NumType(NumType::I32)),
+//             IrType::I64 | IrType::U64 => param_types.push(ValType::NumType(NumType::I64)),
+//             IrType::F32 => param_types.push(ValType::NumType(NumType::F32)),
+//             IrType::F64 => param_types.push(ValType::NumType(NumType::F64)),
+//             _ => {
+//                 unreachable!()
+//             }
+//         }
+//     }
+//
+//     let mut result_types = Vec::new();
+//     match **fun_return_type {
+//         IrType::I8
+//         | IrType::U8
+//         | IrType::I16
+//         | IrType::U16
+//         | IrType::I32
+//         | IrType::U32
+//         | IrType::PointerTo(_)
+//         | IrType::ArrayOf(_, _)
+//         | IrType::Struct(_)
+//         | IrType::Union(_) => result_types.push(ValType::NumType(NumType::I32)),
+//         IrType::I64 | IrType::U64 => result_types.push(ValType::NumType(NumType::I64)),
+//         IrType::F32 => result_types.push(ValType::NumType(NumType::F32)),
+//         IrType::F64 => result_types.push(ValType::NumType(NumType::F64)),
+//         IrType::Void => {}
+//         _ => {
+//             unreachable!()
+//         }
+//     }
+//
+//     WasmFunctionType {
+//         param_types,
+//         result_types,
+//     }
+// }
 
 fn convert_block_to_wasm(
     block: Box<Block>,
@@ -1379,13 +1404,24 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::Ret(return_value_src) => {
             if let Some(return_value_src) = return_value_src {
-                // load return value onto wasm stack
+                // store return value into stack frame
+                //
+                // calculate address of return value in stack frame
+                load_frame_ptr(wasm_instrs);
+                wasm_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
+                wasm_instrs.push(WasmInstruction::I32Add);
+
+                let return_type = return_value_src.get_type(prog_metadata).unwrap();
+
+                // load return value to store in stack frame
                 load_src(
                     return_value_src,
                     wasm_instrs,
                     function_context,
                     prog_metadata,
                 );
+
+                store(return_type, wasm_instrs);
             }
 
             wasm_instrs.push(WasmInstruction::Return);
@@ -1448,9 +1484,15 @@ fn convert_ir_instr_to_wasm(
         Instruction::Nop => {
             // do nothing
         }
-        Instruction::Break(_) => {}
-        Instruction::Continue(_) => {}
-        Instruction::EndHandledBlock(_) => {}
+        Instruction::Break(_) => {
+            todo!("break")
+        }
+        Instruction::Continue(_) => {
+            todo!("continue")
+        }
+        Instruction::EndHandledBlock(_) => {
+            todo!("end handled block")
+        }
         Instruction::IfEqElse(left_src, right_src, true_instrs, false_instrs) => {
             // load operands for comparison
             let src_type = left_src.get_type(prog_metadata).unwrap();

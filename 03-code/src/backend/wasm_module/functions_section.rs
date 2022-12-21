@@ -5,7 +5,7 @@ use crate::backend::wasm_indices::TypeIdx;
 use crate::backend::wasm_module::module::encode_section;
 
 pub struct FunctionsSection {
-    function_type_idxs: Vec<TypeIdx>,
+    pub function_type_idxs: Vec<TypeIdx>,
 }
 
 impl FunctionsSection {

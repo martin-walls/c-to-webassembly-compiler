@@ -5,7 +5,7 @@ use crate::backend::wasm_module::module::encode_section;
 use crate::backend::wasm_types::ValType;
 
 pub struct TypesSection {
-    function_types: Vec<WasmFunctionType>,
+    pub function_types: Vec<WasmFunctionType>,
 }
 
 impl TypesSection {

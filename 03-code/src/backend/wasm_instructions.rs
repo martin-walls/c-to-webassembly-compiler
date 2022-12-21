@@ -10,7 +10,7 @@ use crate::middle_end::instructions::Instruction;
 
 #[derive(Debug)]
 pub struct WasmExpression {
-    instrs: Vec<WasmInstruction>,
+    pub instrs: Vec<WasmInstruction>,
 }
 
 impl ToBytes for WasmExpression {

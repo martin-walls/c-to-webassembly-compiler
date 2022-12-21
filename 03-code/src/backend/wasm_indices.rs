@@ -6,6 +6,26 @@ pub trait WasmIdx {
     fn next_idx(&self) -> Self;
 }
 
+#[derive(Debug)]
+pub struct WasmIdxGenerator<T: WasmIdx + Clone> {
+    max_idx: Option<T>,
+}
+
+impl<T: WasmIdx + Clone> WasmIdxGenerator<T> {
+    pub fn new() -> Self {
+        WasmIdxGenerator { max_idx: None }
+    }
+
+    pub fn new_idx(&mut self) -> T {
+        let new_idx = match &self.max_idx {
+            None => T::initial_idx(),
+            Some(idx) => idx.next_idx(),
+        };
+        self.max_idx = Some(new_idx.to_owned());
+        new_idx
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeIdx {
     x: u32,
