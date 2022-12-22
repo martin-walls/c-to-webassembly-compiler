@@ -996,10 +996,15 @@ pub fn convert_expression_to_ir(
                 UnaryOperator::Dereference => {
                     if this_expr_directly_on_lhs_of_assignment {
                         // store to memory address
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
                         match *expr_var_type {
                             IrType::PointerTo(_) => {
-                                prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                                // prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                                match expr_var {
+                                    Src::Var(expr_var) => {
+                                        Ok((instrs, Src::StoreAddressVar(expr_var)))
+                                    }
+                                    _ => return Err(MiddleEndError::AttemptToStoreToNonVariable),
+                                }
                             }
                             _ => {
                                 return Err(MiddleEndError::DereferenceNonPointerType(
@@ -1007,7 +1012,6 @@ pub fn convert_expression_to_ir(
                                 ))
                             }
                         }
-                        Ok((instrs, Src::StoreAddressVar(dest)))
                     } else {
                         // dereference load from memory address
                         let dest = prog.new_var(ValueType::ModifiableLValue);
