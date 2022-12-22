@@ -1955,34 +1955,14 @@ fn convert_ir_instr_to_wasm(
         | Instruction::I16toU32(dest, src)
         | Instruction::U16toU32(dest, src)
         | Instruction::I32toU32(dest, src)
-        | Instruction::I32toU64(dest, src)
-        | Instruction::U32toU64(dest, src)
-        | Instruction::I64toU64(dest, src)
-        | Instruction::I32toI64(dest, src)
-        | Instruction::U32toI64(dest, src)
-        | Instruction::U32toF32(dest, src)
-        | Instruction::I32toF32(dest, src)
-        | Instruction::U64toF32(dest, src)
-        | Instruction::I64toF32(dest, src)
-        | Instruction::U32toF64(dest, src)
-        | Instruction::I32toF64(dest, src)
-        | Instruction::U64toF64(dest, src)
-        | Instruction::I64toF64(dest, src)
-        | Instruction::F32toF64(dest, src)
         | Instruction::I32toI8(dest, src)
         | Instruction::U32toI8(dest, src)
-        | Instruction::I64toI8(dest, src)
-        | Instruction::U64toI8(dest, src)
         | Instruction::I32toU8(dest, src)
         | Instruction::U32toU8(dest, src)
-        | Instruction::I64toU8(dest, src)
-        | Instruction::U64toU8(dest, src)
-        | Instruction::I64toI32(dest, src)
-        | Instruction::U64toI32(dest, src)
+        | Instruction::I64toU64(dest, src)
         | Instruction::U32toPtr(dest, src)
         | Instruction::I32toPtr(dest, src) => {
-            // todo need to look at the types and insert load/store instructions that match type.
-            //      Otherwise wasm complains eg. that i64 load doesn't match i32 store.
+            // for all of these, dest and src get loaded to wasm stack as the same type, so this works
             let mut temp_instrs = Vec::new();
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             load_src(
@@ -2000,7 +1980,229 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
         }
-
+        Instruction::I32toU64(dest, src) | Instruction::I32toI64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            // load i32 into an i64
+            temp_instrs.push(WasmInstruction::I64Load32S {
+                mem_arg: MemArg::zero(),
+            });
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::U32toU64(dest, src) | Instruction::U32toI64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            // load u32 into an i64
+            temp_instrs.push(WasmInstruction::I64Load32U {
+                mem_arg: MemArg::zero(),
+            });
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::I64toI32(dest, src)
+        | Instruction::U64toI32(dest, src)
+        | Instruction::I64toI8(dest, src)
+        | Instruction::U64toI8(dest, src)
+        | Instruction::I64toU8(dest, src)
+        | Instruction::U64toU8(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::I64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert i64 to i32
+            temp_instrs.push(WasmInstruction::I32WrapI64);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::U32toF32(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::U32),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert u32 to f32
+            temp_instrs.push(WasmInstruction::F32ConvertI32U);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::I32toF32(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::I32),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert i32 to f32
+            temp_instrs.push(WasmInstruction::F32ConvertI32S);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::U64toF32(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::U64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert u64 to f32
+            temp_instrs.push(WasmInstruction::F32ConvertI64U);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::I64toF32(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::I64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert i64 to f32
+            temp_instrs.push(WasmInstruction::F32ConvertI64S);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::U32toF64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::U32),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert u32 to f64
+            temp_instrs.push(WasmInstruction::F64ConvertI32U);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::I32toF64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::I32),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert i32 to f64
+            temp_instrs.push(WasmInstruction::F64ConvertI32S);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::U64toF64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::U64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert u64 to f64
+            temp_instrs.push(WasmInstruction::F64ConvertI64U);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::I64toF64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::I64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert i64 to f64
+            temp_instrs.push(WasmInstruction::F64ConvertI64S);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::F32toF64(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::F32),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert f32 to f64
+            temp_instrs.push(WasmInstruction::F64PromoteF32);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
         Instruction::Nop => {
             // do nothing
         }

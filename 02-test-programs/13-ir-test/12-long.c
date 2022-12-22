@@ -1,4 +1,4 @@
 int main(int argc, char *argv) {
     long x = 4;
-    return 0;
+    return (int) x;
 }
