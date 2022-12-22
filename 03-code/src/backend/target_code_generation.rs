@@ -7,12 +7,12 @@ use crate::backend::backend_error::BackendError;
 use crate::backend::memory_operations::{load, load_src, load_var, store, store_var};
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
-    load_stack_ptr, pop_stack_frame, set_up_new_stack_frame,
+    load_stack_ptr, pop_stack_frame, set_frame_ptr_to_stack_ptr, set_up_new_stack_frame,
 };
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::{FuncIdx, LabelIdx, TypeIdx};
+use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
@@ -31,7 +31,8 @@ pub const PTR_SIZE: u32 = 4;
 pub const FRAME_PTR_ADDR: u32 = 0;
 pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
-pub const MAIN_FUNCTION_NAME: &str = "main";
+pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
+pub const MAIN_FUNCTION_EXPORT_NAME: &str = "main";
 
 pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
@@ -108,13 +109,36 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
         let mut global_wasm_instrs = Vec::new();
         let global_instrs_func_idx = module_context.new_defined_func_idx();
 
-        func_idx_to_type_idx_map
-            .insert(global_instrs_func_idx.to_owned(), empty_type_idx.to_owned());
+        // (i32, i32) -> i32
+        let global_wasm_function_type = WasmFunctionType {
+            param_types: vec![
+                ValType::NumType(NumType::I32),
+                ValType::NumType(NumType::I32),
+            ],
+            result_types: vec![ValType::NumType(NumType::I32)],
+        };
+        let global_wasm_function_type_idx = wasm_module.insert_type(global_wasm_function_type);
+
+        func_idx_to_type_idx_map.insert(
+            global_instrs_func_idx.to_owned(),
+            global_wasm_function_type_idx,
+        );
+
+        // initialise the frame pointer, and set previous frame ptr value to NULL
+        // address operand
+        load_stack_ptr(&mut global_wasm_instrs);
+        // value to store
+        global_wasm_instrs.push(WasmInstruction::I32Const { n: 0 });
+        global_wasm_instrs.push(WasmInstruction::I32Store {
+            mem_arg: MemArg::zero(),
+        });
+        // set frame ptr to start of this frame
+        set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
 
         let var_offsets = allocate_local_vars(
             &global_block,
             &mut global_wasm_instrs,
-            Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)), // global instructions have a void function type
+            Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)), // global instructions have a void function type, so don't allocate any space for a return value
             Vec::new(),                                                            // no parameters
             &prog.program_metadata,
         );
@@ -131,6 +155,93 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
             &prog.program_metadata,
         ));
 
+        // call main() after global instructions -- set up its stack frame
+        //
+        // store frame ptr at start of stack frame
+        load_stack_ptr(&mut global_wasm_instrs);
+        // value to store: current value of frame ptr
+        load_frame_ptr(&mut global_wasm_instrs);
+        // store frame ptr
+        global_wasm_instrs.push(WasmInstruction::I32Store {
+            mem_arg: MemArg::zero(),
+        });
+
+        // set frame ptr to point at new stack frame
+        set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
+
+        // increment stack ptr, also leaving space for i32 return value
+        let i32_byte_size = IrType::I32
+            .get_byte_size(&prog.program_metadata)
+            .get_compile_time_value()
+            .unwrap();
+        increment_stack_ptr_by_known_offset(
+            PTR_SIZE + i32_byte_size as u32,
+            &mut global_wasm_instrs,
+        );
+
+        // store params argc and argv in main()'s stack frame
+        //
+        // address operand for where to store argc param
+        load_stack_ptr(&mut global_wasm_instrs);
+        // load argc
+        global_wasm_instrs.push(WasmInstruction::LocalGet {
+            local_idx: LocalIdx { x: 0 },
+        });
+        // store
+        global_wasm_instrs.push(WasmInstruction::I32Store {
+            mem_arg: MemArg::zero(),
+        });
+        // increment stack ptr
+        increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+
+        // address operand for where to store argv param
+        load_stack_ptr(&mut global_wasm_instrs);
+        // load argv
+        global_wasm_instrs.push(WasmInstruction::LocalGet {
+            local_idx: LocalIdx { x: 1 },
+        });
+        // store
+        global_wasm_instrs.push(WasmInstruction::I32Store {
+            mem_arg: MemArg::zero(),
+        });
+        // increment stack ptr
+        increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+
+        // call main()
+        match prog
+            .program_metadata
+            .function_ids
+            .get(MAIN_FUNCTION_SOURCE_NAME)
+        {
+            None => {
+                // error: main function must be defined
+                return Err(BackendError::NoMainFunctionDefined);
+            }
+            Some(main_fun_id) => {
+                let main_func_idx = module_context
+                    .fun_id_to_func_idx_map
+                    .get(main_fun_id)
+                    .unwrap();
+                global_wasm_instrs.push(WasmInstruction::Call {
+                    func_idx: main_func_idx.to_owned(),
+                });
+            }
+        }
+
+        // load and return result i32
+        //
+        // address operand for loading return value: frame ptr is still pointing at main() stack frame,
+        //     return value is just above previous frame ptr
+        load_frame_ptr(&mut global_wasm_instrs);
+        global_wasm_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
+        global_wasm_instrs.push(WasmInstruction::I32Add);
+        // load return value onto stack
+        global_wasm_instrs.push(WasmInstruction::I32Load {
+            mem_arg: MemArg::zero(),
+        });
+        // return from program
+        global_wasm_instrs.push(WasmInstruction::Return);
+
         func_idx_to_body_code_map.insert(
             global_instrs_func_idx.to_owned(),
             WasmExpression {
@@ -138,8 +249,14 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
             },
         );
 
-        // run global instructions on initialisation
-        wasm_module.start_section.start_func_idx = Some(global_instrs_func_idx);
+        // export this function from wasm module
+        let main_export = WasmExport {
+            name: MAIN_FUNCTION_EXPORT_NAME.to_owned(),
+            export_descriptor: ExportDescriptor::Func {
+                func_idx: global_instrs_func_idx,
+            },
+        };
+        wasm_module.exports_section.exports.push(main_export);
     }
 
     wasm_module.insert_defined_functions(
@@ -165,37 +282,6 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
         imported_func_idx_to_name_map,
         &module_context,
     );
-
-    match prog.program_metadata.function_ids.get(MAIN_FUNCTION_NAME) {
-        None => {
-            // error: main function must be defined
-            return Err(BackendError::NoMainFunctionDefined);
-        }
-        Some(main_fun_id) => {
-            let main_func_idx = module_context
-                .fun_id_to_func_idx_map
-                .get(main_fun_id)
-                .unwrap();
-            info!(
-                "exporting function {:?} ({}) (main) from module",
-                main_func_idx, main_fun_id
-            );
-
-            let main_export = WasmExport {
-                name: MAIN_FUNCTION_NAME.to_owned(),
-                export_descriptor: ExportDescriptor::Func {
-                    func_idx: main_func_idx.to_owned(),
-                },
-            };
-
-            wasm_module.exports_section.exports.push(main_export);
-        }
-    }
-
-    // todo handle params for MAIN
-
-    // todo don't put global fun as start function, instead have it call MAIN at the end, and export
-    //      it as the main function
 
     Ok(wasm_module)
 }

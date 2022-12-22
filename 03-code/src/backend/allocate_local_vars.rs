@@ -19,6 +19,8 @@ pub fn allocate_local_vars(
 
     let mut var_offsets = HashMap::new();
     let mut offset = PTR_SIZE;
+    // only increment the stack ptr by the size we allocated for local vars, not params and return value
+    let mut stack_ptr_increment = 0;
 
     let (return_type, param_types) = match *fun_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
@@ -58,10 +60,11 @@ pub fn allocate_local_vars(
         };
         var_offsets.insert(var_id, offset);
         offset += byte_size as u32;
+        stack_ptr_increment += byte_size as u32;
     }
 
     // update stack pointer to after allocated vars
-    increment_stack_ptr_by_known_offset(offset, wasm_instrs);
+    increment_stack_ptr_by_known_offset(stack_ptr_increment, wasm_instrs);
 
     var_offsets
 }

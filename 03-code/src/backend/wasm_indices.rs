@@ -154,7 +154,7 @@ impl ToBytes for FuncIdx {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalIdx {
-    x: u32,
+    pub x: u32,
 }
 
 impl WasmIdx for LocalIdx {
