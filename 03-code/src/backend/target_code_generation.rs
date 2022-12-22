@@ -565,7 +565,14 @@ fn convert_ir_instr_to_wasm(
         Instruction::SimpleAssignment(dest, src) => {
             // load src onto wasm stack
             let mut load_src_instrs = Vec::new();
-            load_src(src, &mut load_src_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                src,
+                dest_type,
+                &mut load_src_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // store to dest
             store_var(
@@ -579,10 +586,16 @@ fn convert_ir_instr_to_wasm(
         Instruction::LoadFromAddress(dest, src) => {
             // load the ptr address onto wasm stack
             let mut load_instrs = Vec::new();
-            load_src(src, &mut load_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                src,
+                dest_type.to_owned(),
+                &mut load_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // load the value at that pointer, which should have the same type as dest
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             load(dest_type, &mut load_instrs);
 
             // store to dest
@@ -608,9 +621,14 @@ fn convert_ir_instr_to_wasm(
             );
 
             // load the value to store
-            load_src(src.to_owned(), wasm_instrs, function_context, prog_metadata);
+            load_src(
+                src.to_owned(),
+                inner_dest_type.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
 
-            println!("storing {} to addr given by {}", src, dest);
             store(inner_dest_type, wasm_instrs);
         }
         Instruction::AllocateVariable(dest, byte_size) => {
@@ -632,6 +650,7 @@ fn convert_ir_instr_to_wasm(
             // load the number of bytes to allocate
             load_src(
                 byte_size,
+                Box::new(IrType::I32),
                 &mut load_byte_size_instrs,
                 function_context,
                 prog_metadata,
@@ -676,13 +695,19 @@ fn convert_ir_instr_to_wasm(
             // bitwise not is implemented as XORing with -1
             //
             // load src
-            let src_type = src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
 
             let mut temp_instrs = Vec::new();
-            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // bitwise not
-            match *src_type {
+            match *dest_type {
                 IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
                     temp_instrs.push(WasmInstruction::I32Const { n: -1 });
                     temp_instrs.push(WasmInstruction::I32Xor);
@@ -709,14 +734,20 @@ fn convert_ir_instr_to_wasm(
             // logical not is implemented as a test-for-zero and set
             //
             // load src
-            let src_type = src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
 
             let mut temp_instrs = Vec::new();
-            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // logical not
             // test if src is zero
-            match *src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -760,11 +791,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::Mult(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // mult
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -802,11 +845,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::Div(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // div
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32DivS)
@@ -845,11 +900,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::Mod(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // remainder
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32RemS)
@@ -882,11 +949,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::Add(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // add
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -924,11 +1003,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::Sub(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // sub
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -966,11 +1057,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::LeftShift(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // shift left
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1002,11 +1105,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::RightShift(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // shift right
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32ShrS)
@@ -1039,11 +1154,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::BitwiseAnd(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // bitwise AND
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1075,11 +1202,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::BitwiseOr(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // bitwise OR
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1111,11 +1250,23 @@ fn convert_ir_instr_to_wasm(
         Instruction::BitwiseXor(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // bitwise XOR
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1151,10 +1302,16 @@ fn convert_ir_instr_to_wasm(
             //   bitwise AND
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            let left_src_type = left_src.get_type(prog_metadata).unwrap();
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test it left_src is zero
-            match *left_src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1187,10 +1344,15 @@ fn convert_ir_instr_to_wasm(
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
 
-            let right_src_type = right_src.get_type(prog_metadata).unwrap();
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test it right_src is zero
-            match *right_src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1224,7 +1386,6 @@ fn convert_ir_instr_to_wasm(
             });
 
             // bitwise AND
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1260,10 +1421,16 @@ fn convert_ir_instr_to_wasm(
             //   bitwise OR
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
-            let left_src_type = left_src.get_type(prog_metadata).unwrap();
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test it left_src is zero
-            match *left_src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1296,10 +1463,15 @@ fn convert_ir_instr_to_wasm(
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
 
-            let right_src_type = right_src.get_type(prog_metadata).unwrap();
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test it right_src is zero
-            match *right_src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1333,7 +1505,6 @@ fn convert_ir_instr_to_wasm(
             });
 
             // bitwise OR
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             match *dest_type {
                 IrType::I8
                 | IrType::U8
@@ -1364,13 +1535,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::LessThan(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // less than
-            match *src_type {
+            match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LtS);
                 }
@@ -1409,13 +1592,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::GreaterThan(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // greater than
-            match *src_type {
+            match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GtS);
                 }
@@ -1454,13 +1649,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::LessThanEq(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // less than or equal
-            match *src_type {
+            match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LeS);
                 }
@@ -1499,13 +1706,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::GreaterThanEq(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // greater than or equal
-            match *src_type {
+            match *dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GeS);
                 }
@@ -1544,13 +1763,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::Equal(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // equal
-            match *src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1587,13 +1818,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::NotEqual(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let src_type = left_src.get_type(prog_metadata).unwrap();
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
             // load srcs onto wasm stack
-            load_src(left_src, &mut temp_instrs, function_context, prog_metadata);
-            load_src(right_src, &mut temp_instrs, function_context, prog_metadata);
+            load_src(
+                left_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                dest_type.to_owned(),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // not equal
-            match *src_type {
+            match *dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1670,12 +1913,12 @@ fn convert_ir_instr_to_wasm(
                 // load return value to store in stack frame
                 load_src(
                     return_value_src,
+                    return_type.to_owned(),
                     wasm_instrs,
                     function_context,
                     prog_metadata,
                 );
 
-                println!("storing return value");
                 store(return_type, wasm_instrs);
             }
 
@@ -1738,8 +1981,17 @@ fn convert_ir_instr_to_wasm(
         | Instruction::U64toI32(dest, src)
         | Instruction::U32toPtr(dest, src)
         | Instruction::I32toPtr(dest, src) => {
+            // todo need to look at the types and insert load/store instructions that match type.
+            //      Otherwise wasm complains eg. that i64 load doesn't match i32 store.
             let mut temp_instrs = Vec::new();
-            load_src(src, &mut temp_instrs, function_context, prog_metadata);
+            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            load_src(
+                src,
+                dest_type,
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
             store_var(
                 dest,
                 temp_instrs,
@@ -1778,8 +2030,21 @@ fn convert_ir_instr_to_wasm(
         Instruction::IfEqElse(left_src, right_src, true_instrs, false_instrs) => {
             // load operands for comparison
             let src_type = left_src.get_type(prog_metadata).unwrap();
-            load_src(left_src, wasm_instrs, function_context, prog_metadata);
-            load_src(right_src, wasm_instrs, function_context, prog_metadata);
+            //todo check both left and right types, in case one is a constant and the other is a var with a type we know
+            load_src(
+                left_src,
+                src_type.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                src_type.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test for equality
             match *src_type {
                 IrType::I8
@@ -1844,8 +2109,21 @@ fn convert_ir_instr_to_wasm(
         Instruction::IfNotEqElse(left_src, right_src, true_instrs, false_instrs) => {
             // load operands for comparison
             let src_type = left_src.get_type(prog_metadata).unwrap();
-            load_src(left_src, wasm_instrs, function_context, prog_metadata);
-            load_src(right_src, wasm_instrs, function_context, prog_metadata);
+            //todo check both left and right types, in case one is a constant and the other is a var with a type we know
+            load_src(
+                left_src,
+                src_type.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+            load_src(
+                right_src,
+                src_type.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
             // test for equality
             match *src_type {
                 IrType::I8

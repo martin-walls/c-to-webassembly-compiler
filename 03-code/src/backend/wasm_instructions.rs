@@ -28,11 +28,19 @@ impl ToBytes for WasmExpression {
 #[derive(Debug)]
 pub enum BlockType {
     None,
+    ValType(ValType),
+    TypeIndex(i32),
 }
 
 impl ToBytes for BlockType {
     fn to_bytes(&self) -> Vec<u8> {
-        todo!("blocktype")
+        match self {
+            BlockType::None => {
+                vec![0x40]
+            }
+            BlockType::ValType(val_type) => val_type.to_bytes(),
+            BlockType::TypeIndex(i) => encode_signed_int(*i as i128),
+        }
     }
 }
 

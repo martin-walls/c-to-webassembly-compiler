@@ -56,7 +56,6 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
             });
         }
         IrType::I64 | IrType::U64 => {
-            println!("Storing type {} as I64", value_type);
             wasm_instrs.push(WasmInstruction::I64Store {
                 mem_arg: MemArg::zero(),
             });
@@ -121,14 +120,17 @@ pub fn store_var(
             wasm_instrs.append(&mut store_value_instrs);
 
             // store
-            println!("Storing var {}", var_id);
             store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
         }
     }
 }
 
-pub fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>) {
-    let constant_type = constant.get_type(None);
+pub fn load_constant(
+    constant: Constant,
+    constant_type: Box<IrType>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+) {
+    // let constant_type = constant.get_type(None);
     match *constant_type {
         IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
             match constant {
@@ -162,15 +164,17 @@ pub fn load_constant(constant: Constant, wasm_instrs: &mut Vec<WasmInstruction>)
     }
 }
 
+/// Param dest_type is optional for var loads, but required for constant loads.
 pub fn load_src(
     src: Src,
+    dest_type: Box<IrType>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     match src {
         Src::Var(var_id) => load_var(var_id, wasm_instrs, function_context, prog_metadata),
-        Src::Constant(constant) => load_constant(constant, wasm_instrs),
+        Src::Constant(constant) => load_constant(constant, dest_type, wasm_instrs),
         Src::StoreAddressVar(_) | Src::Fun(_) => {
             unreachable!()
         }
