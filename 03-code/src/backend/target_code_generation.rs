@@ -656,15 +656,15 @@ fn convert_ir_instr_to_wasm(
                 }
                 Some(fp_offset) => {
                     // load the frame pointer, add the offset to it, and store the result in dest
-                    let mut load_instrs = Vec::new();
-                    load_frame_ptr(&mut load_instrs);
-                    wasm_instrs.push(WasmInstruction::I32Const {
+                    let mut temp_instrs = Vec::new();
+                    load_frame_ptr(&mut temp_instrs);
+                    temp_instrs.push(WasmInstruction::I32Const {
                         n: *fp_offset as i32,
                     });
-                    wasm_instrs.push(WasmInstruction::I32Add);
+                    temp_instrs.push(WasmInstruction::I32Add);
                     store_var(
                         dest,
-                        load_instrs,
+                        temp_instrs,
                         wasm_instrs,
                         function_context,
                         prog_metadata,
