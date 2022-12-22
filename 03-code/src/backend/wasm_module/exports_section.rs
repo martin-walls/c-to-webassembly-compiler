@@ -20,7 +20,7 @@ impl ToBytes for ExportsSection {
     fn to_bytes(&self) -> Vec<u8> {
         let body_bytes = encode_vector(&self.exports);
 
-        encode_section(0x03, body_bytes)
+        encode_section(0x07, body_bytes)
     }
 }
 
