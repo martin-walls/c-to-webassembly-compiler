@@ -70,7 +70,7 @@ impl ToBytes for TableIdx {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MemIdx {
-    x: u32,
+    pub x: u32,
 }
 
 impl WasmIdx for MemIdx {

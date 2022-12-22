@@ -150,14 +150,10 @@ fn init_label_variable(
     prog_metadata: &mut ProgramMetadata,
 ) -> VarId {
     let label_var = prog_metadata.new_var(ValueType::ModifiableLValue);
-    // make label variable an unsigned long, allocate 8 bytes for it
+    // make label variable an unsigned long
     prog_metadata
         .add_var_type(label_var.to_owned(), Box::new(IrType::U64))
         .unwrap();
-    let new_instr =
-        Instruction::AllocateVariable(label_var.to_owned(), Src::Constant(Constant::Int(8)));
-    // prepend allocate instr to instructions
-    instrs.insert(0, new_instr);
     label_var
 }
 

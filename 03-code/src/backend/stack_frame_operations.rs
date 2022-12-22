@@ -195,6 +195,7 @@ pub fn set_up_new_stack_frame(
                 load_var(var_id, wasm_instrs, function_context, prog_metadata);
 
                 // store param
+                println!("storing param in stack frame");
                 store(var_type, wasm_instrs);
 
                 // advance the stack pointer
@@ -213,6 +214,7 @@ pub fn set_up_new_stack_frame(
                     .get_byte_size(prog_metadata)
                     .get_compile_time_value()
                     .unwrap();
+                println!("storing constant param in stack frame");
                 store(param_type.to_owned(), wasm_instrs);
 
                 // advance the stack pointer

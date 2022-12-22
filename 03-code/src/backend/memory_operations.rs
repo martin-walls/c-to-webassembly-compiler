@@ -55,9 +55,12 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
                 mem_arg: MemArg::zero(),
             });
         }
-        IrType::I64 | IrType::U64 => wasm_instrs.push(WasmInstruction::I64Store {
-            mem_arg: MemArg::zero(),
-        }),
+        IrType::I64 | IrType::U64 => {
+            println!("Storing type {} as I64", value_type);
+            wasm_instrs.push(WasmInstruction::I64Store {
+                mem_arg: MemArg::zero(),
+            });
+        }
         IrType::F32 => wasm_instrs.push(WasmInstruction::F32Store {
             mem_arg: MemArg::zero(),
         }),
@@ -118,6 +121,7 @@ pub fn store_var(
             wasm_instrs.append(&mut store_value_instrs);
 
             // store
+            println!("Storing var {}", var_id);
             store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
         }
     }

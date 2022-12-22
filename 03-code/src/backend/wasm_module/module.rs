@@ -18,6 +18,10 @@ use crate::backend::wasm_types::ValType;
 use crate::relooper::relooper::ReloopedFunction;
 use log::info;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::Path;
 
 const IMPORTS_MODULE_NAME: &str = "wasm_stdlib";
 
@@ -126,6 +130,12 @@ impl WasmModule {
         // because we remove each entry as we process it, the maps should be empty at the end
         assert!(imported_func_idx_to_type_idx_map.is_empty());
         assert!(imported_func_idx_to_name_map.is_empty());
+    }
+
+    pub fn write_to_file(&self, filepath: &Path) -> Result<(), io::Error> {
+        let mut output = File::create(filepath)?;
+        output.write_all(&self.to_bytes())?;
+        Ok(())
     }
 }
 

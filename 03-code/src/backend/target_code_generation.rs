@@ -12,7 +12,7 @@ use crate::backend::stack_frame_operations::{
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, TypeIdx};
+use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, MemIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
@@ -33,6 +33,7 @@ pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 pub const MAIN_FUNCTION_EXPORT_NAME: &str = "main";
+pub const MEMORY_EXPORT_NAME: &str = "memory";
 
 pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
@@ -104,37 +105,37 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
         }
     }
 
+    // create a wasm function for the global instructions
+    let mut global_wasm_instrs = Vec::new();
+    let global_instrs_func_idx = module_context.new_defined_func_idx();
+
+    // (i32, i32) -> i32
+    let global_wasm_function_type = WasmFunctionType {
+        param_types: vec![
+            ValType::NumType(NumType::I32),
+            ValType::NumType(NumType::I32),
+        ],
+        result_types: vec![ValType::NumType(NumType::I32)],
+    };
+    let global_wasm_function_type_idx = wasm_module.insert_type(global_wasm_function_type);
+
+    func_idx_to_type_idx_map.insert(
+        global_instrs_func_idx.to_owned(),
+        global_wasm_function_type_idx,
+    );
+
+    // initialise the frame pointer, and set previous frame ptr value to NULL
+    // address operand
+    load_stack_ptr(&mut global_wasm_instrs);
+    // value to store
+    global_wasm_instrs.push(WasmInstruction::I32Const { n: 0 });
+    global_wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg::zero(),
+    });
+    // set frame ptr to start of this frame
+    set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
+
     if let Some(global_block) = prog.program_blocks.global_instrs {
-        // create a wasm function for the global instructions
-        let mut global_wasm_instrs = Vec::new();
-        let global_instrs_func_idx = module_context.new_defined_func_idx();
-
-        // (i32, i32) -> i32
-        let global_wasm_function_type = WasmFunctionType {
-            param_types: vec![
-                ValType::NumType(NumType::I32),
-                ValType::NumType(NumType::I32),
-            ],
-            result_types: vec![ValType::NumType(NumType::I32)],
-        };
-        let global_wasm_function_type_idx = wasm_module.insert_type(global_wasm_function_type);
-
-        func_idx_to_type_idx_map.insert(
-            global_instrs_func_idx.to_owned(),
-            global_wasm_function_type_idx,
-        );
-
-        // initialise the frame pointer, and set previous frame ptr value to NULL
-        // address operand
-        load_stack_ptr(&mut global_wasm_instrs);
-        // value to store
-        global_wasm_instrs.push(WasmInstruction::I32Const { n: 0 });
-        global_wasm_instrs.push(WasmInstruction::I32Store {
-            mem_arg: MemArg::zero(),
-        });
-        // set frame ptr to start of this frame
-        set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
-
         let var_offsets = allocate_local_vars(
             &global_block,
             &mut global_wasm_instrs,
@@ -154,110 +155,107 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
             &module_context,
             &prog.program_metadata,
         ));
-
-        // call main() after global instructions -- set up its stack frame
-        //
-        // store frame ptr at start of stack frame
-        load_stack_ptr(&mut global_wasm_instrs);
-        // value to store: current value of frame ptr
-        load_frame_ptr(&mut global_wasm_instrs);
-        // store frame ptr
-        global_wasm_instrs.push(WasmInstruction::I32Store {
-            mem_arg: MemArg::zero(),
-        });
-
-        // set frame ptr to point at new stack frame
-        set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
-
-        // increment stack ptr, also leaving space for i32 return value
-        let i32_byte_size = IrType::I32
-            .get_byte_size(&prog.program_metadata)
-            .get_compile_time_value()
-            .unwrap();
-        increment_stack_ptr_by_known_offset(
-            PTR_SIZE + i32_byte_size as u32,
-            &mut global_wasm_instrs,
-        );
-
-        // store params argc and argv in main()'s stack frame
-        //
-        // address operand for where to store argc param
-        load_stack_ptr(&mut global_wasm_instrs);
-        // load argc
-        global_wasm_instrs.push(WasmInstruction::LocalGet {
-            local_idx: LocalIdx { x: 0 },
-        });
-        // store
-        global_wasm_instrs.push(WasmInstruction::I32Store {
-            mem_arg: MemArg::zero(),
-        });
-        // increment stack ptr
-        increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
-
-        // address operand for where to store argv param
-        load_stack_ptr(&mut global_wasm_instrs);
-        // load argv
-        global_wasm_instrs.push(WasmInstruction::LocalGet {
-            local_idx: LocalIdx { x: 1 },
-        });
-        // store
-        global_wasm_instrs.push(WasmInstruction::I32Store {
-            mem_arg: MemArg::zero(),
-        });
-        // increment stack ptr
-        increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
-
-        // call main()
-        match prog
-            .program_metadata
-            .function_ids
-            .get(MAIN_FUNCTION_SOURCE_NAME)
-        {
-            None => {
-                // error: main function must be defined
-                return Err(BackendError::NoMainFunctionDefined);
-            }
-            Some(main_fun_id) => {
-                let main_func_idx = module_context
-                    .fun_id_to_func_idx_map
-                    .get(main_fun_id)
-                    .unwrap();
-                global_wasm_instrs.push(WasmInstruction::Call {
-                    func_idx: main_func_idx.to_owned(),
-                });
-            }
-        }
-
-        // load and return result i32
-        //
-        // address operand for loading return value: frame ptr is still pointing at main() stack frame,
-        //     return value is just above previous frame ptr
-        load_frame_ptr(&mut global_wasm_instrs);
-        global_wasm_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
-        global_wasm_instrs.push(WasmInstruction::I32Add);
-        // load return value onto stack
-        global_wasm_instrs.push(WasmInstruction::I32Load {
-            mem_arg: MemArg::zero(),
-        });
-        // return from program
-        global_wasm_instrs.push(WasmInstruction::Return);
-
-        func_idx_to_body_code_map.insert(
-            global_instrs_func_idx.to_owned(),
-            WasmExpression {
-                instrs: global_wasm_instrs,
-            },
-        );
-
-        // export this function from wasm module
-        let main_export = WasmExport {
-            name: MAIN_FUNCTION_EXPORT_NAME.to_owned(),
-            export_descriptor: ExportDescriptor::Func {
-                func_idx: global_instrs_func_idx,
-            },
-        };
-        wasm_module.exports_section.exports.push(main_export);
     }
+
+    // call main() after global instructions -- set up its stack frame
+    //
+    // store frame ptr at start of stack frame
+    load_stack_ptr(&mut global_wasm_instrs);
+    // value to store: current value of frame ptr
+    load_frame_ptr(&mut global_wasm_instrs);
+    // store frame ptr
+    global_wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg::zero(),
+    });
+
+    // set frame ptr to point at new stack frame
+    set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
+
+    // increment stack ptr, also leaving space for i32 return value
+    let i32_byte_size = IrType::I32
+        .get_byte_size(&prog.program_metadata)
+        .get_compile_time_value()
+        .unwrap();
+    increment_stack_ptr_by_known_offset(PTR_SIZE + i32_byte_size as u32, &mut global_wasm_instrs);
+
+    // store params argc and argv in main()'s stack frame
+    //
+    // address operand for where to store argc param
+    load_stack_ptr(&mut global_wasm_instrs);
+    // load argc
+    global_wasm_instrs.push(WasmInstruction::LocalGet {
+        local_idx: LocalIdx { x: 0 },
+    });
+    // store
+    global_wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg::zero(),
+    });
+    // increment stack ptr
+    increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+
+    // address operand for where to store argv param
+    load_stack_ptr(&mut global_wasm_instrs);
+    // load argv
+    global_wasm_instrs.push(WasmInstruction::LocalGet {
+        local_idx: LocalIdx { x: 1 },
+    });
+    // store
+    global_wasm_instrs.push(WasmInstruction::I32Store {
+        mem_arg: MemArg::zero(),
+    });
+    // increment stack ptr
+    increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+
+    // call main()
+    match prog
+        .program_metadata
+        .function_ids
+        .get(MAIN_FUNCTION_SOURCE_NAME)
+    {
+        None => {
+            // error: main function must be defined
+            return Err(BackendError::NoMainFunctionDefined);
+        }
+        Some(main_fun_id) => {
+            let main_func_idx = module_context
+                .fun_id_to_func_idx_map
+                .get(main_fun_id)
+                .unwrap();
+            global_wasm_instrs.push(WasmInstruction::Call {
+                func_idx: main_func_idx.to_owned(),
+            });
+        }
+    }
+
+    // load and return result i32
+    //
+    // address operand for loading return value: frame ptr is still pointing at main() stack frame,
+    //     return value is just above previous frame ptr
+    load_frame_ptr(&mut global_wasm_instrs);
+    global_wasm_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
+    global_wasm_instrs.push(WasmInstruction::I32Add);
+    // load return value onto stack
+    global_wasm_instrs.push(WasmInstruction::I32Load {
+        mem_arg: MemArg::zero(),
+    });
+    // return from program
+    global_wasm_instrs.push(WasmInstruction::Return);
+
+    func_idx_to_body_code_map.insert(
+        global_instrs_func_idx.to_owned(),
+        WasmExpression {
+            instrs: global_wasm_instrs,
+        },
+    );
+
+    // export this function from wasm module
+    let main_export = WasmExport {
+        name: MAIN_FUNCTION_EXPORT_NAME.to_owned(),
+        export_descriptor: ExportDescriptor::Func {
+            func_idx: global_instrs_func_idx,
+        },
+    };
+    wasm_module.exports_section.exports.push(main_export);
 
     wasm_module.insert_defined_functions(
         func_idx_to_body_code_map,
@@ -381,6 +379,15 @@ fn initialise_memory(
     wasm_module.memory_section.memory_types.push(MemoryType {
         limits: Limits { min: 1, max: None },
     });
+
+    // export memory
+    let memory_export = WasmExport {
+        name: MEMORY_EXPORT_NAME.to_owned(),
+        export_descriptor: ExportDescriptor::Mem {
+            mem_idx: MemIdx { x: 0 },
+        },
+    };
+    wasm_module.exports_section.exports.push(memory_export);
 }
 
 // fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
@@ -593,11 +600,17 @@ fn convert_ir_instr_to_wasm(
             let inner_dest_type = dest_type.dereference_pointer_type().unwrap();
 
             // load the value of dest - the address operand
-            load_var(dest, wasm_instrs, function_context, prog_metadata);
+            load_var(
+                dest.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
 
             // load the value to store
-            load_src(src, wasm_instrs, function_context, prog_metadata);
+            load_src(src.to_owned(), wasm_instrs, function_context, prog_metadata);
 
+            println!("storing {} to addr given by {}", src, dest);
             store(inner_dest_type, wasm_instrs);
         }
         Instruction::AllocateVariable(dest, byte_size) => {
@@ -1662,6 +1675,7 @@ fn convert_ir_instr_to_wasm(
                     prog_metadata,
                 );
 
+                println!("storing return value");
                 store(return_type, wasm_instrs);
             }
 

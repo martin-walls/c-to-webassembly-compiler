@@ -46,11 +46,15 @@ impl ToBytes for DataSegment {
             DataSegment::ActiveSegmentMemIndexZero { offset_expr, data } => {
                 let mut bytes = encode_unsigned_int(0);
                 bytes.append(&mut offset_expr.to_bytes());
+                // data bytes as vector
+                bytes.append(&mut encode_unsigned_int(data.len() as u128));
                 bytes.append(&mut data.clone());
                 bytes
             }
             DataSegment::PassiveSegment { data } => {
                 let mut bytes = encode_unsigned_int(1);
+                // data bytes as vector
+                bytes.append(&mut encode_unsigned_int(data.len() as u128));
                 bytes.append(&mut data.clone());
                 bytes
             }
@@ -62,6 +66,8 @@ impl ToBytes for DataSegment {
                 let mut bytes = encode_unsigned_int(2);
                 bytes.append(&mut memory_idx.to_bytes());
                 bytes.append(&mut offset_expr.to_bytes());
+                // data bytes as vector
+                bytes.append(&mut encode_unsigned_int(data.len() as u128));
                 bytes.append(&mut data.clone());
                 bytes
             }
