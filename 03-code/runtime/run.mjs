@@ -1,5 +1,6 @@
+#!/usr/bin/env node
 //
-// node 20-wasm-run.mjs <wasm_filename> [args...]
+// usage: run.mjs <wasm_filename> [args...]
 //
 import {readFileSync} from "fs";
 import {printf} from "./wasm_stdlib.mjs";
@@ -34,8 +35,8 @@ const run = async (filename, args) => {
     const {argc, argv} = put_args_into_memory(args, memory);
 
     // run the program
-    const result = main(argc, argv);
-    console.log(`result: ${result}`);
+    const exit_code = main(argc, argv);
+    return exit_code
 };
 
 // parse node cli arguments
@@ -44,5 +45,6 @@ if (args.length < 1) {
     console.log("Please specify file to run");
 } else {
     const filename = args[0];
-    run(filename, args);
+    const exit_code = await run(filename, args);
+    process.exit(exit_code)
 }

@@ -1,0 +1,5 @@
+name: ptr
+source: 13-ir-test/10-ptr.c
+args:
+exit code: 4
+stdout:   

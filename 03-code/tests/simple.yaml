@@ -1,0 +1,5 @@
+name: simple
+source: 13-ir-test/11-simple.c
+args:
+exit code: 12
+stdout:   
