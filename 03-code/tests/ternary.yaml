@@ -1,0 +1,3 @@
+name: ternary
+source: 13-ir-test/06-ternary.c
+args:

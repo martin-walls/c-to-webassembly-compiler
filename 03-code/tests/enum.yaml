@@ -1,0 +1,3 @@
+name: enum
+source: 13-ir-test/07-enum.c
+args:

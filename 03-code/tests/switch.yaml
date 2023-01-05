@@ -1,0 +1,3 @@
+name: switch
+source: 13-ir-test/09-switch.c
+args:

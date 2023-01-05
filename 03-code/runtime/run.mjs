@@ -6,8 +6,6 @@ import {readFileSync} from "fs";
 import {printf} from "./wasm_stdlib.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
 
-const IMPORTS_MODULE_NAME = "wasm_stdlib";
-
 const run = async (filename, args) => {
     const buffer = readFileSync(filename);
 
@@ -15,7 +13,7 @@ const run = async (filename, args) => {
 
     // functions that will be passed in to wasm
     const imports = {
-        IMPORTS_MODULE_NAME: {
+        wasm_stdlib: {
             log: (arg) => {
                 console.log(arg);
                 return arg;
