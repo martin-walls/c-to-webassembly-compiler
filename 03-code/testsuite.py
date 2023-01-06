@@ -7,6 +7,8 @@ import yaml
 TEST_PROGRAMS_DIR = Path(__file__).parent.parent.resolve() / "02-test-programs"
 TESTS_DIR = Path(__file__).parent.resolve() / "tests"
 
+PROJECT_BUILD_PATH = Path(__file__).parent.resolve() / "target" / "debug" / "c_to_wasm_compiler"
+
 COMPILE_OUTPUT_DIR = TESTS_DIR / "build"
 # create output dir if it doesn't exist
 os.makedirs(COMPILE_OUTPUT_DIR, exist_ok=True)
@@ -22,6 +24,14 @@ def get_gcc_output_filepath(name: str) -> Path:
     return COMPILE_OUTPUT_DIR / f"{name}.gcc"
 
 
+def build_project() -> int:
+    print("Building project...")
+
+    process_result = subprocess.run(["cargo", "build"])
+
+    return process_result.returncode
+
+
 def compile_wasm(filepath: Path, name: str) -> (str, int):
     print("\tCompiling wasm...")
 
@@ -30,8 +40,13 @@ def compile_wasm(filepath: Path, name: str) -> (str, int):
 
     output_filepath = get_wasm_output_filepath(name)
 
+    # compile_process_result = subprocess.run(
+    #     ["cargo", "run", "--", filepath, "-o", output_filepath],
+    #     capture_output=True, env=compile_env, universal_newlines=True
+    # )
+
     compile_process_result = subprocess.run(
-        ["cargo", "run", "--", filepath, "-o", output_filepath],
+        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath],
         capture_output=True, env=compile_env, universal_newlines=True
     )
 
@@ -172,6 +187,12 @@ def run_test(test_spec: TestSpec):
 
 
 def run_all_tests(tests_dir: Path):
+    # compile rust project
+    build_exit_code = build_project()
+    if build_exit_code != 0:
+        print("Error building project.")
+        exit()
+
     passed_tests = []
     failed_tests = []
 
