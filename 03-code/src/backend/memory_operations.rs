@@ -72,6 +72,27 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
     }
 }
 
+/// load the memory address of the given variable onto the stack
+pub fn load_var_address(
+    var_id: VarId,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    function_context: &FunctionContext,
+) {
+    match function_context.var_fp_offsets.get(&var_id) {
+        None => {
+            // todo check if var is a global variable, and calculate the address from that
+        }
+        Some(fp_offset) => {
+            // load frame ptr and add variable offset
+            load_frame_ptr(wasm_instrs);
+            wasm_instrs.push(WasmInstruction::I32Const {
+                n: *fp_offset as i32,
+            });
+            wasm_instrs.push(WasmInstruction::I32Add);
+        }
+    }
+}
+
 /// Insert instructions to load the given variable onto the wasm stack
 pub fn load_var(
     var_id: VarId,
@@ -79,22 +100,11 @@ pub fn load_var(
     function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
-    match function_context.var_fp_offsets.get(&var_id) {
-        None => {
-            // todo check if var is a global variable, and calculate the address from that
-        }
-        Some(fp_offset) => {
-            // calculate address operand
-            load_frame_ptr(wasm_instrs);
-            wasm_instrs.push(WasmInstruction::I32Const {
-                n: *fp_offset as i32,
-            });
-            wasm_instrs.push(WasmInstruction::I32Add);
+    let var_type = prog_metadata.get_var_type(&var_id).unwrap();
 
-            // load
-            load(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
-        }
-    }
+    load_var_address(var_id, wasm_instrs, function_context);
+
+    load(var_type, wasm_instrs);
 }
 
 /// Insert instructions to store into the given variable

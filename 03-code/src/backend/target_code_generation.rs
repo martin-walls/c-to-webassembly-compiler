@@ -4,7 +4,9 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::backend::allocate_local_vars::allocate_local_vars;
 use crate::backend::backend_error::BackendError;
-use crate::backend::memory_operations::{load, load_src, load_var, store, store_var};
+use crate::backend::memory_operations::{
+    load, load_constant, load_src, load_var, load_var_address, store, store_var,
+};
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
     load_stack_ptr, pop_stack_frame, set_frame_ptr_to_stack_ptr, set_up_new_stack_frame,
@@ -1982,10 +1984,22 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::I32toU64(dest, src) | Instruction::I32toI64(dest, src) => {
             let mut temp_instrs = Vec::new();
-            // load i32 into an i64
-            temp_instrs.push(WasmInstruction::I64Load32S {
-                mem_arg: MemArg::zero(),
-            });
+            // load src as i64
+            match src {
+                Src::Var(var_id) => {
+                    load_var_address(var_id, &mut temp_instrs, function_context);
+                    // load i32 into an i64
+                    temp_instrs.push(WasmInstruction::I64Load32S {
+                        mem_arg: MemArg::zero(),
+                    });
+                }
+                Src::Constant(constant) => {
+                    load_constant(constant, Box::new(IrType::I64), &mut temp_instrs);
+                }
+                Src::StoreAddressVar(_) | Src::Fun(_) => {
+                    unreachable!()
+                }
+            }
             store_var(
                 dest,
                 temp_instrs,
@@ -1996,10 +2010,22 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::U32toU64(dest, src) | Instruction::U32toI64(dest, src) => {
             let mut temp_instrs = Vec::new();
-            // load u32 into an i64
-            temp_instrs.push(WasmInstruction::I64Load32U {
-                mem_arg: MemArg::zero(),
-            });
+            // load src as i64
+            match src {
+                Src::Var(var_id) => {
+                    load_var_address(var_id, &mut temp_instrs, function_context);
+                    // load u32 into an i64
+                    temp_instrs.push(WasmInstruction::I64Load32U {
+                        mem_arg: MemArg::zero(),
+                    });
+                }
+                Src::Constant(constant) => {
+                    load_constant(constant, Box::new(IrType::I64), &mut temp_instrs);
+                }
+                Src::StoreAddressVar(_) | Src::Fun(_) => {
+                    unreachable!()
+                }
+            }
             store_var(
                 dest,
                 temp_instrs,
