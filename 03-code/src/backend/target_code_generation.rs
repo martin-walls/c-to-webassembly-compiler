@@ -521,16 +521,6 @@ fn convert_block_to_wasm(
             handled_blocks,
             next,
         } => {
-            // select which of the handled blocks to execute (if any)
-            //
-            // load the label variable
-            load_var(
-                function_context.label_variable.to_owned(),
-                &mut wasm_instrs,
-                function_context,
-                prog_metadata,
-            );
-
             wasm_instrs.append(&mut convert_handled_blocks(
                 handled_blocks.into(),
                 id,
