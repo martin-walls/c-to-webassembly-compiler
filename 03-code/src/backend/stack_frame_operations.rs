@@ -5,6 +5,7 @@ use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
+use log::info;
 
 pub fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
@@ -168,6 +169,9 @@ pub fn set_up_new_stack_frame(
         _ => unreachable!(),
     };
 
+    info!("return type: {:?}", return_type);
+    info!("param type: {:?}", param_types);
+
     // leave space for the return value
     let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
         TypeSize::CompileTime(size) => size,
@@ -190,6 +194,11 @@ pub fn set_up_new_stack_frame(
                     .get_byte_size(&prog_metadata)
                     .get_compile_time_value()
                     .unwrap();
+
+                info!(
+                    "storing param of type {:?} with size {} bytes",
+                    var_type, var_byte_size
+                );
 
                 // load var onto the wasm stack (value to store)
                 load_var(var_id, wasm_instrs, function_context, prog_metadata);

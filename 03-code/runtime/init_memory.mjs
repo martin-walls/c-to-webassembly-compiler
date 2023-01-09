@@ -1,5 +1,4 @@
-const PTR_SIZE = 4;
-const STACK_PTR_ADDR = PTR_SIZE;
+import { PTR_SIZE, read_stack_ptr, store_ptr, store_stack_ptr } from "./memory_operations.mjs";
 
 // put the program arguments into wasm memory
 // args is an array of strings
@@ -16,7 +15,7 @@ export const put_args_into_memory = (args, wasm_memory) => {
     // store each arg after each other in memory and null-terminate
     for (let i; i < argc.length; i++) {
         // store arg pointer in space we allocated above
-        store_ptr(stack_ptr, argv + (i * PTR_SIZE), memory);
+        store_ptr(argv + (i * PTR_SIZE), stack_ptr, memory);
         // store arg value at stack ptr
         const arg_bytes = new TextEncoder().encode(args[i]);
         for (const byte in arg_bytes) {
@@ -31,26 +30,4 @@ export const put_args_into_memory = (args, wasm_memory) => {
     store_stack_ptr(stack_ptr, memory);
 
     return {argc, argv};
-}
-
-
-const read_stack_ptr = (memory) => {
-    // read stack ptr bytes from memory -- stored in little-endian order
-    let stack_ptr = memory[STACK_PTR_ADDR];
-    stack_ptr |= memory[STACK_PTR_ADDR + 1] << 8;
-    stack_ptr |= memory[STACK_PTR_ADDR + 2] << 16;
-    stack_ptr |= memory[STACK_PTR_ADDR + 3] << 24;
-    return stack_ptr;
-}
-
-
-const store_stack_ptr = (stack_ptr, memory) => {
-    store_ptr(stack_ptr, STACK_PTR_ADDR, memory);
-}
-
-const store_ptr = (ptr_value, address, memory) => {
-    memory[address] = ptr_value & 0xFF;
-    memory[address + 1] = (ptr_value >> 8) & 0xFF;
-    memory[address + 2] = (ptr_value >> 16) & 0xFF;
-    memory[address + 3] = (ptr_value >> 24) & 0xFF;
 }

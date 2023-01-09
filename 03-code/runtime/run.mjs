@@ -3,22 +3,22 @@
 // usage: run.mjs <wasm_filename> [args...]
 //
 import {readFileSync} from "fs";
-import {printf} from "./wasm_stdlib.mjs";
+import {printf, log} from "./stdlib.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
 
 const run = async (filename, args) => {
     const buffer = readFileSync(filename);
 
-    let memory;
+    let memory = new WebAssembly.Memory({initial: 1});
 
     // functions that will be passed in to wasm
     const imports = {
-        wasm_stdlib: {
-            log: (arg) => {
-                console.log(arg);
-                return arg;
-            },
-            printf: printf(memory),
+        runtime: {
+            memory: memory,
+        },
+        stdlib: {
+            log: log(memory),
+            printf: printf(memory, 0),
         },
     };
 
@@ -26,7 +26,7 @@ const run = async (filename, args) => {
 
     // get exports from module
     const main = module.instance.exports.main;
-    memory = module.instance.exports.memory;
+    // memory = module.instance.exports.memory;
 
 
     // put the arguments into wasm memory

@@ -23,7 +23,7 @@ use std::io;
 use std::io::Write;
 use std::path::Path;
 
-const IMPORTS_MODULE_NAME: &str = "wasm_stdlib";
+const STDLIB_IMPORTS_MODULE_NAME: &str = "stdlib";
 
 pub struct WasmModule {
     pub types_section: TypesSection,
@@ -116,7 +116,7 @@ impl WasmModule {
                     info!("importing function {:?} ({}) to module", func_idx, name);
 
                     let import = WasmImport {
-                        module_name: IMPORTS_MODULE_NAME.to_owned(),
+                        module_name: STDLIB_IMPORTS_MODULE_NAME.to_owned(),
                         field_name: name,
                         import_descriptor: ImportDescriptor::Func {
                             func_type_idx: type_idx,

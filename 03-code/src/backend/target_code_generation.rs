@@ -1,4 +1,5 @@
 use log::info;
+use std::any::Any;
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
@@ -18,6 +19,7 @@ use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, MemIdx, TypeIdx}
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
+use crate::backend::wasm_module::imports_section::{ImportDescriptor, WasmImport};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{Limits, MemoryType, NumType, ValType};
@@ -36,6 +38,9 @@ pub const STACK_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 pub const MAIN_FUNCTION_EXPORT_NAME: &str = "main";
 pub const MEMORY_EXPORT_NAME: &str = "memory";
+
+pub const MEMORY_IMPORT_MODULE_NAME: &str = "runtime";
+pub const MEMORY_IMPORT_FIELD_NAME: &str = "memory";
 
 pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
@@ -293,7 +298,7 @@ fn separate_imported_and_defined_functions(
     Vec<(FunId, String, ReloopedFunction)>,
     Vec<(FunId, ReloopedFunction)>,
 ) {
-    let imported_function_names = vec!["printf".to_owned()];
+    let imported_function_names = vec!["printf".to_owned(), "log".to_owned()];
 
     let mut imported_functions: Vec<(FunId, String, ReloopedFunction)> = Vec::new();
     let mut defined_functions: Vec<(FunId, ReloopedFunction)> = Vec::new();
@@ -378,18 +383,30 @@ fn initialise_memory(
     wasm_module.data_section.data_segments.push(data_segment);
 
     // declare memory, with min 1 page, no max
-    wasm_module.memory_section.memory_types.push(MemoryType {
-        limits: Limits { min: 1, max: None },
-    });
+    // wasm_module.memory_section.memory_types.push(MemoryType {
+    //     limits: Limits { min: 1, max: None },
+    // });
 
     // export memory
-    let memory_export = WasmExport {
-        name: MEMORY_EXPORT_NAME.to_owned(),
-        export_descriptor: ExportDescriptor::Mem {
-            mem_idx: MemIdx { x: 0 },
+    // let memory_export = WasmExport {
+    //     name: MEMORY_EXPORT_NAME.to_owned(),
+    //     export_descriptor: ExportDescriptor::Mem {
+    //         mem_idx: MemIdx { x: 0 },
+    //     },
+    // };
+    // wasm_module.exports_section.exports.push(memory_export);
+
+    // import memory from JS runtime
+    let memory_import = WasmImport {
+        module_name: MEMORY_IMPORT_MODULE_NAME.to_owned(),
+        field_name: MEMORY_IMPORT_FIELD_NAME.to_owned(),
+        import_descriptor: ImportDescriptor::Mem {
+            mem_type: MemoryType {
+                limits: Limits { min: 1, max: None },
+            },
         },
     };
-    wasm_module.exports_section.exports.push(memory_export);
+    wasm_module.imports_section.imports.push(memory_import);
 }
 
 // fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
@@ -1927,6 +1944,7 @@ fn convert_ir_instr_to_wasm(
                 .string_literal_id_to_ptr_map
                 .get(&str_literal_id)
                 .unwrap();
+            info!("string literal ptr: {}", ptr_value);
             let temp_instrs = vec![WasmInstruction::I32Const {
                 n: ptr_value.to_owned() as i32,
             }];
