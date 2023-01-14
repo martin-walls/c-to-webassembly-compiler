@@ -1,7 +1,10 @@
 mod allocate_local_vars;
 mod backend_error;
 mod float_encoding;
+mod import_export_names;
+mod initialise_memory;
 mod integer_encoding;
+mod memory_constants;
 mod memory_operations;
 mod stack_frame_operations;
 pub mod target_code_generation;

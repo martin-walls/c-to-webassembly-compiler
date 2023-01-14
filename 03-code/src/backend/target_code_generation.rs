@@ -5,6 +5,9 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::backend::allocate_local_vars::allocate_local_vars;
 use crate::backend::backend_error::BackendError;
+use crate::backend::import_export_names::MAIN_FUNCTION_EXPORT_NAME;
+use crate::backend::initialise_memory::initialise_memory;
+use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::memory_operations::{
     load, load_constant, load_src, load_var, load_var_address, store, store_var,
 };
@@ -30,18 +33,7 @@ use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
-pub const PTR_SIZE: u32 = 4;
-
-pub const FRAME_PTR_ADDR: u32 = 0;
-pub const TEMP_FRAME_PTR_ADDR: u32 = FRAME_PTR_ADDR + PTR_SIZE;
-pub const STACK_PTR_ADDR: u32 = TEMP_FRAME_PTR_ADDR + PTR_SIZE;
-
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
-pub const MAIN_FUNCTION_EXPORT_NAME: &str = "main";
-pub const MEMORY_EXPORT_NAME: &str = "memory";
-
-pub const MEMORY_IMPORT_MODULE_NAME: &str = "runtime";
-pub const MEMORY_IMPORT_FIELD_NAME: &str = "memory";
 
 pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
@@ -330,141 +322,6 @@ fn separate_imported_and_defined_functions(
 
     (imported_functions, defined_functions)
 }
-
-fn initialise_memory(
-    wasm_module: &mut WasmModule,
-    module_context: &mut ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
-) {
-    // ----------------------------------------------------------
-    // | FP | temp FP | SP | String literals | ...stack frames...
-    // ----------------------------------------------------------
-    let mut data: Vec<u8> = Vec::new();
-    // temp placeholder values for frame ptr and stack ptr
-    for _ in 0..3 {
-        // for each ptr
-        for _ in 0..PTR_SIZE {
-            // allocate PTR_SIZE bytes
-            data.push(0x00);
-        }
-    }
-
-    // store string literals in memory
-    for (string_literal_id, string) in &prog_metadata.string_literals {
-        // store the pointer to the string
-        let ptr_to_string = data.len();
-        info!(
-            "Storing string literal {:?} at addr {}",
-            string, ptr_to_string
-        );
-        module_context
-            .string_literal_id_to_ptr_map
-            .insert(string_literal_id.to_owned(), ptr_to_string as u32);
-        // insert the string
-        data.append(&mut string.as_bytes().to_vec());
-        // null terminate the string
-        data.push(0x00);
-    }
-
-    // set stack ptr to point at top of stack
-    let stack_ptr_value = data.len();
-    info!("Setting stack ptr to {}", stack_ptr_value);
-    data[STACK_PTR_ADDR as usize] = (stack_ptr_value & 0xFF) as u8;
-    data[(STACK_PTR_ADDR + 1) as usize] = ((stack_ptr_value >> 8) & 0xFF) as u8;
-    data[(STACK_PTR_ADDR + 2) as usize] = ((stack_ptr_value >> 16) & 0xFF) as u8;
-    data[(STACK_PTR_ADDR + 3) as usize] = ((stack_ptr_value >> 24) & 0xFF) as u8;
-
-    // insert data segment to module
-    let data_segment = DataSegment::ActiveSegmentMemIndexZero {
-        offset_expr: WasmExpression {
-            instrs: vec![WasmInstruction::I32Const { n: 0 }],
-        },
-        data,
-    };
-    wasm_module.data_section.data_segments.push(data_segment);
-
-    // declare memory, with min 1 page, no max
-    // wasm_module.memory_section.memory_types.push(MemoryType {
-    //     limits: Limits { min: 1, max: None },
-    // });
-
-    // export memory
-    // let memory_export = WasmExport {
-    //     name: MEMORY_EXPORT_NAME.to_owned(),
-    //     export_descriptor: ExportDescriptor::Mem {
-    //         mem_idx: MemIdx { x: 0 },
-    //     },
-    // };
-    // wasm_module.exports_section.exports.push(memory_export);
-
-    // import memory from JS runtime
-    let memory_import = WasmImport {
-        module_name: MEMORY_IMPORT_MODULE_NAME.to_owned(),
-        field_name: MEMORY_IMPORT_FIELD_NAME.to_owned(),
-        import_descriptor: ImportDescriptor::Mem {
-            mem_type: MemoryType {
-                limits: Limits { min: 1, max: None },
-            },
-        },
-    };
-    wasm_module.imports_section.imports.push(memory_import);
-}
-
-// fn convert_function_type_to_wasm(ir_type: &Box<IrType>) -> WasmFunctionType {
-//     let (fun_return_type, fun_param_types) = match &**ir_type {
-//         IrType::Function(return_type, param_types, _) => (return_type, param_types),
-//         _ => unreachable!(),
-//     };
-//
-//     let mut param_types = Vec::new();
-//
-//     for fun_param_type in fun_param_types {
-//         match **fun_param_type {
-//             IrType::I8
-//             | IrType::U8
-//             | IrType::I16
-//             | IrType::U16
-//             | IrType::I32
-//             | IrType::U32
-//             | IrType::PointerTo(_)
-//             | IrType::ArrayOf(_, _)
-//             | IrType::Struct(_)
-//             | IrType::Union(_) => param_types.push(ValType::NumType(NumType::I32)),
-//             IrType::I64 | IrType::U64 => param_types.push(ValType::NumType(NumType::I64)),
-//             IrType::F32 => param_types.push(ValType::NumType(NumType::F32)),
-//             IrType::F64 => param_types.push(ValType::NumType(NumType::F64)),
-//             _ => {
-//                 unreachable!()
-//             }
-//         }
-//     }
-//
-//     let mut result_types = Vec::new();
-//     match **fun_return_type {
-//         IrType::I8
-//         | IrType::U8
-//         | IrType::I16
-//         | IrType::U16
-//         | IrType::I32
-//         | IrType::U32
-//         | IrType::PointerTo(_)
-//         | IrType::ArrayOf(_, _)
-//         | IrType::Struct(_)
-//         | IrType::Union(_) => result_types.push(ValType::NumType(NumType::I32)),
-//         IrType::I64 | IrType::U64 => result_types.push(ValType::NumType(NumType::I64)),
-//         IrType::F32 => result_types.push(ValType::NumType(NumType::F32)),
-//         IrType::F64 => result_types.push(ValType::NumType(NumType::F64)),
-//         IrType::Void => {}
-//         _ => {
-//             unreachable!()
-//         }
-//     }
-//
-//     WasmFunctionType {
-//         param_types,
-//         result_types,
-//     }
-// }
 
 fn convert_block_to_wasm(
     block: Box<Block>,

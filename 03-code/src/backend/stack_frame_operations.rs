@@ -1,7 +1,7 @@
-use crate::backend::memory_operations::{load, load_constant, load_var, store, store_var};
-use crate::backend::target_code_generation::{
+use crate::backend::memory_constants::{
     FRAME_PTR_ADDR, PTR_SIZE, STACK_PTR_ADDR, TEMP_FRAME_PTR_ADDR,
 };
+use crate::backend::memory_operations::{load, load_constant, load_var, store, store_var};
 use crate::backend::target_code_generation_context::FunctionContext;
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
