@@ -3,6 +3,7 @@ use crate::middle_end::aggregate_type_initialisers::{
 };
 use crate::middle_end::context::{Context, IdentifierResolveResult, LoopContext, SwitchContext};
 use crate::middle_end::get_ast_type_info::get_type_info;
+use crate::middle_end::handle_variadic_functions::handle_variadic_functions;
 use crate::middle_end::ids::{ValueType, VarId};
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::instructions::{Constant, Src};
@@ -31,6 +32,7 @@ pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
             Err(e) => return Err(e),
         }
     }
+    handle_variadic_functions(&mut prog)?;
     optimise_ir(&mut prog)?;
     assert_no_var_has_runtime_byte_size(&prog);
     Ok(prog)

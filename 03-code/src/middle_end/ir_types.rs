@@ -286,6 +286,33 @@ impl IrType {
         }
     }
 
+    pub fn get_function_return_type(&self) -> Result<Box<IrType>, MiddleEndError> {
+        match self {
+            IrType::Function(return_type, _, _) => Ok(return_type.to_owned()),
+            _ => Err(MiddleEndError::InvalidOperation(
+                "Expected a function type to be able to get return type",
+            )),
+        }
+    }
+
+    pub fn get_function_param_types(&self) -> Result<Vec<Box<IrType>>, MiddleEndError> {
+        match self {
+            IrType::Function(_, param_types, _) => Ok(param_types.to_vec()),
+            _ => Err(MiddleEndError::InvalidOperation(
+                "Expected a function type to be able to get param types",
+            )),
+        }
+    }
+
+    pub fn is_function_variadic(&self) -> Result<bool, MiddleEndError> {
+        match self {
+            IrType::Function(_, _, is_variadic) => Ok(is_variadic.to_owned()),
+            _ => Err(MiddleEndError::InvalidOperation(
+                "Expected a function type to check whether is variadic",
+            )),
+        }
+    }
+
     /// ISO C standard unary type conversions
     pub fn unary_convert(&self) -> Box<Self> {
         match self {

@@ -159,7 +159,6 @@ fn set_frame_ptr_to_temp_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
-// todo deprecated?
 pub fn set_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
     wasm_instrs.push(WasmInstruction::I32Const {

@@ -80,7 +80,7 @@ impl ProgramInstructions {
         }
     }
 
-    fn insert_function(&mut self, fun_id: FunId, fun: Function) {
+    pub fn insert_function(&mut self, fun_id: FunId, fun: Function) {
         self.functions.insert(fun_id, fun);
     }
 
@@ -119,6 +119,7 @@ pub struct ProgramMetadata {
     pub function_ids: HashMap<String, FunId>,
     pub function_types: HashMap<FunId, Box<IrType>>,
     pub function_param_var_mappings: HashMap<FunId, Vec<VarId>>,
+    pub variadic_function_concrete_variants: HashMap<FunId, Vec<FunId>>,
     pub string_literals: HashMap<StringLiteralId, String>,
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
@@ -139,6 +140,7 @@ impl ProgramMetadata {
             function_ids: HashMap::new(),
             function_types: HashMap::new(),
             function_param_var_mappings: HashMap::new(),
+            variadic_function_concrete_variants: HashMap::new(),
             string_literals: HashMap::new(),
             var_types: HashMap::new(),
             structs: HashMap::new(),
@@ -155,6 +157,10 @@ impl ProgramMetadata {
         let label = self.new_label();
         self.label_ids.insert(name, label.to_owned());
         label
+    }
+
+    pub fn new_fun_id(&mut self) -> FunId {
+        self.fun_id_generator.new_id()
     }
 
     pub fn new_fun_declaration(&mut self, name: String) -> Result<FunId, MiddleEndError> {
