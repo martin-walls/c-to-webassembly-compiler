@@ -1,0 +1,20 @@
+default:
+    just --list
+
+cloc:
+    cloc src --by-file --force-lang=Rust,lalrpop
+
+test:
+    ./testsuite.py
+
+run WASM:
+    ./runtime/run.mjs {{WASM}}
+
+compile SOURCE OUTPUT="module.wasm" LOG_LEVEL="": build
+    RUST_LOG={{LOG_LEVEL}} ./target/debug/c_to_wasm_compiler {{SOURCE}} -o {{OUTPUT}}
+
+build:
+    cargo build
+
+objdump WASM:
+    wasm-objdump {{WASM}} -d
