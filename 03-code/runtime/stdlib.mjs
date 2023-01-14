@@ -1,4 +1,10 @@
-import { PTR_SIZE, read_frame_ptr, store_i32, read_i32, read_ptr } from "./memory_operations.mjs";
+import {
+    PTR_SIZE,
+    read_frame_ptr,
+    store_i32,
+    read_i32,
+    read_ptr,
+} from "./memory_operations.mjs";
 
 // print a null-terminated string from memory to console
 // int printf(const char *format, ...);
@@ -8,14 +14,7 @@ export const printf = (wasm_memory, format_arg_count) => {
         // load param: addr of format str
         const fp = read_frame_ptr(memory);
         let format_str_ptr = read_ptr(fp + PTR_SIZE + 4, memory);
-        console.log(read_i32(fp - 4, memory));
-        console.log(read_i32(fp, memory));
-        console.log(read_i32(fp + 4, memory));
-        console.log(read_i32(fp + 8, memory));
-        console.log(read_i32(fp + 12, memory));
-        console.log(read_i32(fp + 16, memory));
-        console.log(read_i32(fp + 20, memory));
-        
+
         let str = "";
         let b = memory[format_str_ptr];
         let c;
@@ -53,11 +52,11 @@ export function log(wasm_memory) {
         const memory = new Uint8Array(wasm_memory.buffer);
         // load param x
         const fp = read_frame_ptr(memory);
-        const x = read_i32(fp + PTR_SIZE + 4, memory)
+        const x = read_i32(fp + PTR_SIZE + 4, memory);
 
         console.log(x);
 
         // write return value
         store_i32(fp + PTR_SIZE, 0, memory);
-    }
+    };
 }

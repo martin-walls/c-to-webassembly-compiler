@@ -1,14 +1,15 @@
 export const PTR_SIZE = 4;
 
 const FRAME_PTR_ADDR = 0;
-const STACK_PTR_ADDR = PTR_SIZE;
+const TEMP_FRAME_PTR_ADDR = FRAME_PTR_ADDR + PTR_SIZE;
+const STACK_PTR_ADDR = TEMP_FRAME_PTR_ADDR + PTR_SIZE;
 
 export function read_frame_ptr(memory) {
-  return read_ptr(FRAME_PTR_ADDR, memory);
+    return read_ptr(FRAME_PTR_ADDR, memory);
 }
 
 export function read_stack_ptr(memory) {
-  return read_ptr(STACK_PTR_ADDR, memory);
+    return read_ptr(STACK_PTR_ADDR, memory);
 }
 
 export function read_ptr(addr, memory) {

@@ -336,12 +336,12 @@ fn initialise_memory(
     module_context: &mut ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
-    // ------------------------------------------------
-    // | FP | SP | String literals | ...stack frames...
-    // ------------------------------------------------
+    // ----------------------------------------------------------
+    // | FP | temp FP | SP | String literals | ...stack frames...
+    // ----------------------------------------------------------
     let mut data: Vec<u8> = Vec::new();
     // temp placeholder values for frame ptr and stack ptr
-    for _ in 0..2 {
+    for _ in 0..3 {
         // for each ptr
         for _ in 0..PTR_SIZE {
             // allocate PTR_SIZE bytes
@@ -369,10 +369,10 @@ fn initialise_memory(
     // set stack ptr to point at top of stack
     let stack_ptr_value = data.len();
     info!("Setting stack ptr to {}", stack_ptr_value);
-    data[PTR_SIZE as usize] = (stack_ptr_value & 0xFF) as u8;
-    data[(PTR_SIZE + 1) as usize] = ((stack_ptr_value >> 8) & 0xFF) as u8;
-    data[(PTR_SIZE + 2) as usize] = ((stack_ptr_value >> 16) & 0xFF) as u8;
-    data[(PTR_SIZE + 3) as usize] = ((stack_ptr_value >> 24) & 0xFF) as u8;
+    data[STACK_PTR_ADDR as usize] = (stack_ptr_value & 0xFF) as u8;
+    data[(STACK_PTR_ADDR + 1) as usize] = ((stack_ptr_value >> 8) & 0xFF) as u8;
+    data[(STACK_PTR_ADDR + 2) as usize] = ((stack_ptr_value >> 16) & 0xFF) as u8;
+    data[(STACK_PTR_ADDR + 3) as usize] = ((stack_ptr_value >> 24) & 0xFF) as u8;
 
     // insert data segment to module
     let data_segment = DataSegment::ActiveSegmentMemIndexZero {

@@ -1,8 +1,6 @@
 #include <stdio.h>
 
 int main(int argc, char* argv) {
-  // printf("hello world");
-  int x = 5;
-  log(x);
+  printf("hello world\n");
   return 0;
 }
