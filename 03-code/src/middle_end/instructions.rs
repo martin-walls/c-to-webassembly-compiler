@@ -24,7 +24,7 @@ impl Constant {
                 match i {
                     0..=255 => Box::new(IrType::U8),
                     -128..=127 => Box::new(IrType::I8),
-                    0..=65535 => Box::new(IrType::U16),
+                    0..=65_535 => Box::new(IrType::U16),
                     -32_768..=32_767 => Box::new(IrType::I16),
                     0..=4_294_967_296 => Box::new(IrType::U32),
                     -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
