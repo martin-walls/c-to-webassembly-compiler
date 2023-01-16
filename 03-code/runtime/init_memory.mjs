@@ -1,4 +1,5 @@
-import { PTR_SIZE, read_stack_ptr, store_ptr, store_stack_ptr } from "./memory_operations.mjs";
+import {PTR_SIZE} from "./memory_constants.mjs";
+import {read_stack_ptr, store_ptr, store_stack_ptr} from "./memory_operations.mjs";
 
 // put the program arguments into wasm memory
 // args is an array of strings

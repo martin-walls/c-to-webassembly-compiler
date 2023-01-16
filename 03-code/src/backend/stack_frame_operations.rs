@@ -261,7 +261,12 @@ pub fn set_up_new_stack_frame(
                 // address operand for where to store param
                 load_stack_ptr(wasm_instrs);
 
-                let param_type = param_types.get(param_index).unwrap();
+                let param_type = if param_index >= param_types.len() {
+                    constant.get_type_minimum_i32()
+                } else {
+                    param_types.get(param_index).unwrap().to_owned()
+                };
+
                 let param_byte_size = param_type
                     .get_byte_size(prog_metadata)
                     .get_compile_time_value()

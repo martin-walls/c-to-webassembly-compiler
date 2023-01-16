@@ -35,6 +35,18 @@ impl Constant {
             Constant::Float(_) => Box::new(IrType::F64),
         }
     }
+
+    pub fn get_type_minimum_i32(&self) -> Box<IrType> {
+        match self {
+            Constant::Int(i) => match i {
+                0..=4_294_967_296 => Box::new(IrType::U32),
+                -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
+                0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
+                _ => Box::new(IrType::I64),
+            },
+            Constant::Float(_) => Box::new(IrType::F64),
+        }
+    }
 }
 
 impl fmt::Display for Constant {

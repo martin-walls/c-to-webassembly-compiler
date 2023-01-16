@@ -4,7 +4,6 @@ mod compile_time_eval;
 mod context;
 mod convert_to_wasm_types;
 mod get_ast_type_info;
-mod handle_variadic_functions;
 pub mod ids;
 pub mod instructions;
 pub mod ir;

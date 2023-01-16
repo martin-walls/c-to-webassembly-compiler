@@ -3,7 +3,8 @@
 // usage: run.mjs <wasm_filename> [args...]
 //
 import {readFileSync} from "fs";
-import {printf, log} from "./stdlib.mjs";
+import {printf} from "./stdlib/printf.mjs";
+import {log} from "./stdlib/log.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
 
 const run = async (filename, args) => {
@@ -18,7 +19,7 @@ const run = async (filename, args) => {
         },
         stdlib: {
             log: log(memory),
-            printf: printf(memory, 0),
+            printf: printf(memory),
         },
     };
 
@@ -28,13 +29,12 @@ const run = async (filename, args) => {
     const main = module.instance.exports.main;
     // memory = module.instance.exports.memory;
 
-
     // put the arguments into wasm memory
     const {argc, argv} = put_args_into_memory(args, memory);
 
     // run the program
     const exit_code = main(argc, argv);
-    return exit_code
+    return exit_code;
 };
 
 // parse node cli arguments
@@ -44,5 +44,5 @@ if (args.length < 1) {
 } else {
     const filename = args[0];
     const exit_code = await run(filename, args);
-    process.exit(exit_code)
+    process.exit(exit_code);
 }
