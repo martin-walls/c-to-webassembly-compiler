@@ -64,21 +64,24 @@ void printGrid(int xLen, int yLen, unsigned long grid[]) {
   }
 }
 
-void life(int xLen, int yLen, unsigned long grid[]) {
-  printGrid(xLen, yLen, grid);
-  printf("\n");
-  while (1) {
-    grid = nextGeneration(xLen, yLen, grid);
+void life(int xLen, int yLen, unsigned long grid[], int numGenerations) {
     printGrid(xLen, yLen, grid);
     printf("\n");
-    sleep(1);
-  }
+    int generationNumber = 0;
+    while (generationNumber < numGenerations) {
+        generationNumber++;
+        grid = nextGeneration(xLen, yLen, grid);
+        printGrid(xLen, yLen, grid);
+        printf("\n");
+        sleep(1);
+    }
 }
 
 /**
- * params:
+ * args:
  *  grid size x
  *  grid size y
+ *  num generations
  *  array of initial row contents
  */
 int main(int argc, char* argv[]) {
@@ -86,29 +89,37 @@ int main(int argc, char* argv[]) {
     printf("Please specify x and y dimensions.\n");
     return 1;
   }
-  int xLen = atoi(argv[1]);
-  int yLen = atoi(argv[2]);
-  printf("xLen: %d, yLen: %d\n", xLen, yLen);
+    int xLen = atoi(argv[1]);
+    int yLen = atoi(argv[2]);
+    printf("xLen: %d, yLen: %d\n", xLen, yLen);
 
-  if (xLen <= 0 || yLen <= 0) {
-    printf("Dimensions must be greater than 0.\n");
-    return 2;
+    if (xLen <= 0 || yLen <= 0) {
+        printf("Dimensions must be greater than 0.\n");
+        return 2;
+    }
+
+    int numGenerations = atoi(argv[3]);
+    printf("Num generations: %d\n", numGenerations);
+
+    if (numGenerations < 1) {
+        printf("Num generations must be at least 1.\n");
+        return 3;
+    }
+
+    if (argc != yLen + 4) {
+        printf("Please specify initial contents for the %d rows\n", yLen);
+        return 1;
+    }
+
+    unsigned long grid[yLen];
+    for (int y = 0; y < yLen; y++) {
+        char *ptr;
+        unsigned long row = strtoul(argv[y + 4], &ptr, 2);
+        printf("row input: %lu\n", row);
+        grid[y] = row;
   }
 
-  if (argc != yLen + 3) {
-    printf("Please specify initial contents for the %d rows\n", yLen);
-    return 1;
-  }
-
-  unsigned long grid[yLen];
-  for (int y = 0; y < yLen; y++) {
-    char *ptr;
-    unsigned long row = strtoul(argv[y + 3], &ptr, 2);
-    printf("row input: %lu\n", row);
-    grid[y] = row;
-  }
-
-  life(xLen, yLen, grid);
+    life(xLen, yLen, grid, numGenerations);
 
   return 0;
 }
