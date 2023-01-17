@@ -3,9 +3,9 @@
 // usage: run.mjs <wasm_filename> [args...]
 //
 import {readFileSync} from "fs";
-import {printf} from "./stdlib/printf.mjs";
-import {log} from "./stdlib/log.mjs";
+import {printf} from "./stdlib/stdio.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
+import {atoi, strtoul} from "./stdlib/stdlib.mjs";
 
 const run = async (filename, args) => {
     const buffer = readFileSync(filename);
@@ -18,8 +18,9 @@ const run = async (filename, args) => {
             memory: memory,
         },
         stdlib: {
-            log: log(memory),
             printf: printf(memory),
+            strtoul: strtoul(memory),
+            atoi: atoi(memory),
         },
     };
 

@@ -3,6 +3,4 @@
 
 int printf(const char *format, ...);
 
-int log(int x);
-
 #endif
