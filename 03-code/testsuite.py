@@ -58,7 +58,7 @@ def run_wasm(name: str, args: list[str]) -> (str, str, int):
     print("\tRunning wasm...")
 
     run_process_result = subprocess.run(
-        [NODE_RUNTIME_PATH, get_wasm_output_filepath(name), *args],
+        [NODE_RUNTIME_PATH, get_wasm_output_filepath(name), *[str(a) for a in args]],
         capture_output=True, universal_newlines=True
     )
 
@@ -82,7 +82,7 @@ def run_gcc(name: str, args: list[str]) -> (str, int):
     print("\tRunning GCC output...")
 
     run_process_result = subprocess.run(
-        [get_gcc_output_filepath(name), *args],
+        [get_gcc_output_filepath(name), *[str(a) for a in args]],
         capture_output=True, universal_newlines=True
     )
 

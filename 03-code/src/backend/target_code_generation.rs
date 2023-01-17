@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use std::any::Any;
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
@@ -987,6 +987,8 @@ fn convert_ir_instr_to_wasm(
                 function_context,
                 prog_metadata,
             );
+
+            debug!("dest type: {}", dest_type);
 
             // shift right
             match *dest_type {

@@ -1300,14 +1300,22 @@ pub fn convert_expression_to_ir(
                     instrs.push(Instruction::Sub(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::LeftShift => {
-                    // no binary conversion for shift operators
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::LeftShift(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::RightShift => {
-                    // no binary conversion for shift operators
+                    let (mut convert_instrs, left_var, right_var) =
+                        binary_convert(left_var, right_var, prog)?;
+                    instrs.append(&mut convert_instrs);
+                    let left_var_type = left_var.get_type(&prog.program_metadata)?;
+                    let right_var_type = right_var.get_type(&prog.program_metadata)?;
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;

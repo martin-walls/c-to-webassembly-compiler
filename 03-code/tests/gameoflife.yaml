@@ -1,0 +1,11 @@
+name: gameoflife-blinker
+source: 03-game-of-life.c
+args:
+  - "5"
+  - "5"
+  - "8"
+  - "00000"
+  - "00100"
+  - "00100"
+  - "00100"
+  - "00000"
