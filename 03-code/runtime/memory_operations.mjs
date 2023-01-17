@@ -38,9 +38,17 @@ export function store_i32(address, value, memory) {
 
 export function read_int(addr, byte_size, memory) {
   // read bytes of int in little-endian order
-  let value = memory[addr];
-  for (let i = 1; i < byte_size; i++) {
-    value |= memory[addr + i] << (8 * i);
+  // test the highest bit to see whether it's negative (BigInt won't
+  //  automatically be negative if so)
+  let value = 0n;
+  let is_negative = 0;
+  for (let i = 0; i < byte_size; i++) {
+    const byte = memory[addr + i];
+    value |= BigInt(byte) << BigInt(8 * i);
+    is_negative = (byte >> 7) & 1;
+  }
+  if (is_negative) {
+    value -= 1n << (BigInt(byte_size) * 8n);
   }
   return value;
 }

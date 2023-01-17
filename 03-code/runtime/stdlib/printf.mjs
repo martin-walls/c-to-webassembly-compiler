@@ -75,10 +75,7 @@ export function printf(wasm_memory) {
               if (c != "i" && c != "d" && c != "u") {
                 console.log("Error: invalid format specifier to printf");
               }
-              // TODO: JS can't represent the full range of longs
-              //       Loading all 8 bytes into a JS number won't work for negatives
-              //       or big numbers.
-              value = next_vararg_int(I32_SIZE);
+              value = next_vararg_int(I64_SIZE);
               if (c === "u") {
                 value = MAX_I64 + value;
               }
