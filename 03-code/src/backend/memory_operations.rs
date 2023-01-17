@@ -5,6 +5,7 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
+use log::{debug, info};
 
 /// Insert a load instruction of the correct type
 pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
@@ -36,7 +37,11 @@ pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Load {
             mem_arg: MemArg::zero(),
         }),
-        _ => unreachable!(),
+        // necessary for return of void functions (result gets stored in a var then discarded)
+        IrType::Void => wasm_instrs.push(WasmInstruction::I32Const { n: 0 }),
+        _ => {
+            unreachable!()
+        }
     }
 }
 
@@ -64,6 +69,9 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
             mem_arg: MemArg::zero(),
         }),
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Store {
+            mem_arg: MemArg::zero(),
+        }),
+        IrType::Void => wasm_instrs.push(WasmInstruction::I32Store {
             mem_arg: MemArg::zero(),
         }),
         _ => {
@@ -168,7 +176,8 @@ pub fn load_constant(
                 unreachable!()
             }
         },
-        _ => {
+        t => {
+            debug!("{}", t);
             unreachable!()
         }
     }

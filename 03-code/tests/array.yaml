@@ -1,0 +1,3 @@
+name: runtime-array
+source: 13-ir-test/14-array.c
+args:

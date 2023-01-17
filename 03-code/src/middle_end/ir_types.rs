@@ -74,21 +74,21 @@ impl IrType {
                 TypeSize::CompileTime(prog.get_union_type(union_id).unwrap().total_byte_size)
             }
             IrType::Void => TypeSize::CompileTime(0),
-            IrType::PointerTo(_) => TypeSize::CompileTime(POINTER_SIZE),
-            IrType::ArrayOf(t, count) => match count {
-                Some(TypeSize::CompileTime(count)) => match t.get_byte_size(prog) {
-                    TypeSize::CompileTime(t_size) => TypeSize::CompileTime(t_size * count),
-                    TypeSize::Runtime(t_size_expr) => {
-                        TypeSize::Runtime(Box::new(Expression::BinaryOp(
-                            BinaryOperator::Mult,
-                            t_size_expr,
-                            Box::new(Expression::Constant(Constant::Int(*count as u128))),
-                        )))
-                    }
-                },
-                Some(TypeSize::Runtime(e)) => TypeSize::Runtime(e.to_owned()),
-                None => TypeSize::CompileTime(0),
-            },
+            IrType::PointerTo(_) | IrType::ArrayOf(_, _) => TypeSize::CompileTime(POINTER_SIZE),
+            // IrType::ArrayOf(t, count) => match count {
+            //     Some(TypeSize::CompileTime(count)) => match t.get_byte_size(prog) {
+            //         TypeSize::CompileTime(t_size) => TypeSize::CompileTime(t_size * count),
+            //         TypeSize::Runtime(t_size_expr) => {
+            //             TypeSize::Runtime(Box::new(Expression::BinaryOp(
+            //                 BinaryOperator::Mult,
+            //                 t_size_expr,
+            //                 Box::new(Expression::Constant(Constant::Int(*count as u128))),
+            //             )))
+            //         }
+            //     },
+            //     Some(TypeSize::Runtime(e)) => TypeSize::Runtime(e.to_owned()),
+            //     None => TypeSize::CompileTime(0),
+            // },
             IrType::Function(_, _, _) => TypeSize::CompileTime(POINTER_SIZE),
         }
     }
@@ -102,6 +102,44 @@ impl IrType {
             t => Err(MiddleEndError::DereferenceNonPointerType(Box::new(
                 t.to_owned(),
             ))),
+        }
+    }
+
+    pub fn get_array_byte_size(
+        &self,
+        prog: &Box<ProgramMetadata>,
+    ) -> Result<TypeSize, MiddleEndError> {
+        match self {
+            IrType::ArrayOf(inner_type, count) => match count {
+                Some(TypeSize::CompileTime(count)) => match inner_type.get_byte_size(prog) {
+                    TypeSize::CompileTime(t_size) => Ok(TypeSize::CompileTime(t_size * count)),
+                    TypeSize::Runtime(t_size_expr) => {
+                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
+                            BinaryOperator::Mult,
+                            t_size_expr,
+                            Box::new(Expression::Constant(Constant::Int(*count as u128))),
+                        ))))
+                    }
+                },
+                Some(TypeSize::Runtime(count_expr)) => match inner_type.get_byte_size(prog) {
+                    TypeSize::CompileTime(t_size) => {
+                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
+                            BinaryOperator::Mult,
+                            count_expr.to_owned(),
+                            Box::new(Expression::Constant(Constant::Int(t_size as u128))),
+                        ))))
+                    }
+                    TypeSize::Runtime(t_size_expr) => {
+                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
+                            BinaryOperator::Mult,
+                            t_size_expr,
+                            count_expr.to_owned(),
+                        ))))
+                    }
+                },
+                None => Ok(TypeSize::CompileTime(0)),
+            },
+            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
         }
     }
 
@@ -222,6 +260,13 @@ impl IrType {
             false => Err(MiddleEndError::InvalidOperation(
                 "Require scalar type failed",
             )),
+        }
+    }
+
+    pub fn is_array_type(&self) -> bool {
+        match self {
+            IrType::ArrayOf(_, _) => true,
+            _ => false,
         }
     }
 
@@ -434,10 +479,12 @@ impl fmt::Display for IrType {
             },
             IrType::Function(ret, params, is_variadic) => {
                 write!(f, "({})(", ret)?;
-                for param in &params[..params.len() - 1] {
-                    write!(f, "{}, ", param)?;
+                if !params.is_empty() {
+                    for param in &params[..params.len() - 1] {
+                        write!(f, "{}, ", param)?;
+                    }
+                    write!(f, "{}", params[params.len() - 1])?;
                 }
-                write!(f, "{}", params[params.len() - 1])?;
                 if *is_variadic {
                     write!(f, ", ...")?;
                 }

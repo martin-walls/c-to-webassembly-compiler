@@ -538,7 +538,8 @@ pub fn get_type_conversion_instrs(
         | (IrType::ArrayOf(_, _), IrType::PointerTo(t)) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t)))?;
-            instrs.push(Instruction::AddressOf(dest.to_owned(), src));
+            // instrs.push(Instruction::AddressOf(dest.to_owned(), src));
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
             Ok((instrs, Src::Var(dest)))
         }
         // void * to other pointer

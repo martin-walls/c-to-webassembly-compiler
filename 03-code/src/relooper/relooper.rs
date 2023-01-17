@@ -314,6 +314,10 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
     // either the label ends in a single unconditional branch,
     // or it ends in a conditional branch followed by an unconditional branch.
 
+    if label.instrs.is_empty() {
+        return;
+    }
+
     // we can safely unwrap, because a label must have instructions.
     let unconditional_branch_label_id = match label.instrs.last().unwrap() {
         Instruction::Br(label_id) => Some(label_id),

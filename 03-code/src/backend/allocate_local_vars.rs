@@ -6,6 +6,7 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
+use log::debug;
 use std::collections::HashMap;
 
 pub fn allocate_local_vars(
@@ -53,9 +54,13 @@ pub fn allocate_local_vars(
     // calculate offset of each local variable
     for (var_id, var_type) in block_vars {
         let byte_size = match var_type.get_byte_size(prog_metadata) {
-            TypeSize::CompileTime(size) => size,
-            TypeSize::Runtime(_) => {
+            TypeSize::CompileTime(byte_size) => byte_size,
+            TypeSize::Runtime(e) => {
+                // we shouldn't be trying to allocate a variable with runtime-known byte size
+                // on the stack here. its space is allocated with the AllocateVariable instruction,
+                // with just a pointer on the stack here
                 unreachable!()
+                // PTR_SIZE as u64
             }
         };
         var_offsets.insert(var_id, offset);

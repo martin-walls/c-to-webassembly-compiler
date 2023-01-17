@@ -263,10 +263,10 @@ impl AstNode for Expression {
             Expression::FunctionCall(e1, e2) => {
                 let mut s = String::new();
                 write!(&mut s, "{}(", e1.reconstruct_source()).unwrap();
-                for e in &e2[..e2.len() - 1] {
-                    write!(&mut s, "{}, ", e.reconstruct_source()).unwrap();
-                }
-                if e2.len() > 0 {
+                if !e2.is_empty() {
+                    for e in &e2[..e2.len() - 1] {
+                        write!(&mut s, "{}, ", e.reconstruct_source()).unwrap();
+                    }
                     write!(&mut s, "{}", &e2[e2.len() - 1].reconstruct_source()).unwrap();
                 }
                 write!(&mut s, ")").unwrap();

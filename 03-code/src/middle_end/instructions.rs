@@ -327,10 +327,13 @@ impl fmt::Display for Instruction {
             }
             Instruction::Call(dest, fun, params) => {
                 write!(f, "{} = call {}(", dest, fun)?;
-                for param in &params[..params.len() - 1] {
-                    write!(f, "{}, ", param)?;
+                if !params.is_empty() {
+                    for param in &params[..params.len() - 1] {
+                        write!(f, "{}, ", param)?;
+                    }
+                    write!(f, "{}", params[params.len() - 1])?;
                 }
-                write!(f, "{})", params[params.len() - 1])
+                write!(f, ")")
             }
             Instruction::Ret(src) => match src {
                 None => {
