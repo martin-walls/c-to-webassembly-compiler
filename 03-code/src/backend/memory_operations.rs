@@ -150,14 +150,18 @@ pub fn load_constant(
 ) {
     // let constant_type = constant.get_type(None);
     match *constant_type {
-        IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
-            match constant {
-                Constant::Int(n) => wasm_instrs.push(WasmInstruction::I32Const { n: n as i32 }),
-                Constant::Float(_) => {
-                    unreachable!()
-                }
+        IrType::I8
+        | IrType::U8
+        | IrType::I16
+        | IrType::U16
+        | IrType::I32
+        | IrType::U32
+        | IrType::PointerTo(_) => match constant {
+            Constant::Int(n) => wasm_instrs.push(WasmInstruction::I32Const { n: n as i32 }),
+            Constant::Float(_) => {
+                unreachable!()
             }
-        }
+        },
         IrType::I64 | IrType::U64 => match constant {
             Constant::Int(n) => wasm_instrs.push(WasmInstruction::I64Const { n: n as i64 }),
             Constant::Float(_) => {

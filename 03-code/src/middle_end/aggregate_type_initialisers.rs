@@ -30,7 +30,7 @@ pub fn array_initialiser(
         member_ptr_var.to_owned(),
         Box::new(IrType::PointerTo(array_member_type.to_owned())),
     )?;
-    instrs.push(Instruction::AddressOf(
+    instrs.push(Instruction::SimpleAssignment(
         member_ptr_var.to_owned(),
         Src::Var(dest),
     ));
