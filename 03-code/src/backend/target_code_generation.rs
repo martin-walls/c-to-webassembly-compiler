@@ -291,7 +291,8 @@ fn separate_imported_and_defined_functions(
     Vec<(FunId, String, ReloopedFunction)>,
     Vec<(FunId, ReloopedFunction)>,
 ) {
-    let imported_function_names = vec!["printf".to_owned(), "log".to_owned()];
+    let imported_function_names =
+        vec!["printf".to_owned(), "atoi".to_owned(), "strtoul".to_owned()];
 
     let mut imported_functions: Vec<(FunId, String, ReloopedFunction)> = Vec::new();
     let mut defined_functions: Vec<(FunId, ReloopedFunction)> = Vec::new();
@@ -641,7 +642,7 @@ fn convert_ir_instr_to_wasm(
             }
             // if so, result is 1, else 0
             temp_instrs.push(WasmInstruction::IfElse {
-                blocktype: BlockType::None,
+                blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
                 if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
@@ -1208,7 +1209,7 @@ fn convert_ir_instr_to_wasm(
             }
             // if so, push 1, else 0
             temp_instrs.push(WasmInstruction::IfElse {
-                blocktype: BlockType::None,
+                blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
                 if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
@@ -1249,7 +1250,7 @@ fn convert_ir_instr_to_wasm(
             }
             // if so, push 1, else 0
             temp_instrs.push(WasmInstruction::IfElse {
-                blocktype: BlockType::None,
+                blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
                 if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
@@ -1327,7 +1328,7 @@ fn convert_ir_instr_to_wasm(
             }
             // if so, push 1, else 0
             temp_instrs.push(WasmInstruction::IfElse {
-                blocktype: BlockType::None,
+                blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
                 if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
@@ -1368,7 +1369,7 @@ fn convert_ir_instr_to_wasm(
             }
             // if so, push 1, else 0
             temp_instrs.push(WasmInstruction::IfElse {
-                blocktype: BlockType::None,
+                blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
                 if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
                 else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
             });
