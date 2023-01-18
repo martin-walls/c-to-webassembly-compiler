@@ -1207,11 +1207,11 @@ fn convert_ir_instr_to_wasm(
                     unreachable!()
                 }
             }
-            // if so, push 1, else 0
+            // if so, push 0, else 1
             temp_instrs.push(WasmInstruction::IfElse {
                 blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
-                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
-                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                if_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 1 }],
             });
 
             load_src(
@@ -1248,11 +1248,11 @@ fn convert_ir_instr_to_wasm(
                     unreachable!()
                 }
             }
-            // if so, push 1, else 0
+            // if so, push 0, else 1
             temp_instrs.push(WasmInstruction::IfElse {
                 blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
-                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
-                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                if_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 1 }],
             });
 
             // bitwise AND
@@ -1326,11 +1326,11 @@ fn convert_ir_instr_to_wasm(
                     unreachable!()
                 }
             }
-            // if so, push 1, else 0
+            // if so, push 0, else 1
             temp_instrs.push(WasmInstruction::IfElse {
                 blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
-                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
-                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                if_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 1 }],
             });
 
             load_src(
@@ -1367,11 +1367,11 @@ fn convert_ir_instr_to_wasm(
                     unreachable!()
                 }
             }
-            // if so, push 1, else 0
+            // if so, push 0, else 1
             temp_instrs.push(WasmInstruction::IfElse {
                 blocktype: BlockType::ValType(ValType::NumType(NumType::I32)),
-                if_instrs: vec![WasmInstruction::I32Const { n: 1 }],
-                else_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                if_instrs: vec![WasmInstruction::I32Const { n: 0 }],
+                else_instrs: vec![WasmInstruction::I32Const { n: 1 }],
             });
 
             // bitwise OR
