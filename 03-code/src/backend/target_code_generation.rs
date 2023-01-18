@@ -1690,25 +1690,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::NotEqual(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // not equal
-            match *dest_type {
+            match *src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
