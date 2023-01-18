@@ -73,7 +73,7 @@ void life(int xLen, int yLen, unsigned long grid[], int numGenerations) {
         grid = nextGeneration(xLen, yLen, grid);
         printGrid(xLen, yLen, grid);
         printf("\n");
-        sleep(1);
+        // sleep(1);
     }
 }
 
@@ -85,20 +85,30 @@ void life(int xLen, int yLen, unsigned long grid[], int numGenerations) {
  *  array of initial row contents
  */
 int main(int argc, char* argv[]) {
-  if (argc < 3) {
-    printf("Please specify x and y dimensions.\n");
-    return 1;
-  }
-    int xLen = atoi(argv[1]);
-    int yLen = atoi(argv[2]);
+    if (argc < 4) {
+        printf("Please specify x and y dimensions and number of generations.\n");
+        return 1;
+    }
+    int xLen = (int) strtol(argv[1], NULL, 10);
+    int yLen = (int) strtol(argv[2], NULL, 10);
     printf("xLen: %d, yLen: %d\n", xLen, yLen);
+
+    if (xLen <= 0) {
+        printf("xlen must be greater than 0.\n");
+        return 2;
+    }
+
+    if (yLen <= 0) {
+        printf("ylen must be greater than 0.\n");
+        return 2;
+    }
 
     if (xLen <= 0 || yLen <= 0) {
         printf("Dimensions must be greater than 0.\n");
         return 2;
     }
 
-    int numGenerations = atoi(argv[3]);
+    int numGenerations = (int) strtol(argv[3], NULL, 10);
     printf("Num generations: %d\n", numGenerations);
 
     if (numGenerations < 1) {
