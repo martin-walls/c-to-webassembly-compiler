@@ -37,8 +37,6 @@ pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Load {
             mem_arg: MemArg::zero(),
         }),
-        // necessary for return of void functions (result gets stored in a var then discarded)
-        IrType::Void => wasm_instrs.push(WasmInstruction::I32Const { n: 0 }),
         _ => {
             unreachable!()
         }
@@ -69,9 +67,6 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
             mem_arg: MemArg::zero(),
         }),
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Store {
-            mem_arg: MemArg::zero(),
-        }),
-        IrType::Void => wasm_instrs.push(WasmInstruction::I32Store {
             mem_arg: MemArg::zero(),
         }),
         _ => {

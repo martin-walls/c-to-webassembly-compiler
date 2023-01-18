@@ -1019,6 +1019,47 @@ pub fn convert_expression_to_ir(
             }
             Ok((instrs, Src::Var(dest)))
         }
+        Expression::UnaryOp(UnaryOperator::AddressOf, expr) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
+            let dest = prog.new_var(ValueType::RValue);
+            instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
+            // store type of dest
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
+            Ok((instrs, Src::Var(dest)))
+        }
+        Expression::UnaryOp(UnaryOperator::Dereference, expr) => {
+            let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            instrs.append(&mut expr_instrs);
+            let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
+            if this_expr_directly_on_lhs_of_assignment {
+                // store to memory address
+                match *expr_var_type {
+                    IrType::PointerTo(_) => {
+                        // prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                        match expr_var {
+                            Src::Var(expr_var) => Ok((instrs, Src::StoreAddressVar(expr_var))),
+                            _ => return Err(MiddleEndError::AttemptToStoreToNonVariable),
+                        }
+                    }
+                    _ => return Err(MiddleEndError::DereferenceNonPointerType(expr_var_type)),
+                }
+            } else {
+                // dereference load from memory address
+                let dest = prog.new_var(ValueType::ModifiableLValue);
+                instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
+                // check whether the var is allowed to be dereferenced;
+                // if so, store the type of dest
+                match *expr_var_type {
+                    IrType::PointerTo(inner_type) => {
+                        prog.add_var_type(dest.to_owned(), inner_type)?;
+                    }
+                    _ => return Err(MiddleEndError::DereferenceNonPointerType(expr_var_type)),
+                }
+                Ok((instrs, Src::Var(dest)))
+            }
+        }
         Expression::UnaryOp(op, expr) => {
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
             instrs.append(&mut expr_instrs);
@@ -1027,51 +1068,51 @@ pub fn convert_expression_to_ir(
             instrs.append(&mut unary_convert_instrs);
             let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             match op {
-                UnaryOperator::AddressOf => {
-                    let dest = prog.new_var(ValueType::RValue);
-                    instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
-                    // store type of dest
-                    prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
-                    Ok((instrs, Src::Var(dest)))
-                }
-                UnaryOperator::Dereference => {
-                    if this_expr_directly_on_lhs_of_assignment {
-                        // store to memory address
-                        match *expr_var_type {
-                            IrType::PointerTo(_) => {
-                                // prog.add_var_type(dest.to_owned(), expr_var_type)?;
-                                match expr_var {
-                                    Src::Var(expr_var) => {
-                                        Ok((instrs, Src::StoreAddressVar(expr_var)))
-                                    }
-                                    _ => return Err(MiddleEndError::AttemptToStoreToNonVariable),
-                                }
-                            }
-                            _ => {
-                                return Err(MiddleEndError::DereferenceNonPointerType(
-                                    expr_var_type,
-                                ))
-                            }
-                        }
-                    } else {
-                        // dereference load from memory address
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
-                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
-                        // check whether the var is allowed to be dereferenced;
-                        // if so, store the type of dest
-                        match *expr_var_type {
-                            IrType::PointerTo(inner_type) => {
-                                prog.add_var_type(dest.to_owned(), inner_type)?;
-                            }
-                            _ => {
-                                return Err(MiddleEndError::DereferenceNonPointerType(
-                                    expr_var_type,
-                                ))
-                            }
-                        }
-                        Ok((instrs, Src::Var(dest)))
-                    }
-                }
+                // UnaryOperator::AddressOf => {
+                //     let dest = prog.new_var(ValueType::RValue);
+                //     instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
+                //     // store type of dest
+                //     prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
+                //     Ok((instrs, Src::Var(dest)))
+                // }
+                // UnaryOperator::Dereference => {
+                //     if this_expr_directly_on_lhs_of_assignment {
+                //         // store to memory address
+                //         match *expr_var_type {
+                //             IrType::PointerTo(_) => {
+                //                 // prog.add_var_type(dest.to_owned(), expr_var_type)?;
+                //                 match expr_var {
+                //                     Src::Var(expr_var) => {
+                //                         Ok((instrs, Src::StoreAddressVar(expr_var)))
+                //                     }
+                //                     _ => return Err(MiddleEndError::AttemptToStoreToNonVariable),
+                //                 }
+                //             }
+                //             _ => {
+                //                 return Err(MiddleEndError::DereferenceNonPointerType(
+                //                     expr_var_type,
+                //                 ))
+                //             }
+                //         }
+                //     } else {
+                //         // dereference load from memory address
+                //         let dest = prog.new_var(ValueType::ModifiableLValue);
+                //         instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
+                //         // check whether the var is allowed to be dereferenced;
+                //         // if so, store the type of dest
+                //         match *expr_var_type {
+                //             IrType::PointerTo(inner_type) => {
+                //                 prog.add_var_type(dest.to_owned(), inner_type)?;
+                //             }
+                //             _ => {
+                //                 return Err(MiddleEndError::DereferenceNonPointerType(
+                //                     expr_var_type,
+                //                 ))
+                //             }
+                //         }
+                //         Ok((instrs, Src::Var(dest)))
+                //     }
+                // }
                 UnaryOperator::Plus => {
                     let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::Add(
@@ -1128,6 +1169,7 @@ pub fn convert_expression_to_ir(
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
                     Ok((instrs, Src::Var(dest)))
                 }
+                _ => unreachable!("other cases handled separately"),
             }
         }
         Expression::SizeOfExpr(e) => {
@@ -1271,7 +1313,7 @@ pub fn convert_expression_to_ir(
                     instrs.push(Instruction::Add(dest.to_owned(), left_var, right_var));
                 }
                 BinaryOperator::Sub => {
-                    let (mut convert_instrs, left_var, right_var) =
+                    let (mut convert_instrs, mut left_var, mut right_var) =
                         binary_convert(left_var, right_var, prog)?;
                     instrs.append(&mut convert_instrs);
                     let left_var_type = left_var.get_type(&prog.program_metadata)?;
@@ -1292,10 +1334,39 @@ pub fn convert_expression_to_ir(
                         prog.add_var_type(dest.to_owned(), left_var_type)?;
                     } else if right_var_type.is_integral_type() {
                         // pointer - integer
-                        prog.add_var_type(dest.to_owned(), left_var_type)?;
+                        prog.add_var_type(dest.to_owned(), left_var_type.to_owned())?;
+
+                        // subtract from pointer in multiples of the byte size it points to
+                        let temp_right_var = prog.new_var(right_var.get_value_type());
+                        prog.add_var_type(temp_right_var.to_owned(), right_var_type)?;
+                        let ptr_object_byte_size = match left_var_type
+                            .get_pointer_object_byte_size(&prog.program_metadata)?
+                        {
+                            TypeSize::CompileTime(size) => {
+                                Src::Constant(Constant::Int(size as i128))
+                            }
+                            TypeSize::Runtime(size_expr) => {
+                                let (mut size_expr_instrs, size_var) =
+                                    convert_expression_to_ir(size_expr, prog, context)?;
+                                instrs.append(&mut size_expr_instrs);
+                                size_var
+                            }
+                        };
+                        instrs.push(Instruction::Mult(
+                            temp_right_var.to_owned(),
+                            right_var,
+                            ptr_object_byte_size,
+                        ));
+                        right_var = Src::Var(temp_right_var);
+
+                        // convert ptr to i32
+                        let temp_left_var = prog.new_var(left_var.get_value_type());
+                        prog.add_var_type(temp_left_var.to_owned(), Box::new(IrType::I32))?;
+                        instrs.push(Instruction::PtrToI32(temp_left_var.to_owned(), left_var));
+                        left_var = Src::Var(temp_left_var);
                     } else {
-                        // pointer - pointer -> long
-                        prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
+                        // pointer - pointer -> int
+                        prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     }
                     instrs.push(Instruction::Sub(dest.to_owned(), left_var, right_var));
                 }

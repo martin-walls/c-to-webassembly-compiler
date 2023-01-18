@@ -22,6 +22,7 @@ use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, MemIdx, TypeIdx}
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
+use crate::backend::wasm_module::imported_function_names::get_imported_function_names;
 use crate::backend::wasm_module::imports_section::{ImportDescriptor, WasmImport};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
@@ -291,8 +292,7 @@ fn separate_imported_and_defined_functions(
     Vec<(FunId, String, ReloopedFunction)>,
     Vec<(FunId, ReloopedFunction)>,
 ) {
-    let imported_function_names =
-        vec!["printf".to_owned(), "atoi".to_owned(), "strtoul".to_owned()];
+    let imported_function_names = get_imported_function_names();
 
     let mut imported_functions: Vec<(FunId, String, ReloopedFunction)> = Vec::new();
     let mut defined_functions: Vec<(FunId, ReloopedFunction)> = Vec::new();
@@ -1832,7 +1832,8 @@ fn convert_ir_instr_to_wasm(
         | Instruction::U32toU8(dest, src)
         | Instruction::I64toU64(dest, src)
         | Instruction::U32toPtr(dest, src)
-        | Instruction::I32toPtr(dest, src) => {
+        | Instruction::I32toPtr(dest, src)
+        | Instruction::PtrToI32(dest, src) => {
             // for all of these, dest and src get loaded to wasm stack as the same type, so this works
             let mut temp_instrs = Vec::new();
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();

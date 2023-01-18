@@ -234,6 +234,7 @@ pub enum Instruction {
     // cast to pointer
     U32toPtr(Dest, Src),
     I32toPtr(Dest, Src),
+    PtrToI32(Dest, Src),
 
     Nop,
 

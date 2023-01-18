@@ -319,13 +319,20 @@ pub fn pop_stack_frame(
         IrType::Function(return_type, _, _) => return_type,
         _ => unreachable!(),
     };
-    load(return_type.to_owned(), &mut store_value_instrs);
+    match &**return_type {
+        IrType::Void => {
+            // if function returns void, don't load return value
+        }
+        _ => {
+            load(return_type.to_owned(), &mut store_value_instrs);
 
-    store_var(
-        result_dest,
-        store_value_instrs,
-        wasm_instrs,
-        function_context,
-        prog_metadata,
-    );
+            store_var(
+                result_dest,
+                store_value_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+    }
 }

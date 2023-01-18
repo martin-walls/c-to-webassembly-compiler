@@ -542,11 +542,17 @@ pub fn get_type_conversion_instrs(
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
             Ok((instrs, Src::Var(dest)))
         }
-        // void * to other pointer
-        (IrType::PointerTo(t1), IrType::PointerTo(t2)) if *t1 == IrType::Void => {
+        // pointer to pointer
+        (IrType::PointerTo(t1), IrType::PointerTo(t2)) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t2)))?;
             instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
+        (IrType::PointerTo(t), IrType::I32) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::PtrToI32(dest.to_owned(), src));
             Ok((instrs, Src::Var(dest)))
         }
         (s, d) => {

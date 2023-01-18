@@ -14,12 +14,12 @@ export const put_args_into_memory = (args, wasm_memory) => {
     stack_ptr += PTR_SIZE * argc;
 
     // store each arg after each other in memory and null-terminate
-    for (let i; i < argc.length; i++) {
+    for (let i = 0; i < argc; i++) {
         // store arg pointer in space we allocated above
         store_ptr(argv + (i * PTR_SIZE), stack_ptr, memory);
         // store arg value at stack ptr
         const arg_bytes = new TextEncoder().encode(args[i]);
-        for (const byte in arg_bytes) {
+        for (const byte of arg_bytes) {
             memory[stack_ptr] = byte;
             stack_ptr += 1;
         }

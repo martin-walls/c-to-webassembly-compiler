@@ -13,3 +13,5 @@ export const STACK_PTR_ADDR = TEMP_FRAME_PTR_ADDR + PTR_SIZE;
 export const MAX_I16 = 65_536n;
 export const MAX_I32 = 4_294_967_296n;
 export const MAX_I64 = 18_446_744_073_709_551_616n;
+
+export const NULL = 0;

@@ -1,0 +1,3 @@
+name: args
+source: 14-js-test/01-args.c
+args: [ "testarg" ]

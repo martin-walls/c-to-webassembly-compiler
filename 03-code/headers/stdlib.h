@@ -5,8 +5,8 @@
 
 #define EXIT_SUCCESS 0
 
-int atoi(const char *str);
+long strtol(const char *str, char **endptr, int base);
 
-unsigned long strtoul(const char *nptr, char **endptr, int base);
+unsigned long strtoul(const char *str, char **endptr, int base);
 
 #endif
