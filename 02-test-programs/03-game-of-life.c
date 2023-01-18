@@ -2,17 +2,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-unsigned long* nextGeneration(int xLen, int yLen, unsigned long grid[]) {
-  unsigned long newGrid[yLen];
+void nextGeneration(int xLen, int yLen, unsigned long grid[]) {
+    unsigned long newGrid[yLen];
 
-  for (int y = 0; y < yLen; y++) {
-    newGrid[y] = 0;
-    for (int x = xLen - 1; x >= 0; x--) {
-      char cell = (grid[y] >> x) & 1;
+    for (int y = 0; y < yLen; y++) {
+        newGrid[y] = 0;
+        for (int x = xLen - 1; x >= 0; x--) {
+            char cell = (grid[y] >> x) & 1;
 
-      // count how many neighbours are alive
-      int liveNeighbourCount = 0;
-      if (x > 0) {
+            // count how many neighbours are alive
+            int liveNeighbourCount = 0;
+            if (x > 0) {
         liveNeighbourCount += (grid[y] >> (x - 1)) & 1;
       }
       if (x < xLen - 1) {
@@ -50,8 +50,6 @@ unsigned long* nextGeneration(int xLen, int yLen, unsigned long grid[]) {
   for (int y = 0; y < yLen; y++) {
     grid[y] = newGrid[y];
   }
-
-  return grid;
 }
 
 void printGrid(int xLen, int yLen, unsigned long grid[]) {
@@ -70,7 +68,7 @@ void life(int xLen, int yLen, unsigned long grid[], int numGenerations) {
     int generationNumber = 0;
     while (generationNumber < numGenerations) {
         generationNumber++;
-        grid = nextGeneration(xLen, yLen, grid);
+        nextGeneration(xLen, yLen, grid);
         printGrid(xLen, yLen, grid);
         printf("\n");
         // sleep(1);
@@ -127,9 +125,9 @@ int main(int argc, char* argv[]) {
         unsigned long row = strtoul(argv[y + 4], &ptr, 2);
         printf("row input: %lu\n", row);
         grid[y] = row;
-  }
+    }
 
     life(xLen, yLen, grid, numGenerations);
 
-  return 0;
+    return 0;
 }
