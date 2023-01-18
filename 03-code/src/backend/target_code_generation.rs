@@ -1292,6 +1292,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             // load srcs onto wasm stack
             let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+
             load_src(
                 left_src,
                 dest_type.to_owned(),
@@ -1405,25 +1406,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::LessThan(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // less than
-            match *dest_type {
+            match *src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LtS);
                 }
@@ -1462,25 +1463,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::GreaterThan(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // greater than
-            match *dest_type {
+            match *src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GtS);
                 }
@@ -1519,25 +1520,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::LessThanEq(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // less than or equal
-            match *dest_type {
+            match *src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LeS);
                 }
@@ -1576,25 +1577,25 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::GreaterThanEq(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // greater than or equal
-            match *dest_type {
+            match *src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GeS);
                 }
@@ -1633,25 +1634,26 @@ fn convert_ir_instr_to_wasm(
         }
         Instruction::Equal(dest, left_src, right_src) => {
             let mut temp_instrs = Vec::new();
-            let dest_type = prog_metadata.get_var_type(&dest).unwrap();
+            let src_type = get_src_type_preferably_from_var(&left_src, &right_src, prog_metadata);
+
             // load srcs onto wasm stack
             load_src(
                 left_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
             load_src(
                 right_src,
-                dest_type.to_owned(),
+                src_type.to_owned(),
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
             );
 
             // equal
-            match *dest_type {
+            match *src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -2385,5 +2387,21 @@ fn test_label_equality(
         for _ in 0..labels.len() - 1 {
             wasm_instrs.push(WasmInstruction::I32Or);
         }
+    }
+}
+
+fn get_src_type_preferably_from_var(
+    left_src: &Src,
+    right_src: &Src,
+    prog_metadata: &Box<ProgramMetadata>,
+) -> Box<IrType> {
+    match left_src {
+        Src::Var(var_id) => prog_metadata.get_var_type(var_id).unwrap(),
+        Src::Constant(_) => match right_src {
+            Src::Var(var_id) => prog_metadata.get_var_type(var_id).unwrap(),
+            Src::Constant(constant) => constant.get_type(None),
+            _ => unreachable!(),
+        },
+        _ => unreachable!(),
     }
 }

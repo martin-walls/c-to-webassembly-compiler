@@ -8,6 +8,7 @@
 #include "hexify.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 int hexify(unsigned char *in, size_t in_size, char *out, size_t out_size)
 {
