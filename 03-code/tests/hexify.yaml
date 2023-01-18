@@ -1,0 +1,3 @@
+name: hexify
+source: 12-single-source-programs/hexify.c
+args:

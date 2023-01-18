@@ -25,6 +25,7 @@ char *
 case_lower(char *str) {
     for (char *s = str; *s; s++) {
         *s = tolower(*s);
+        printf("%s\n", s);
     }
     return str;
 }
@@ -37,18 +38,39 @@ case_camel(char *str) {
         r++;
     }
     while (*r && !CASE_IS_SEP(*r)) {
-        *w++ = *r++;
+        *w = *r;
+        w++;
+        r++;
     }
     while (*r) {
         do {
             r++;
         } while (CASE_IS_SEP(*r));
-        *w++ = toupper(*r);
+        *w = toupper(*r);
+        w++;
         r++;
         while (*r && !CASE_IS_SEP(*r)) {
-            *w++ = *r++;
+            *w = *r;
+            w++;
+            r++;
         }
     }
     *w = 0;
     return str;
+}
+
+int main(int argc, char *argv) {
+    char str1[] = "hEllOWoRlD";
+    char *upper = case_upper(str1);
+    printf("upper: %s\n", upper);
+
+    char str2[] = "hEllOWoRlD";
+    char *lower = case_lower(str2);
+    printf("lower: %s\n", lower);
+
+    char str3[] = "hello world";
+    char *camel = case_camel(str3);
+    printf("camel: %s\n", camel);
+
+    return 0;
 }
