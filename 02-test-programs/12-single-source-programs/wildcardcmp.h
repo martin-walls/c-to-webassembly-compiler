@@ -8,6 +8,6 @@
  */
 
 int
-wildcardcmp(const char *pattern, const char *string);
+wildcardcmp(char *pattern, char *string);
 
 #endif

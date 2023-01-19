@@ -8,7 +8,6 @@
 #include "hexify.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
 
 int hexify(unsigned char *in, size_t in_size, char *out, size_t out_size)
 {
@@ -41,18 +40,20 @@ int hexify(unsigned char *in, size_t in_size, char *out, size_t out_size)
 
 int main(int argc, char **argv) {
     // pack a binary array
-    unsigned char binary[4];
+    unsigned char binary[3];
     binary[0] = 0xde;
     binary[1] = 0xad;
     binary[2] = 0xbe;
-    binary[3] = 0xef;
+
+    printf("size: %d\n", sizeof(binary));
 
     // convert it into a hex string
-    char hex[8+1];
-    hexify(binary, sizeof(binary), hex, sizeof(hex));
+    char hex[6 + 1];
+    printf("size: %d\n", sizeof(hex));
+    int bytes_written = hexify(binary, sizeof(binary), hex, sizeof(hex));
 
     // print the result
-    printf("%s\n", hex);
+    printf("result: %s\nbytes written: %d", hex, bytes_written);
 
     return EXIT_SUCCESS;
 }

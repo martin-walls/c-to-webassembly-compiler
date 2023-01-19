@@ -714,7 +714,7 @@ pub fn convert_expression_to_ir(
             // unary conversion
             let (mut unary_convert_arr_instrs, arr_var) = unary_convert(arr_var, prog)?;
             instrs.append(&mut unary_convert_arr_instrs);
-            let (mut unary_convert_index_instrs, index_var) = unary_convert(index_var, prog)?;
+            let (mut unary_convert_index_instrs, mut index_var) = unary_convert(index_var, prog)?;
             instrs.append(&mut unary_convert_index_instrs);
             let arr_var_type = arr_var.get_type(&prog.program_metadata)?;
             arr_var_type.require_pointer_type()?;
@@ -722,6 +722,24 @@ pub fn convert_expression_to_ir(
             let arr_inner_type = arr_var_type.dereference_pointer_type()?;
             let index_var_type = index_var.get_type(&prog.program_metadata)?;
             index_var_type.require_integral_type()?;
+
+            match *index_var_type {
+                IrType::I64 => {
+                    // index should be int not long, so we can add it to ptr
+                    let temp_index_var = prog.new_var(index_var.get_value_type());
+                    prog.add_var_type(temp_index_var.to_owned(), Box::new(IrType::I32))?;
+                    instrs.push(Instruction::U64toI32(temp_index_var.to_owned(), index_var));
+                    index_var = Src::Var(temp_index_var);
+                }
+                IrType::U64 => {
+                    // index should be int not long, so we can add it to ptr
+                    let temp_index_var = prog.new_var(index_var.get_value_type());
+                    prog.add_var_type(temp_index_var.to_owned(), Box::new(IrType::I32))?;
+                    instrs.push(Instruction::I64toI32(temp_index_var.to_owned(), index_var));
+                    index_var = Src::Var(temp_index_var);
+                }
+                _ => {}
+            }
 
             // multiply index by size of element, to get number of bytes to advance ptr by
             let element_byte_size = arr_inner_type.get_byte_size(&prog.program_metadata);
@@ -1176,7 +1194,13 @@ pub fn convert_expression_to_ir(
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(e, prog, context)?;
             instrs.append(&mut expr_instrs);
             let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
-            let byte_size = match expr_var_type.get_byte_size(&prog.program_metadata) {
+
+            let type_size = if expr_var_type.is_array_type() {
+                expr_var_type.get_array_size()?
+            } else {
+                expr_var_type.get_byte_size(&prog.program_metadata)
+            };
+            let size = match type_size {
                 TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
                 TypeSize::Runtime(size_expr) => {
                     let (mut size_expr_instrs, size_var) =
@@ -1187,7 +1211,7 @@ pub fn convert_expression_to_ir(
             };
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), byte_size));
+            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), size));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::SizeOfType(t) => {
@@ -1195,7 +1219,12 @@ pub fn convert_expression_to_ir(
                 None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                 Some(x) => x,
             };
-            let byte_size = match type_info.get_byte_size(&prog.program_metadata) {
+            let type_size = if type_info.is_array_type() {
+                type_info.get_array_size()?
+            } else {
+                type_info.get_byte_size(&prog.program_metadata)
+            };
+            let byte_size = match type_size {
                 TypeSize::CompileTime(size) => Src::Constant(Constant::Int(size as i128)),
                 TypeSize::Runtime(size_expr) => {
                     let (mut size_expr_instrs, size_var) =

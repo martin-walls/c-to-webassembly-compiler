@@ -6,8 +6,8 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
-use log::debug;
-use std::collections::HashMap;
+use log::{debug, info};
+use std::collections::{HashMap, HashSet};
 
 pub fn allocate_local_vars(
     block: &Box<Block>,
@@ -37,10 +37,13 @@ pub fn allocate_local_vars(
     };
     offset += return_type_byte_size as u32;
 
+    let mut param_var_ids = HashSet::new();
+
     // calculate offset of each param variable
     for param_i in 0..param_types.len() {
         let param_type = param_types.get(param_i).unwrap();
         let param_var_id = fun_param_var_mappings.get(param_i).unwrap();
+        param_var_ids.insert(param_var_id.to_owned());
         let param_byte_size = match param_type.get_byte_size(prog_metadata) {
             TypeSize::CompileTime(size) => size,
             TypeSize::Runtime(_) => {
@@ -53,6 +56,11 @@ pub fn allocate_local_vars(
 
     // calculate offset of each local variable
     for (var_id, var_type) in block_vars {
+        // check if the variable is also a parameter and has therefore
+        // already been allocated
+        if param_var_ids.contains(&var_id) {
+            continue;
+        }
         let byte_size = match var_type.get_byte_size(prog_metadata) {
             TypeSize::CompileTime(byte_size) => byte_size,
             TypeSize::Runtime(e) => {

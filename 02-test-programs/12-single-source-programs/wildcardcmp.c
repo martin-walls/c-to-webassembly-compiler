@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include "wildcardcmp.h"
 
-int
-wildcardcmp(const char *pattern, const char *string) {
-    const char *w = NULL; // last `*`
-    const char *s = NULL; // last checked char
+int wildcardcmp(char *pattern, char *string) {
+    char *w = NULL; // last `*`
+    char *s = NULL; // last checked char
 
     // malformed
     if (!pattern || !string) return 0;
