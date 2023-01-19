@@ -2,7 +2,7 @@ default:
     just --list
 
 cloc:
-    cloc src --by-file --force-lang=Rust,lalrpop
+    cloc . --by-file --force-lang=Rust,lalrpop --exclude-list-file=.gitignore
 
 test:
     ./testsuite.py
