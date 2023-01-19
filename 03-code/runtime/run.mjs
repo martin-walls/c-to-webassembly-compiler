@@ -6,6 +6,7 @@ import {readFileSync} from "fs";
 import {printf} from "./stdlib/stdio.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
 import {strtol, strtoul} from "./stdlib/stdlib.mjs";
+import {strlen, strstr} from "./stdlib/string.mjs";
 
 const run = async (filename, args) => {
     const buffer = readFileSync(filename);
@@ -21,6 +22,8 @@ const run = async (filename, args) => {
             printf: printf(memory),
             strtol: strtol(memory),
             strtoul: strtoul(memory),
+            strlen: strlen(memory),
+            strstr: strstr(memory),
         },
     };
 

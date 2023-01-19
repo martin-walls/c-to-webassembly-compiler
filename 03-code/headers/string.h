@@ -3,10 +3,10 @@
 
 #define NULL ((void*)0)
 
-typedef unsigned long size_t;
-
-//TODO
+typedef int size_t;
 
 size_t strlen(const char *s);
+
+char *strstr(const char *, const char *);
 
 #endif

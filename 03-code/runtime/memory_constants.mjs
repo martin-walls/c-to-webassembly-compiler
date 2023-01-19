@@ -5,6 +5,7 @@ export const I32_SIZE = 4;
 export const I64_SIZE = 8;
 export const F32_SIZE = 4;
 export const F64_SIZE = 8;
+export const SIZE_T_SIZE = I32_SIZE;
 
 export const FRAME_PTR_ADDR = 0;
 export const TEMP_FRAME_PTR_ADDR = FRAME_PTR_ADDR + PTR_SIZE;

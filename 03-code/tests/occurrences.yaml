@@ -1,0 +1,3 @@
+name: occurrences
+source: 12-single-source-programs/occurrences.c
+args:
