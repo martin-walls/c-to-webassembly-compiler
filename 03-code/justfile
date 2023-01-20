@@ -4,8 +4,8 @@ default:
 cloc:
     cloc . --by-file --force-lang=Rust,lalrpop --exclude-list-file=.gitignore
 
-test:
-    ./testsuite.py
+test *ARGS:
+    ./testsuite.py {{ARGS}}
 
 run WASM *ARGS:
     ./runtime/run.mjs {{WASM}} {{ARGS}}

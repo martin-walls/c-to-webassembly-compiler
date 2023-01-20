@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import subprocess
 import os
+import sys
 from pathlib import Path
 import yaml
 
@@ -186,7 +187,7 @@ def run_test(test_spec: TestSpec):
         raise TestFailedException("GCC and wasm outputs didn't match.")
 
 
-def run_all_tests(tests_dir: Path):
+def run_all_tests(tests_dir: Path, test_name_filter: str or None):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -201,14 +202,15 @@ def run_all_tests(tests_dir: Path):
         if test_spec_file.is_file():
             test_spec = read_test_file(test_spec_file)
 
-            try:
-                print(f"Running test: {test_spec.name}")
-                run_test(test_spec)
-                print("\tTest passed")
-                passed_tests.append(test_spec)
-            except TestFailedException as e:
-                print(f"\tTest failed: {e.message}")
-                failed_tests.append(test_spec)
+            if test_name_filter is None or test_name_filter in test_spec.name:
+                try:
+                    print(f"Running test: {test_spec.name}")
+                    run_test(test_spec)
+                    print("\tTest passed")
+                    passed_tests.append(test_spec)
+                except TestFailedException as e:
+                    print(f"\tTest failed: {e.message}")
+                    failed_tests.append(test_spec)
 
     print()
     if len(failed_tests) == 0:
@@ -224,4 +226,8 @@ def run_all_tests(tests_dir: Path):
 
 
 if __name__ == "__main__":
-    run_all_tests(TESTS_DIR)
+    args = [arg for arg in sys.argv[1:]]
+    test_name_filter = None
+    if len(args) >= 1:
+        test_name_filter = args[0]
+    run_all_tests(TESTS_DIR, test_name_filter)
