@@ -1,5 +1,7 @@
+#include "trim.h"
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
 
 char *
 trim(char *str)
@@ -24,4 +26,11 @@ trim(char *str)
     *(end+1) = 0;
 
     return str;
+}
+
+int main(int argc, char *argv) {
+    char str[] = "    hello world  ";
+    char *trimmed = trim(str);
+    printf("%s\n", trimmed);
+    return 0;
 }
