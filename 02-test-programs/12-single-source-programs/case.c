@@ -64,7 +64,7 @@ int main(int argc, char *argv) {
     printf("upper: %s\n", upper);
 
     char str2[] = "hEllO WoRlD";
-    char *lower = case_upper(str2);
+    char *lower = case_lower(str2);
     printf("lower: %s\n", lower);
 
     char str3[] = "hello world";
