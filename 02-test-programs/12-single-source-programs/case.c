@@ -25,7 +25,6 @@ char *
 case_lower(char *str) {
     for (char *s = str; *s; s++) {
         *s = tolower(*s);
-        printf("%s\n", s);
     }
     return str;
 }
@@ -64,8 +63,8 @@ int main(int argc, char *argv) {
     char *upper = case_upper(str1);
     printf("upper: %s\n", upper);
 
-    char str2[] = "hEllOWoRlD";
-    char *lower = case_lower(str2);
+    char str2[] = "hEllO WoRlD";
+    char *lower = case_upper(str2);
     printf("lower: %s\n", lower);
 
     char str3[] = "hello world";

@@ -71,7 +71,7 @@ pub fn allocate_local_vars(
                 // PTR_SIZE as u64
             }
         };
-        var_offsets.insert(var_id, offset);
+        var_offsets.insbleert(var_id, offset);
         offset += byte_size as u32;
         stack_ptr_increment += byte_size as u32;
     }
@@ -85,10 +85,10 @@ pub fn allocate_local_vars(
 fn get_vars_with_types(
     block: &Box<Block>,
     prog_metadata: &Box<ProgramMetadata>,
-) -> Vec<(VarId, Box<IrType>)> {
+) -> HashMap<VarId, Box<IrType>> {
     match &**block {
         Block::Simple { internal, next } => {
-            let mut vars = Vec::new();
+            let mut vars = HashMap::new();
 
             for instr in &internal.instrs {
                 match instr {
@@ -155,7 +155,8 @@ fn get_vars_with_types(
                     | Instruction::U32toPtr(dest, _)
                     | Instruction::I32toPtr(dest, _) => {
                         let dest_type = prog_metadata.get_var_type(dest).unwrap();
-                        vars.push((dest.to_owned(), dest_type));
+                        vars.insert(dest.to_owned(), dest_type);
+                        // vars.push((dest.to_owned(), dest_type));
                     }
                     _ => {}
                 }
@@ -184,7 +185,7 @@ fn get_vars_with_types(
             next,
             ..
         } => {
-            let mut vars = Vec::new();
+            let mut vars = HashMap::new();
 
             for handled in handled_blocks {
                 vars.extend(get_vars_with_types(&handled, prog_metadata));
