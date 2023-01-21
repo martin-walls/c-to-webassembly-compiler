@@ -71,7 +71,7 @@ pub fn allocate_local_vars(
                 // PTR_SIZE as u64
             }
         };
-        var_offsets.insbleert(var_id, offset);
+        var_offsets.insert(var_id, offset);
         offset += byte_size as u32;
         stack_ptr_increment += byte_size as u32;
     }
