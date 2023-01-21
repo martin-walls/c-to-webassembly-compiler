@@ -31,6 +31,7 @@ pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
             Err(e) => return Err(e),
         }
     }
+    info!("Non-optimised IR: {}", prog);
     optimise_ir(&mut prog)?;
     // assert_no_var_has_runtime_byte_size(&prog);
     Ok(prog)

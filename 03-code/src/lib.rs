@@ -34,7 +34,7 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let source = preprocess(Path::new(&config.filepath))?;
     let ast = parse(source)?;
     let ir = convert_to_ir(ast)?;
-    info!("IR: {}", ir);
+    info!("Optimised IR: {}", ir);
     let relooped_ir = reloop(ir);
     let wasm_module = generate_target_code(relooped_ir)?;
     wasm_module.write_to_file(Path::new(&config.output))?;

@@ -13,7 +13,8 @@ use crate::backend::memory_operations::{
 };
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
-    load_stack_ptr, pop_stack_frame, set_frame_ptr_to_stack_ptr, set_up_new_stack_frame,
+    load_stack_ptr, overwrite_current_stack_frame_with_new_stack_frame, pop_stack_frame,
+    set_frame_ptr_to_stack_ptr, set_up_new_stack_frame,
 };
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
@@ -1770,6 +1771,27 @@ fn convert_ir_instr_to_wasm(
                 function_context,
                 prog_metadata,
             );
+        }
+        Instruction::TailCall(fun_id, params) => {
+            let callee_function_type = prog_metadata.function_types.get(&fun_id).unwrap();
+
+            overwrite_current_stack_frame_with_new_stack_frame(
+                callee_function_type,
+                params,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+
+            wasm_instrs.push(WasmInstruction::Call {
+                func_idx: module_context
+                    .fun_id_to_func_idx_map
+                    .get(&fun_id)
+                    .unwrap()
+                    .to_owned(),
+            });
+
+            wasm_instrs.push(WasmInstruction::Return);
         }
         Instruction::Ret(return_value_src) => {
             if let Some(return_value_src) = return_value_src {

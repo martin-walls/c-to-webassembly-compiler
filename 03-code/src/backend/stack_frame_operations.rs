@@ -8,6 +8,7 @@ use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use log::info;
+use std::collections::HashMap;
 
 pub fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
@@ -333,6 +334,136 @@ pub fn pop_stack_frame(
                 function_context,
                 prog_metadata,
             );
+        }
+    }
+}
+
+pub fn overwrite_current_stack_frame_with_new_stack_frame(
+    callee_function_type: &Box<IrType>,
+    params: Vec<Src>,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    function_context: &FunctionContext,
+    prog_metadata: &Box<ProgramMetadata>,
+) {
+    // leave frame ptr where it is
+
+    let (return_type, param_types) = match &**callee_function_type {
+        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
+        _ => unreachable!(),
+    };
+
+    // first copy params to temp space at top of stack, to avoid overwriting them
+    // before we copy them to their new param position
+    // use temp_fp to hold the stack ptr value, so we can offset from it while
+    // constructing the new stack frame
+    // todo make sure this is definitely after the space for all the new params
+    set_temp_frame_ptr_to_stack_ptr(wasm_instrs);
+
+    let mut temp_stack_ptr_offset = 0;
+    let mut param_var_stack_ptr_offsets = HashMap::new();
+    for param_index in 0..params.len() {
+        let param = params.get(param_index).unwrap();
+        if let Src::Var(var_id) = param {
+            // offset from top of stack to store param
+            load_temp_frame_ptr(wasm_instrs);
+            wasm_instrs.push(WasmInstruction::I32Const {
+                n: temp_stack_ptr_offset as i32,
+            });
+            wasm_instrs.push(WasmInstruction::I32Add);
+
+            let var_type = prog_metadata.get_var_type(&var_id).unwrap();
+            let var_byte_size = var_type
+                .get_byte_size(&prog_metadata)
+                .get_compile_time_value()
+                .unwrap();
+
+            load_var(
+                var_id.to_owned(),
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+
+            // store param in temp space at top of stack
+            store(var_type, wasm_instrs);
+
+            param_var_stack_ptr_offsets.insert(var_id.to_owned(), temp_stack_ptr_offset);
+
+            // increment offset
+            temp_stack_ptr_offset += var_byte_size;
+        }
+    }
+
+    // reset stack ptr for setting up the new stack frame
+    set_stack_ptr_to_frame_ptr(wasm_instrs);
+    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs);
+
+    // leave space for the return value
+    let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
+        TypeSize::CompileTime(size) => size,
+        TypeSize::Runtime(_) => {
+            unreachable!()
+        }
+    };
+    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs);
+
+    // now store the params in their correct positions in the new stack frame
+    for param_index in 0..params.len() {
+        let param = params.get(param_index).unwrap();
+        match param {
+            Src::Var(var_id) => {
+                // address operand for where to store param
+                load_stack_ptr(wasm_instrs);
+
+                let var_type = prog_metadata.get_var_type(&var_id).unwrap();
+                let var_byte_size = var_type
+                    .get_byte_size(&prog_metadata)
+                    .get_compile_time_value()
+                    .unwrap();
+
+                // load var from temp space we put it in earlier
+                load_temp_frame_ptr(wasm_instrs);
+                let temp_frame_ptr_offset = *param_var_stack_ptr_offsets.get(var_id).unwrap();
+                wasm_instrs.push(WasmInstruction::I32Const {
+                    n: temp_frame_ptr_offset as i32,
+                });
+                wasm_instrs.push(WasmInstruction::I32Add);
+
+                load(var_type.to_owned(), wasm_instrs);
+
+                // store param
+                store(var_type, wasm_instrs);
+
+                // advance stack ptr
+                increment_stack_ptr_by_known_offset(var_byte_size as u32, wasm_instrs);
+            }
+            Src::Constant(constant) => {
+                // address operand for where to store param
+                load_stack_ptr(wasm_instrs);
+
+                let param_type = if param_index >= param_types.len() {
+                    constant.get_type_minimum_i32()
+                } else {
+                    param_types.get(param_index).unwrap().to_owned()
+                };
+
+                let param_byte_size = param_type
+                    .get_byte_size(prog_metadata)
+                    .get_compile_time_value()
+                    .unwrap();
+
+                // value to store
+                load_constant(constant.to_owned(), param_type.to_owned(), wasm_instrs);
+
+                // store
+                store(param_type.to_owned(), wasm_instrs);
+
+                // advance the stack pointer
+                increment_stack_ptr_by_known_offset(param_byte_size as u32, wasm_instrs);
+            }
+            Src::StoreAddressVar(_) | Src::Fun(_) => {
+                unreachable!()
+            }
         }
     }
 }

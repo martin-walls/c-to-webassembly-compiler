@@ -172,6 +172,7 @@ pub enum Instruction {
 
     // control flow
     Call(Dest, FunId, Vec<Src>),
+    TailCall(FunId, Vec<Src>),
     Ret(Option<Src>),
     Label(LabelId),
     Br(LabelId),
@@ -328,6 +329,16 @@ impl fmt::Display for Instruction {
             }
             Instruction::Call(dest, fun, params) => {
                 write!(f, "{} = call {}(", dest, fun)?;
+                if !params.is_empty() {
+                    for param in &params[..params.len() - 1] {
+                        write!(f, "{}, ", param)?;
+                    }
+                    write!(f, "{}", params[params.len() - 1])?;
+                }
+                write!(f, ")")
+            }
+            Instruction::TailCall(fun, params) => {
+                write!(f, "tail-call {}(", fun)?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
                         write!(f, "{}, ", param)?;
