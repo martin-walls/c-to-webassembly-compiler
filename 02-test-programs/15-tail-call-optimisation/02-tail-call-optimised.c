@@ -8,7 +8,7 @@ long sum(long n, long acc) {
 }
 
 int main(int argc, char *argv) {
-    long n = sum(1000, 0);
+    long n = sum(1000000, 0);
     printf("%ld\n", n);
     return 0;
 }
