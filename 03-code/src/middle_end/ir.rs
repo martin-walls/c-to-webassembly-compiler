@@ -1,3 +1,4 @@
+use crate::backend::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
 use crate::middle_end::ids::{
     FunId, IdGenerator, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
 };
@@ -119,7 +120,6 @@ pub struct ProgramMetadata {
     pub function_ids: HashMap<String, FunId>,
     pub function_types: HashMap<FunId, Box<IrType>>,
     pub function_param_var_mappings: HashMap<FunId, Vec<VarId>>,
-    pub variadic_function_concrete_variants: HashMap<FunId, Vec<FunId>>,
     pub string_literals: HashMap<StringLiteralId, String>,
     pub var_types: HashMap<VarId, Box<IrType>>,
     pub structs: HashMap<StructId, StructType>,
@@ -140,7 +140,6 @@ impl ProgramMetadata {
             function_ids: HashMap::new(),
             function_types: HashMap::new(),
             function_param_var_mappings: HashMap::new(),
-            variadic_function_concrete_variants: HashMap::new(),
             string_literals: HashMap::new(),
             var_types: HashMap::new(),
             structs: HashMap::new(),
@@ -255,6 +254,13 @@ impl ProgramMetadata {
         match self.function_types.get(fun_id) {
             None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
             Some(fun_type) => Ok(fun_type.to_owned()),
+        }
+    }
+
+    pub fn get_main_fun_id(&self) -> Result<FunId, MiddleEndError> {
+        match self.function_ids.get(MAIN_FUNCTION_SOURCE_NAME) {
+            None => return Err(MiddleEndError::NoMainFunctionDefined),
+            Some(fun_id) => Ok(fun_id.to_owned()),
         }
     }
 }

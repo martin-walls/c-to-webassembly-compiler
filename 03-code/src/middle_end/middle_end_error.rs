@@ -64,6 +64,7 @@ pub enum MiddleEndError {
     MismatchedArrayInitialiserLength,
     ByteSizeNotKnownAtCompileTime,
     AttemptToStoreToNonVariable,
+    NoMainFunctionDefined,
 }
 
 impl fmt::Display for MiddleEndError {

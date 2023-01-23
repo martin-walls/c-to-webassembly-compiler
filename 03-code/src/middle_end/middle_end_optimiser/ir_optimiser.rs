@@ -2,6 +2,7 @@ use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::middle_end::middle_end_optimiser::remove_redundancy::remove_unused_labels;
 use crate::middle_end::middle_end_optimiser::tail_call_optimise::tail_call_optimise;
+use crate::middle_end::middle_end_optimiser::unreachable_procedure_elimination::remove_unused_functions;
 use crate::EnabledOptimisations;
 
 pub fn optimise_ir(
@@ -20,5 +21,10 @@ pub fn optimise_ir(
         remove_unused_labels(&mut function.instrs)?;
     }
     remove_unused_labels(&mut prog.program_instructions.global_instrs)?;
+
+    if enabled_optimisations.is_unreachable_procedure_elimination_enabled() {
+        remove_unused_functions(prog)?;
+    }
+
     Ok(())
 }

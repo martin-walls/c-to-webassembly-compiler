@@ -13,4 +13,11 @@ impl EnabledOptimisations {
             EnabledOptimisations::None => false,
         }
     }
+
+    pub fn is_unreachable_procedure_elimination_enabled(&self) -> bool {
+        match self {
+            EnabledOptimisations::All => true,
+            EnabledOptimisations::None => false,
+        }
+    }
 }
