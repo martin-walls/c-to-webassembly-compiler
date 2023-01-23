@@ -8,5 +8,5 @@ pub mod instructions;
 pub mod ir;
 pub mod ir_types;
 mod middle_end_error;
-mod middle_end_optimiser;
+pub mod middle_end_optimiser;
 mod type_conversions;

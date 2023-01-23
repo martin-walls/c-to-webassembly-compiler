@@ -10,9 +10,10 @@ mod relooper;
 
 use crate::backend::target_code_generation::generate_target_code;
 use crate::enabled_optimisations::EnabledOptimisations;
+use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
-use log::info;
+use log::{info, trace};
 use middle_end::ast_to_ir::convert_to_ir;
 use parser::parser::parse;
 use preprocessor::preprocess;
@@ -36,12 +37,21 @@ pub struct CliConfig {
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
+    // Run C preprocessor
     let source = preprocess(Path::new(&config.filepath))?;
+    // Generate AST
     let ast = parse(source)?;
-    let ir = convert_to_ir(ast, &config.optimise)?;
+    // Convert AST to three-address code IR
+    let mut ir = convert_to_ir(ast, &config.optimise)?;
+    trace!("Non-optimised IR: {}", ir);
+    // Run optimisations on the IR
+    optimise_ir(&mut ir, &config.optimise)?;
     info!("Optimised IR: {}", ir);
+    // Run the Relooper algorithm
     let relooped_ir = reloop(ir);
+    // Generate target wasm code
     let wasm_module = generate_target_code(relooped_ir)?;
+    // write binary to file
     wasm_module.write_to_file(Path::new(&config.output))?;
     Ok(())
 }

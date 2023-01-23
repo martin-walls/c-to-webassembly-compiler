@@ -35,9 +35,6 @@ pub fn convert_to_ir(
             Err(e) => return Err(e),
         }
     }
-    info!("Non-optimised IR: {}", prog);
-    optimise_ir(&mut prog, enabled_optimisations)?;
-    // assert_no_var_has_runtime_byte_size(&prog);
     Ok(prog)
 }
 
