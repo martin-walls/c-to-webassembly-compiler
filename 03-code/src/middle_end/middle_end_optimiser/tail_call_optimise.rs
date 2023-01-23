@@ -12,7 +12,7 @@ pub fn tail_call_optimise(
     // find any call instructions that are the last instruction of a function
 
     // instr index, call instr parameters
-    let mut current_rec_call_instr: Option<(usize, &Dest, &Vec<Src>)> = None;
+    let mut current_call_instr: Option<(usize, &Dest, &FunId, &Vec<Src>)> = None;
 
     // index to start replacing instrs, how many instrs to remove, new instrs to insert
     let mut replace_instrs: Vec<(usize, u32, Vec<Instruction>)> = Vec::new();
@@ -25,28 +25,35 @@ pub fn tail_call_optimise(
         let instr = fun_instrs.get(instr_i).unwrap();
         match instr {
             Instruction::Call(dest, fun_id, params) => {
-                if fun_id == this_fun_id {
-                    current_rec_call_instr = Some((instr_i, dest, params));
-                } else {
-                    current_rec_call_instr = None;
-                }
+                current_call_instr = Some((instr_i, dest, fun_id, params));
             }
             Instruction::Ret(return_src) => {
-                if let Some((call_instr_i, call_instr_dest, params)) = current_rec_call_instr {
+                if let Some((call_instr_i, call_instr_dest, call_instr_fun_id, params)) =
+                    current_call_instr
+                {
                     if let Some(Src::Var(return_var_src)) = return_src {
                         if return_var_src == call_instr_dest {
-                            // tail call optimise!
                             let mut new_instrs = Vec::new();
-                            for param_i in 0..params.len() {
-                                let new_param_src = params.get(param_i).unwrap();
-                                let param_var = param_var_mappings.get(param_i).unwrap();
-                                new_instrs.push(Instruction::SimpleAssignment(
-                                    param_var.to_owned(),
-                                    new_param_src.to_owned(),
+                            // check if recursive call
+                            if call_instr_fun_id == this_fun_id {
+                                // optimise tail recursion
+                                for param_i in 0..params.len() {
+                                    let new_param_src = params.get(param_i).unwrap();
+                                    let param_var = param_var_mappings.get(param_i).unwrap();
+                                    new_instrs.push(Instruction::SimpleAssignment(
+                                        param_var.to_owned(),
+                                        new_param_src.to_owned(),
+                                    ));
+                                }
+                                // jump back to start of function
+                                new_instrs.push(Instruction::Br(start_of_fun_label.to_owned()));
+                            } else {
+                                // optimise non-recursive tail call
+                                new_instrs.push(Instruction::TailCall(
+                                    call_instr_fun_id.to_owned(),
+                                    params.to_vec(),
                                 ));
                             }
-                            // jump back to start of function
-                            new_instrs.push(Instruction::Br(start_of_fun_label.to_owned()));
                             replace_instrs.push((
                                 call_instr_i,
                                 (instr_i - call_instr_i + 1) as u32,
@@ -55,10 +62,10 @@ pub fn tail_call_optimise(
                         }
                     }
                 }
-                current_rec_call_instr = None;
+                current_call_instr = None;
             }
             _ => {
-                current_rec_call_instr = None;
+                current_call_instr = None;
             }
         }
     }
