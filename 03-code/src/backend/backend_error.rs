@@ -7,6 +7,7 @@ pub enum BackendError {
     NoMainFunctionDefined,
 }
 
+#[allow(unreachable_patterns)]
 impl fmt::Display for BackendError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

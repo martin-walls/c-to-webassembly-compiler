@@ -1,7 +1,6 @@
 use crate::fmt_indented::{FmtIndented, IndentLevel};
 use crate::middle_end::ids::{Id, LabelId};
 use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir::ProgramMetadata;
 use std::fmt;
 use std::fmt::Formatter;
 

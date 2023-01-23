@@ -6,7 +6,6 @@ use crate::backend::wasm_indices::{
     DataIdx, ElemIdx, FuncIdx, GlobalIdx, LabelIdx, LocalIdx, TableIdx, TypeIdx,
 };
 use crate::backend::wasm_types::{RefType, ValType};
-use crate::middle_end::instructions::Instruction;
 
 #[derive(Debug)]
 pub struct WasmExpression {

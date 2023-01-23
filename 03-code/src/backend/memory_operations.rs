@@ -5,7 +5,7 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
-use log::{debug, info};
+use log::debug;
 
 /// Insert a load instruction of the correct type
 pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {

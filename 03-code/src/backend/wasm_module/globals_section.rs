@@ -1,4 +1,3 @@
-use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::to_bytes::ToBytes;
 use crate::backend::vector_encoding::encode_vector;
 use crate::backend::wasm_instructions::WasmExpression;

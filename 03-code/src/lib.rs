@@ -42,7 +42,7 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     // Generate AST
     let ast = parse(source)?;
     // Convert AST to three-address code IR
-    let mut ir = convert_to_ir(ast, &config.optimise)?;
+    let mut ir = convert_to_ir(ast)?;
     trace!("Non-optimised IR: {}", ir);
     // Run optimisations on the IR
     optimise_ir(&mut ir, &config.optimise)?;

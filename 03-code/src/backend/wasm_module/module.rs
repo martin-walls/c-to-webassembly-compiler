@@ -14,8 +14,6 @@ use crate::backend::wasm_module::memory_section::MemorySection;
 use crate::backend::wasm_module::start_section::StartSection;
 use crate::backend::wasm_module::tables_section::TablesSection;
 use crate::backend::wasm_module::types_section::{TypesSection, WasmFunctionType};
-use crate::backend::wasm_types::ValType;
-use crate::relooper::relooper::ReloopedFunction;
 use log::info;
 use std::collections::HashMap;
 use std::fs::File;

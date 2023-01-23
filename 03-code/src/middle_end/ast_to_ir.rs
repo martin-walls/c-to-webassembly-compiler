@@ -1,4 +1,3 @@
-use crate::enabled_optimisations::EnabledOptimisations;
 use crate::middle_end::aggregate_type_initialisers::{
     array_initialiser, convert_string_literal_to_init_list_of_chars_ast, struct_initialiser,
 };
@@ -10,7 +9,6 @@ use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::{Function, Program};
 use crate::middle_end::ir_types::{array_to_pointer_type, IrType, TypeSize};
 use crate::middle_end::middle_end_error::MiddleEndError;
-use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::middle_end::type_conversions::{
     binary_convert, binary_convert_separately, convert_type_for_assignment,
     get_type_conversion_instrs, unary_convert,
@@ -20,12 +18,9 @@ use crate::parser::ast::{
     BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
     Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
-use log::{debug, info, trace};
+use log::{info, trace};
 
-pub fn convert_to_ir(
-    ast: AstProgram,
-    enabled_optimisations: &EnabledOptimisations,
-) -> Result<Box<Program>, MiddleEndError> {
+pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut prog = Box::new(Program::new());
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {

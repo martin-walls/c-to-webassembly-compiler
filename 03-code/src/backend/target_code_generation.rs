@@ -1,5 +1,4 @@
 use log::{debug, info};
-use std::any::Any;
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
@@ -19,20 +18,18 @@ use crate::backend::stack_frame_operations::{
 use crate::backend::target_code_generation_context::{
     ControlFlowElement, FunctionContext, ModuleContext,
 };
-use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, MemIdx, TypeIdx};
+use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
-use crate::backend::wasm_module::data_section::DataSegment;
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
 use crate::backend::wasm_module::imported_function_names::get_imported_function_names;
-use crate::backend::wasm_module::imports_section::{ImportDescriptor, WasmImport};
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
-use crate::backend::wasm_types::{Limits, MemoryType, NumType, ValType};
+use crate::backend::wasm_types::{NumType, ValType};
 use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
-use crate::relooper::blocks::{Block, LoopBlockId, MultipleBlockId};
+use crate::relooper::blocks::{Block, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";

@@ -1,7 +1,6 @@
 use crate::middle_end::ids::{FunId, VarId};
 use crate::middle_end::instructions::{Dest, Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
-use std::collections::HashMap;
 
 pub fn tail_call_optimise(
     fun_instrs: &mut Vec<Instruction>,

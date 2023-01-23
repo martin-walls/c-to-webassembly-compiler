@@ -6,7 +6,6 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
-use log::{debug, info};
 use std::collections::{HashMap, HashSet};
 
 pub fn allocate_local_vars(
@@ -63,7 +62,7 @@ pub fn allocate_local_vars(
         }
         let byte_size = match var_type.get_byte_size(prog_metadata) {
             TypeSize::CompileTime(byte_size) => byte_size,
-            TypeSize::Runtime(e) => {
+            TypeSize::Runtime(_) => {
                 // we shouldn't be trying to allocate a variable with runtime-known byte size
                 // on the stack here. its space is allocated with the AllocateVariable instruction,
                 // with just a pointer on the stack here

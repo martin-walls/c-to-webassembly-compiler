@@ -65,7 +65,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
 
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
     let mut multiple_block_id_generator = IdGenerator::<MultipleBlockId>::new();
-    for (fun_id, mut function) in prog.program_instructions.functions {
+    for (fun_id, function) in prog.program_instructions.functions {
         // function with no body (ie. one that we'll link to in JS runtime)
         if !function.body_is_defined || function.instrs.is_empty() {
             program_blocks.functions.insert(
@@ -80,7 +80,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
             );
             continue;
         }
-        let label_var = init_label_variable(&mut function.instrs, &mut prog.program_metadata);
+        let label_var = init_label_variable(&mut prog.program_metadata);
         let (labels, entry) = soupify(
             function.instrs,
             &mut prog.program_metadata.label_id_generator,
@@ -114,10 +114,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
         }
     }
     if !prog.program_instructions.global_instrs.is_empty() {
-        let label_var = init_label_variable(
-            &mut prog.program_instructions.global_instrs,
-            &mut prog.program_metadata,
-        );
+        let label_var = init_label_variable(&mut prog.program_metadata);
         let (labels, entry) = soupify(
             prog.program_instructions.global_instrs,
             &mut prog.program_metadata.label_id_generator,
@@ -145,10 +142,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
     }
 }
 
-fn init_label_variable(
-    instrs: &mut Vec<Instruction>,
-    prog_metadata: &mut ProgramMetadata,
-) -> VarId {
+fn init_label_variable(prog_metadata: &mut ProgramMetadata) -> VarId {
     let label_var = prog_metadata.new_var(ValueType::ModifiableLValue);
     // make label variable an unsigned long
     prog_metadata
