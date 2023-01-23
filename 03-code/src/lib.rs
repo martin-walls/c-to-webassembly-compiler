@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 mod backend;
+mod enabled_optimisations;
 mod fmt_indented;
 mod middle_end;
 mod parser;
@@ -8,6 +9,7 @@ mod preprocessor;
 mod relooper;
 
 use crate::backend::target_code_generation::generate_target_code;
+use crate::enabled_optimisations::EnabledOptimisations;
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
 use log::info;
@@ -28,12 +30,15 @@ pub struct CliConfig {
     /// The path of the output file to generate
     #[arg(short, long, default_value_t = ("module.wasm".to_owned()))]
     output: String,
+    /// Which optimisations to enable
+    #[arg(long, value_enum, default_value_t = EnabledOptimisations::All)]
+    optimise: EnabledOptimisations,
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let source = preprocess(Path::new(&config.filepath))?;
     let ast = parse(source)?;
-    let ir = convert_to_ir(ast)?;
+    let ir = convert_to_ir(ast, &config.optimise)?;
     info!("Optimised IR: {}", ir);
     let relooped_ir = reloop(ir);
     let wasm_module = generate_target_code(relooped_ir)?;

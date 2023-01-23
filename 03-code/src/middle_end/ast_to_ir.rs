@@ -1,3 +1,4 @@
+use crate::enabled_optimisations::EnabledOptimisations;
 use crate::middle_end::aggregate_type_initialisers::{
     array_initialiser, convert_string_literal_to_init_list_of_chars_ast, struct_initialiser,
 };
@@ -21,7 +22,10 @@ use crate::parser::ast::{
 };
 use log::{debug, info, trace};
 
-pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
+pub fn convert_to_ir(
+    ast: AstProgram,
+    enabled_optimisations: &EnabledOptimisations,
+) -> Result<Box<Program>, MiddleEndError> {
     let mut prog = Box::new(Program::new());
     let mut context = Box::new(Context::new());
     for stmt in ast.0 {
@@ -32,7 +36,7 @@ pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
         }
     }
     info!("Non-optimised IR: {}", prog);
-    optimise_ir(&mut prog)?;
+    optimise_ir(&mut prog, enabled_optimisations)?;
     // assert_no_var_has_runtime_byte_size(&prog);
     Ok(prog)
 }
