@@ -389,6 +389,8 @@ fn convert_statement_to_ir(
                                             var,
                                             array_byte_size,
                                         ));
+                                    } else {
+                                        instrs.push(Instruction::DeclareVariable(var));
                                     }
                                 }
                                 None => unreachable!(),

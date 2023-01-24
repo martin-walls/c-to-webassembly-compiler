@@ -20,22 +20,6 @@ export function store_ptr(address, ptr_value, memory) {
   store_int(address, PTR_SIZE, BigInt(ptr_value), memory);
 }
 
-// export function read_i32(addr, memory) {
-//   // read bytes of int in little-endian order
-//   let value = memory[addr];
-//   value |= memory[addr + 1] << 8;
-//   value |= memory[addr + 2] << 16;
-//   value |= memory[addr + 3] << 24;
-//   return value;
-// }
-
-// export function store_i32(address, value, memory) {
-//   memory[address] = value & 0xff;
-//   memory[address + 1] = (value >> 8) & 0xff;
-//   memory[address + 2] = (value >> 16) & 0xff;
-//   memory[address + 3] = (value >> 24) & 0xff;
-// }
-
 export function read_int(addr, byte_size, memory) {
   // read bytes of int in little-endian order
   // test the highest bit to see whether it's negative (BigInt won't
@@ -54,22 +38,34 @@ export function read_int(addr, byte_size, memory) {
 }
 
 export function store_int(addr, byte_size, value, memory) {
-  // store bytes of int in little-endian order
-  memory[addr] = Number(value & 0xffn);
-  for (let i = 1; i < byte_size; i++) {
-    memory[addr + i] = Number((value >> BigInt(8 * i)) & 0xffn);
-  }
+    // store bytes of int in little-endian order
+    memory[addr] = Number(value & 0xffn);
+    for (let i = 1; i < byte_size; i++) {
+        memory[addr + i] = Number((value >> BigInt(8 * i)) & 0xffn);
+    }
+}
+
+export function read_double(addr, memory) {
+    const buffer = new ArrayBuffer(8);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < 8; i++) {
+        const byte = memory[addr + i];
+        bytes[i] = byte;
+    }
+    const floatArray = new Float64Array(buffer);
+    const value = floatArray[0];
+    return value;
 }
 
 export function read_string(addr, memory) {
-  // read a null-terminated string starting at addr from memory
-  const next_char = () => {
-    const byte = memory[addr];
-    addr++;
-    return String.fromCharCode(byte);
-  }
+    // read a null-terminated string starting at addr from memory
+    const next_char = () => {
+        const byte = memory[addr];
+        addr++;
+        return String.fromCharCode(byte);
+    }
 
-  let str = "";
+    let str = "";
   let c = next_char();
   while (c !== "\0") {
     str += c;

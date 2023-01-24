@@ -140,6 +140,7 @@ pub enum Instruction {
     // addr <- x
     StoreToAddress(Dest, Src),
 
+    DeclareVariable(Dest),
     AllocateVariable(Dest, Src),
 
     // Unary operations
@@ -217,6 +218,9 @@ pub enum Instruction {
 
     // float promotion
     F32toF64(Dest, Src),
+
+    // double to int
+    F64toI32(Dest, Src),
 
     // integer truncation
     I32toI8(Dest, Src),

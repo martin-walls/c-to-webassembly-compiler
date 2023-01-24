@@ -509,6 +509,9 @@ fn convert_ir_instr_to_wasm(
 
             store(inner_dest_type, wasm_instrs);
         }
+        Instruction::DeclareVariable(_) => {
+            // no instructions to generate here
+        }
         Instruction::AllocateVariable(dest, byte_size) => {
             // allocate byte_size many bytes on the stack, and set dest to be a pointer to there
             //
@@ -2113,6 +2116,25 @@ fn convert_ir_instr_to_wasm(
             );
             // convert f32 to f64
             temp_instrs.push(WasmInstruction::F64PromoteF32);
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
+        }
+        Instruction::F64toI32(dest, src) => {
+            let mut temp_instrs = Vec::new();
+            load_src(
+                src,
+                Box::new(IrType::F64),
+                &mut temp_instrs,
+                function_context,
+                prog_metadata,
+            );
+            // convert f64 to i32
+            temp_instrs.push(WasmInstruction::I32TruncF64S);
             store_var(
                 dest,
                 temp_instrs,

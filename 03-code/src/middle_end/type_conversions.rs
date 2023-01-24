@@ -533,6 +533,12 @@ pub fn get_type_conversion_instrs(
             instrs.push(Instruction::F32toF64(dest.to_owned(), src));
             Ok((instrs, Src::Var(dest)))
         }
+        (IrType::F64, IrType::I32) => {
+            let dest = prog.new_var(src.get_value_type());
+            prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
+            instrs.push(Instruction::F64toI32(dest.to_owned(), src));
+            Ok((instrs, Src::Var(dest)))
+        }
 
         (IrType::Function(_, _, _), IrType::PointerTo(t))
         | (IrType::ArrayOf(_, _), IrType::PointerTo(t)) => {

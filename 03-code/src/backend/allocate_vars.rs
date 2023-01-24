@@ -124,6 +124,7 @@ fn get_vars_with_types(
                     Instruction::SimpleAssignment(dest, _)
                     | Instruction::LoadFromAddress(dest, _)
                     | Instruction::StoreToAddress(dest, _)
+                    | Instruction::DeclareVariable(dest)
                     | Instruction::AllocateVariable(dest, _)
                     | Instruction::AddressOf(dest, _)
                     | Instruction::BitwiseNot(dest, _)
@@ -171,6 +172,7 @@ fn get_vars_with_types(
                     | Instruction::U64toF64(dest, _)
                     | Instruction::I64toF64(dest, _)
                     | Instruction::F32toF64(dest, _)
+                    | Instruction::F64toI32(dest, _)
                     | Instruction::I32toI8(dest, _)
                     | Instruction::U32toI8(dest, _)
                     | Instruction::I64toI8(dest, _)
@@ -182,12 +184,24 @@ fn get_vars_with_types(
                     | Instruction::I64toI32(dest, _)
                     | Instruction::U64toI32(dest, _)
                     | Instruction::U32toPtr(dest, _)
-                    | Instruction::I32toPtr(dest, _) => {
+                    | Instruction::I32toPtr(dest, _)
+                    | Instruction::PtrToI32(dest, _) => {
                         let dest_type = prog_metadata.get_var_type(dest).unwrap();
                         vars.insert(dest.to_owned(), dest_type);
                         // vars.push((dest.to_owned(), dest_type));
                     }
-                    _ => {}
+                    Instruction::TailCall(_, _)
+                    | Instruction::Ret(_)
+                    | Instruction::Label(_)
+                    | Instruction::Br(_)
+                    | Instruction::BrIfEq(_, _, _)
+                    | Instruction::BrIfNotEq(_, _, _)
+                    | Instruction::Nop
+                    | Instruction::Break(_)
+                    | Instruction::Continue(_)
+                    | Instruction::EndHandledBlock(_)
+                    | Instruction::IfEqElse(_, _, _, _)
+                    | Instruction::IfNotEqElse(_, _, _, _) => {}
                 }
             }
 

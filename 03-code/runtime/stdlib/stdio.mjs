@@ -1,4 +1,5 @@
 import {
+    F64_SIZE,
     I16_SIZE,
     I32_SIZE,
     I64_SIZE,
@@ -10,6 +11,7 @@ import {
     read_int,
     store_int,
     read_string,
+    read_double,
 } from "../memory_operations.mjs";
 import {signed_to_unsigned_i16, signed_to_unsigned_i32, signed_to_unsigned_i64} from "../number_operations.mjs";
 
@@ -34,6 +36,12 @@ export function printf(wasm_memory) {
             vararg_ptr += byte_size;
             return value;
         };
+
+        const next_vararg_double = () => {
+            const value = read_double(vararg_ptr, memory);
+            vararg_ptr += F64_SIZE;
+            return value;
+        }
 
         const next_vararg_ptr = () => {
             return next_vararg_int(PTR_SIZE);
@@ -80,6 +88,10 @@ export function printf(wasm_memory) {
                             if (c === "u") {
                                 value = signed_to_unsigned_i64(value);
                             }
+                            break;
+                        case "f":
+                            // double
+                            value = next_vararg_double();
                             break;
                         case "s":
                             // string

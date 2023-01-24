@@ -84,7 +84,10 @@ pub fn load_var_address(
     match function_context.var_fp_offsets.get(var_id) {
         None => {
             match function_context.global_var_addrs.get(var_id) {
-                None => unreachable!("Every var is either local or global"),
+                None => {
+                    debug!("var_id: {}", var_id);
+                    unreachable!("Every var is either local or global")
+                }
                 Some(global_addr) => {
                     // address of global var
                     wasm_instrs.push(WasmInstruction::I32Const {
