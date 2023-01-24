@@ -52,6 +52,7 @@ export function read_double(addr, memory) {
         const byte = memory[addr + i];
         bytes[i] = byte;
     }
+    // interpret the bytes as a double
     const floatArray = new Float64Array(buffer);
     const value = floatArray[0];
     return value;
