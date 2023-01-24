@@ -2,7 +2,7 @@ use log::{debug, info};
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
-use crate::backend::allocate_local_vars::allocate_local_vars;
+use crate::backend::allocate_vars::{allocate_global_vars, allocate_local_vars};
 use crate::backend::backend_error::BackendError;
 use crate::backend::import_export_names::MAIN_FUNCTION_EXPORT_NAME;
 use crate::backend::initialise_memory::initialise_memory;
@@ -46,63 +46,16 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
 
     module_context.calculate_func_idxs(&imported_functions, &defined_functions);
 
-    initialise_memory(
+    let initial_top_of_stack_addr = initialise_memory(
         &mut wasm_module,
         &mut module_context,
         &prog.program_metadata,
     );
 
-    // insert empty function type to module
-    let empty_type = WasmFunctionType {
-        param_types: Vec::new(),
-        result_types: Vec::new(),
-    };
-    let empty_type_idx = wasm_module.insert_type(empty_type);
-
     let mut func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx> = HashMap::new();
     let mut func_idx_to_body_code_map: HashMap<FuncIdx, WasmExpression> = HashMap::new();
 
-    for (fun_id, function) in defined_functions {
-        let wasm_func_idx = module_context.fun_id_to_func_idx_map.get(&fun_id).unwrap();
-
-        // all functions have empty type, because params/result are stored in stack frame
-        func_idx_to_type_idx_map.insert(wasm_func_idx.to_owned(), empty_type_idx.to_owned());
-
-        if let Some(block) = function.block {
-            let mut function_wasm_instrs = Vec::new();
-
-            let var_offsets = allocate_local_vars(
-                &block,
-                &mut function_wasm_instrs,
-                function.type_info,
-                function.param_var_mappings,
-                &prog.program_metadata,
-            );
-
-            let mut function_context =
-                FunctionContext::new(var_offsets, function.label_variable.unwrap());
-
-            function_wasm_instrs.append(&mut convert_block_to_wasm(
-                block,
-                &mut function_context,
-                &module_context,
-                &prog.program_metadata,
-            ));
-
-            func_idx_to_body_code_map.insert(
-                wasm_func_idx.to_owned(),
-                WasmExpression {
-                    instrs: function_wasm_instrs,
-                },
-            );
-        } else {
-            // empty function body
-            func_idx_to_body_code_map.insert(
-                wasm_func_idx.to_owned(),
-                WasmExpression { instrs: Vec::new() },
-            );
-        }
-    }
+    //////////////////////////////////////////////////////////////////////////
 
     // create a wasm function for the global instructions
     let mut global_wasm_instrs = Vec::new();
@@ -134,23 +87,28 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
     // set frame ptr to start of this frame
     set_frame_ptr_to_stack_ptr(&mut global_wasm_instrs);
 
+    let mut global_var_addrs = HashMap::new();
     if let Some(global_block) = prog.program_blocks.global_instrs {
-        let var_offsets = allocate_local_vars(
+        global_var_addrs = allocate_global_vars(
             &global_block,
+            initial_top_of_stack_addr,
             &mut global_wasm_instrs,
-            Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)), // global instructions have a void function type, so don't allocate any space for a return value
-            Vec::new(),                                                            // no parameters
             &prog.program_metadata,
         );
 
-        let mut function_context = FunctionContext::new(
-            var_offsets,
-            VarId::initial_id(), // global instructions don't have any control flow, so just put a dummy var here
-        );
+        // let var_offsets = allocate_local_vars(
+        //     &global_block,
+        //     &mut global_wasm_instrs,
+        //     Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)), // global instructions have a void function type, so don't allocate any space for a return value
+        //     Vec::new(),                                                            // no parameters
+        //     &prog.program_metadata,
+        // );
+
+        let mut global_context = FunctionContext::global_context(global_var_addrs.to_owned());
 
         global_wasm_instrs.append(&mut convert_block_to_wasm(
             global_block,
-            &mut function_context,
+            &mut global_context,
             &module_context,
             &prog.program_metadata,
         ));
@@ -255,6 +213,60 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
         },
     };
     wasm_module.exports_section.exports.push(main_export);
+
+    /////////////////////////////////////////////////
+
+    // insert empty function type to module
+    let empty_type = WasmFunctionType {
+        param_types: Vec::new(),
+        result_types: Vec::new(),
+    };
+    let empty_type_idx = wasm_module.insert_type(empty_type);
+
+    for (fun_id, function) in defined_functions {
+        let wasm_func_idx = module_context.fun_id_to_func_idx_map.get(&fun_id).unwrap();
+
+        // all functions have empty type, because params/result are stored in stack frame
+        func_idx_to_type_idx_map.insert(wasm_func_idx.to_owned(), empty_type_idx.to_owned());
+
+        if let Some(block) = function.block {
+            let mut function_wasm_instrs = Vec::new();
+
+            let var_offsets = allocate_local_vars(
+                &block,
+                &mut function_wasm_instrs,
+                function.type_info,
+                function.param_var_mappings,
+                &prog.program_metadata,
+            );
+
+            let mut function_context = FunctionContext::new(
+                var_offsets,
+                global_var_addrs.to_owned(),
+                function.label_variable.unwrap(),
+            );
+
+            function_wasm_instrs.append(&mut convert_block_to_wasm(
+                block,
+                &mut function_context,
+                &module_context,
+                &prog.program_metadata,
+            ));
+
+            func_idx_to_body_code_map.insert(
+                wasm_func_idx.to_owned(),
+                WasmExpression {
+                    instrs: function_wasm_instrs,
+                },
+            );
+        } else {
+            // empty function body
+            func_idx_to_body_code_map.insert(
+                wasm_func_idx.to_owned(),
+                WasmExpression { instrs: Vec::new() },
+            );
+        }
+    }
 
     wasm_module.insert_defined_functions(
         func_idx_to_body_code_map,
@@ -535,27 +547,16 @@ fn convert_ir_instr_to_wasm(
                 }
             };
 
-            match function_context.var_fp_offsets.get(&src_var) {
-                None => {
-                    // todo check if src_var is a global variable, and get its address
-                }
-                Some(fp_offset) => {
-                    // load the frame pointer, add the offset to it, and store the result in dest
-                    let mut temp_instrs = Vec::new();
-                    load_frame_ptr(&mut temp_instrs);
-                    temp_instrs.push(WasmInstruction::I32Const {
-                        n: *fp_offset as i32,
-                    });
-                    temp_instrs.push(WasmInstruction::I32Add);
-                    store_var(
-                        dest,
-                        temp_instrs,
-                        wasm_instrs,
-                        function_context,
-                        prog_metadata,
-                    );
-                }
-            }
+            let mut temp_instrs = Vec::new();
+            load_var_address(&src_var, &mut temp_instrs, function_context);
+
+            store_var(
+                dest,
+                temp_instrs,
+                wasm_instrs,
+                function_context,
+                prog_metadata,
+            );
         }
         Instruction::BitwiseNot(dest, src) => {
             // bitwise not is implemented as XORing with -1
@@ -1878,7 +1879,7 @@ fn convert_ir_instr_to_wasm(
             // load src as i64
             match src {
                 Src::Var(var_id) => {
-                    load_var_address(var_id, &mut temp_instrs, function_context);
+                    load_var_address(&var_id, &mut temp_instrs, function_context);
                     // load i32 into an i64
                     temp_instrs.push(WasmInstruction::I64Load32S {
                         mem_arg: MemArg::zero(),
@@ -1904,7 +1905,7 @@ fn convert_ir_instr_to_wasm(
             // load src as i64
             match src {
                 Src::Var(var_id) => {
-                    load_var_address(var_id, &mut temp_instrs, function_context);
+                    load_var_address(&var_id, &mut temp_instrs, function_context);
                     // load u32 into an i64
                     temp_instrs.push(WasmInstruction::I64Load32U {
                         mem_arg: MemArg::zero(),

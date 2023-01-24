@@ -1,4 +1,4 @@
-mod allocate_local_vars;
+mod allocate_vars;
 mod backend_error;
 mod float_encoding;
 mod import_export_names;

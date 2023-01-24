@@ -77,13 +77,21 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
 
 /// load the memory address of the given variable onto the stack
 pub fn load_var_address(
-    var_id: VarId,
+    var_id: &VarId,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
 ) {
-    match function_context.var_fp_offsets.get(&var_id) {
+    match function_context.var_fp_offsets.get(var_id) {
         None => {
-            // todo check if var is a global variable, and calculate the address from that
+            match function_context.global_var_addrs.get(var_id) {
+                None => unreachable!("Every var is either local or global"),
+                Some(global_addr) => {
+                    // address of global var
+                    wasm_instrs.push(WasmInstruction::I32Const {
+                        n: *global_addr as i32,
+                    });
+                }
+            }
         }
         Some(fp_offset) => {
             // load frame ptr and add variable offset
@@ -105,7 +113,7 @@ pub fn load_var(
 ) {
     let var_type = prog_metadata.get_var_type(&var_id).unwrap();
 
-    load_var_address(var_id, wasm_instrs, function_context);
+    load_var_address(&var_id, wasm_instrs, function_context);
 
     load(var_type, wasm_instrs);
 }
@@ -118,24 +126,14 @@ pub fn store_var(
     function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
-    match function_context.var_fp_offsets.get(&var_id) {
-        None => {
-            // todo check if var is a global variable, and calculate the address from that
-        }
-        Some(fp_offset) => {
-            // calculate address operand
-            load_frame_ptr(wasm_instrs);
-            wasm_instrs.push(WasmInstruction::I32Const {
-                n: *fp_offset as i32,
-            });
-            wasm_instrs.push(WasmInstruction::I32Add);
+    // address operand
+    load_var_address(&var_id, wasm_instrs, function_context);
 
-            wasm_instrs.append(&mut store_value_instrs);
+    // put the value to store onto the stack
+    wasm_instrs.append(&mut store_value_instrs);
 
-            // store
-            store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
-        }
-    }
+    // store
+    store(prog_metadata.get_var_type(&var_id).unwrap(), wasm_instrs);
 }
 
 pub fn load_constant(

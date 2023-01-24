@@ -1,4 +1,5 @@
 use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
+use crate::middle_end::ids::Id;
 use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
@@ -64,15 +65,30 @@ pub enum ControlFlowElement {
 
 pub struct FunctionContext {
     pub var_fp_offsets: HashMap<VarId, u32>,
+    pub global_var_addrs: HashMap<VarId, u32>,
     pub label_variable: VarId,
     pub control_flow_stack: Vec<ControlFlowElement>,
 }
 
 impl FunctionContext {
-    pub fn new(var_fp_offsets: HashMap<VarId, u32>, label_variable: VarId) -> Self {
+    pub fn new(
+        var_fp_offsets: HashMap<VarId, u32>,
+        global_var_addrs: HashMap<VarId, u32>,
+        label_variable: VarId,
+    ) -> Self {
         FunctionContext {
             var_fp_offsets,
+            global_var_addrs,
             label_variable,
+            control_flow_stack: Vec::new(),
+        }
+    }
+
+    pub fn global_context(global_var_addrs: HashMap<VarId, u32>) -> Self {
+        FunctionContext {
+            var_fp_offsets: HashMap::new(),
+            global_var_addrs,
+            label_variable: VarId::initial_id(), // dummy var, because global instrs don't have any control flow
             control_flow_stack: Vec::new(),
         }
     }

@@ -13,7 +13,7 @@ pub fn initialise_memory(
     wasm_module: &mut WasmModule,
     module_context: &mut ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
-) {
+) -> u32 {
     // ----------------------------------------------------------
     // | FP | temp FP | SP | String literals | ...stack frames...
     // ----------------------------------------------------------
@@ -72,4 +72,6 @@ pub fn initialise_memory(
         },
     };
     wasm_module.imports_section.imports.push(memory_import);
+
+    stack_ptr_value as u32
 }
