@@ -4,6 +4,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::backend::allocate_vars::{allocate_global_vars, allocate_local_vars};
 use crate::backend::backend_error::BackendError;
+use crate::backend::import_export_names::get_imported_function_names;
 use crate::backend::import_export_names::MAIN_FUNCTION_EXPORT_NAME;
 use crate::backend::initialise_memory::initialise_memory;
 use crate::backend::memory_constants::PTR_SIZE;
@@ -21,7 +22,6 @@ use crate::backend::target_code_generation_context::{
 use crate::backend::wasm_indices::{FuncIdx, LabelIdx, LocalIdx, TypeIdx};
 use crate::backend::wasm_instructions::{BlockType, MemArg, WasmExpression, WasmInstruction};
 use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport};
-use crate::backend::wasm_module::imported_function_names::get_imported_function_names;
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};

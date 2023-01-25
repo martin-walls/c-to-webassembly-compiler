@@ -4,7 +4,6 @@ pub mod element_section;
 pub mod exports_section;
 pub mod functions_section;
 pub mod globals_section;
-pub mod imported_function_names;
 pub mod imports_section;
 pub mod memory_section;
 pub mod module;
