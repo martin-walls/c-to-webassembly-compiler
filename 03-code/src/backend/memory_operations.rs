@@ -5,7 +5,7 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
-use log::debug;
+use log::{debug, info};
 
 /// Insert a load instruction of the correct type
 pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
@@ -69,7 +69,8 @@ pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
         IrType::F64 => wasm_instrs.push(WasmInstruction::F64Store {
             mem_arg: MemArg::zero(),
         }),
-        _ => {
+        t => {
+            debug!("store type: {}", t);
             unreachable!()
         }
     }

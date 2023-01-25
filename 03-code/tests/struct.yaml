@@ -1,0 +1,3 @@
+name: struct
+source: 13-ir-test/01-struct-test.c
+args: 

@@ -65,6 +65,7 @@ pub enum MiddleEndError {
     ByteSizeNotKnownAtCompileTime,
     AttemptToStoreToNonVariable,
     NoMainFunctionDefined,
+    UnwrapNonVarSrc,
 }
 
 impl fmt::Display for MiddleEndError {

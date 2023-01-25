@@ -18,7 +18,7 @@ use crate::parser::ast::{
     BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
     Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
-use log::{info, trace};
+use log::{debug, info, trace};
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut prog = Box::new(Program::new());
@@ -552,25 +552,25 @@ fn convert_statement_to_ir(
                                                 dest_type.to_owned(),
                                             )?;
 
-                                            // let byte_size = match dest_type
-                                            //     .get_byte_size(&prog.program_metadata)
-                                            // {
-                                            //     TypeSize::CompileTime(size) => {
-                                            //         Src::Constant(Constant::Int(size as i128))
-                                            //     }
-                                            //     TypeSize::Runtime(size_expr) => {
-                                            //         let (mut size_expr_instrs, size_var) =
-                                            //             convert_expression_to_ir(
-                                            //                 size_expr, prog, context,
-                                            //             )?;
-                                            //         instrs.append(&mut size_expr_instrs);
-                                            //         size_var
-                                            //     }
-                                            // };
-                                            // instrs.push(Instruction::AllocateVariable(
-                                            //     dest.to_owned(),
-                                            //     byte_size,
-                                            // ));
+                                            let byte_size = match dest_type
+                                                .get_byte_size(&prog.program_metadata)
+                                            {
+                                                TypeSize::CompileTime(size) => {
+                                                    Src::Constant(Constant::Int(size as i128))
+                                                }
+                                                TypeSize::Runtime(size_expr) => {
+                                                    let (mut size_expr_instrs, size_var) =
+                                                        convert_expression_to_ir(
+                                                            size_expr, prog, context,
+                                                        )?;
+                                                    instrs.append(&mut size_expr_instrs);
+                                                    size_var
+                                                }
+                                            };
+                                            instrs.push(Instruction::AllocateVariable(
+                                                dest.to_owned(),
+                                                byte_size,
+                                            ));
 
                                             let mut init_instrs = struct_initialiser(
                                                 dest,
@@ -828,7 +828,7 @@ pub fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var(ValueType::None);
+                    let ptr = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -840,24 +840,36 @@ pub fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
                     ));
 
-                    let dest = prog.new_var(ValueType::ModifiableLValue);
-                    prog.add_var_type(dest.to_owned(), member_type)?;
-                    // dest = *ptr
-                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
-                    Ok((instrs, Src::Var(dest)))
+                    if this_expr_directly_on_lhs_of_assignment {
+                        // store to struct member
+                        Ok((instrs, Src::StoreAddressVar(ptr)))
+                    } else {
+                        // load from struct member
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        prog.add_var_type(dest.to_owned(), member_type)?;
+                        // dest = *ptr
+                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
+                        Ok((instrs, Src::Var(dest)))
+                    }
                 }
                 IrType::Union(union_id) => {
                     let union_type = prog.get_union_type(&union_id)?;
                     let member_type = union_type.get_member_type(&member_name)?;
 
-                    let dest = prog.new_var(ValueType::ModifiableLValue);
-                    prog.add_var_type(dest.to_owned(), member_type)?;
-                    // dest = *obj_ptr
-                    instrs.push(Instruction::LoadFromAddress(
-                        dest.to_owned(),
-                        Src::Var(obj_ptr),
-                    ));
-                    Ok((instrs, Src::Var(dest)))
+                    if this_expr_directly_on_lhs_of_assignment {
+                        // store to union
+                        Ok((instrs, Src::StoreAddressVar(obj_ptr)))
+                    } else {
+                        // load from union
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        prog.add_var_type(dest.to_owned(), member_type)?;
+                        // dest = *obj_ptr
+                        instrs.push(Instruction::LoadFromAddress(
+                            dest.to_owned(),
+                            Src::Var(obj_ptr),
+                        ));
+                        Ok((instrs, Src::Var(dest)))
+                    }
                 }
                 _ => unreachable!(),
             }
@@ -875,7 +887,7 @@ pub fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var(ValueType::None);
+                    let ptr = prog.new_var(ValueType::ModifiableLValue);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -887,27 +899,41 @@ pub fn convert_expression_to_ir(
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
                     ));
 
-                    let dest = prog.new_var(ValueType::ModifiableLValue);
-                    prog.add_var_type(dest.to_owned(), member_type)?;
-                    // dest = *ptr
-                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
-                    Ok((instrs, Src::Var(dest)))
+                    if this_expr_directly_on_lhs_of_assignment {
+                        // store to struct member
+                        Ok((instrs, Src::StoreAddressVar(ptr)))
+                    } else {
+                        // load from struct member
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        prog.add_var_type(dest.to_owned(), member_type)?;
+                        // dest = *ptr
+                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
+                        Ok((instrs, Src::Var(dest)))
+                    }
                 }
                 IrType::Union(union_id) => {
                     let union_type = prog.get_union_type(&union_id)?;
                     let member_type = union_type.get_member_type(&member_name)?;
 
-                    let dest = prog.new_var(ValueType::ModifiableLValue);
-                    prog.add_var_type(dest.to_owned(), member_type)?;
-                    // dest = *obj_ptr
-                    instrs.push(Instruction::LoadFromAddress(dest.to_owned(), obj_var));
-                    Ok((instrs, Src::Var(dest)))
+                    if this_expr_directly_on_lhs_of_assignment {
+                        // store to union
+                        Ok((instrs, Src::StoreAddressVar(obj_var.unwrap_var()?)))
+                    } else {
+                        // load from union
+                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        prog.add_var_type(dest.to_owned(), member_type)?;
+                        // dest = *obj_ptr
+                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), obj_var));
+                        Ok((instrs, Src::Var(dest)))
+                    }
                 }
                 _ => unreachable!(),
             }
         }
         Expression::PostfixIncrement(expr) => {
+            context.directly_on_lhs_of_assignment = true;
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            context.directly_on_lhs_of_assignment = false;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var(ValueType::RValue);
             // propagate the type of dest: same as src
@@ -920,27 +946,63 @@ pub fn convert_expression_to_ir(
                     "Incrementing a non-scalar type",
                 ));
             }
-            prog.add_var_type(dest.to_owned(), expr_var_type)?;
-            // the returned value is the variable before incrementing
-            instrs.push(Instruction::SimpleAssignment(
-                dest.to_owned(),
-                expr_var.to_owned(),
-            ));
-            // check for a valid lvalue before adding add instr
             match expr_var {
                 Src::Var(var) => {
+                    // the returned value is the variable before incrementing
+                    prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
                     instrs.push(Instruction::Add(
                         var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
                     ));
                 }
+                Src::StoreAddressVar(var) => {
+                    // load value to increment
+                    let src_to_increment = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        src_to_increment.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::LoadFromAddress(
+                        src_to_increment.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
+                    // the returned value is the variable before incrementing
+                    prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(src_to_increment.to_owned()),
+                    ));
+
+                    // increment value
+                    let result = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        result.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::Add(
+                        result.to_owned(),
+                        Src::Var(src_to_increment),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+
+                    // store value back
+                    instrs.push(Instruction::StoreToAddress(var, Src::Var(result)));
+                }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
             Ok((instrs, Src::Var(dest)))
         }
         Expression::PostfixDecrement(expr) => {
+            context.directly_on_lhs_of_assignment = true;
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            context.directly_on_lhs_of_assignment = false;
             instrs.append(&mut expr_instrs);
             let dest = prog.new_var(ValueType::RValue);
             // propagate the type of dest: same as src
@@ -953,27 +1015,63 @@ pub fn convert_expression_to_ir(
                     "Decrementing a non-scalar type",
                 ));
             }
-            prog.add_var_type(dest.to_owned(), expr_var_type)?;
-            // the returned value is the variable before decrementing
-            instrs.push(Instruction::SimpleAssignment(
-                dest.to_owned(),
-                expr_var.to_owned(),
-            ));
-            // check for valid lvalue before adding sub instr
             match expr_var {
                 Src::Var(var) => {
+                    // the returned value is the variable before decrementing
+                    prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
                     instrs.push(Instruction::Sub(
                         var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
                     ));
                 }
+                Src::StoreAddressVar(var) => {
+                    // load value to decrement
+                    let src_to_decrement = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        src_to_decrement.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::LoadFromAddress(
+                        src_to_decrement.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
+                    // the returned value is the variable before decrementing
+                    prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(src_to_decrement.to_owned()),
+                    ));
+
+                    // increment value
+                    let result = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        result.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::Sub(
+                        result.to_owned(),
+                        Src::Var(src_to_decrement),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+
+                    // store value back
+                    instrs.push(Instruction::StoreToAddress(var, Src::Var(result)));
+                }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
             Ok((instrs, Src::Var(dest)))
         }
         Expression::PrefixIncrement(expr) => {
+            context.directly_on_lhs_of_assignment = true;
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            context.directly_on_lhs_of_assignment = false;
             instrs.append(&mut expr_instrs);
             // make sure the result is an rvalue
             let dest = prog.new_var(ValueType::RValue);
@@ -1000,12 +1098,57 @@ pub fn convert_expression_to_ir(
                         Src::Var(var),
                     ));
                 }
+                Src::StoreAddressVar(var) => {
+                    // load value to increment
+                    let src_to_increment = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        src_to_increment.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::LoadFromAddress(
+                        src_to_increment.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
+                    // increment value
+                    let result = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        result.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::Add(
+                        result.to_owned(),
+                        Src::Var(src_to_increment),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+
+                    debug!(
+                        "VAR TYPE: {}, RESULT TYPE: {}",
+                        prog.get_var_type(&var)?,
+                        prog.get_var_type(&result)?
+                    );
+
+                    // store value back
+                    instrs.push(Instruction::StoreToAddress(
+                        var,
+                        Src::Var(result.to_owned()),
+                    ));
+
+                    // store result to dest
+                    prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(result),
+                    ));
+                }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
             Ok((instrs, Src::Var(dest)))
         }
         Expression::PrefixDecrement(expr) => {
+            context.directly_on_lhs_of_assignment = true;
             let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
+            context.directly_on_lhs_of_assignment = false;
             instrs.append(&mut expr_instrs);
             // make sure the result is an rvalue
             let dest = prog.new_var(ValueType::RValue);
@@ -1030,6 +1173,49 @@ pub fn convert_expression_to_ir(
                     instrs.push(Instruction::SimpleAssignment(
                         dest.to_owned(),
                         Src::Var(var),
+                    ));
+                }
+                Src::StoreAddressVar(var) => {
+                    // load value to increment
+                    let src_to_decrement = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        src_to_decrement.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::LoadFromAddress(
+                        src_to_decrement.to_owned(),
+                        Src::Var(var.to_owned()),
+                    ));
+
+                    // increment value
+                    let result = prog.new_var(ValueType::RValue);
+                    prog.add_var_type(
+                        result.to_owned(),
+                        expr_var_type.dereference_pointer_type()?,
+                    )?;
+                    instrs.push(Instruction::Sub(
+                        result.to_owned(),
+                        Src::Var(src_to_decrement),
+                        Src::Constant(Constant::Int(1)),
+                    ));
+
+                    debug!(
+                        "VAR TYPE: {}, RESULT TYPE: {}",
+                        prog.get_var_type(&var)?,
+                        prog.get_var_type(&result)?
+                    );
+
+                    // store value back
+                    instrs.push(Instruction::StoreToAddress(
+                        var,
+                        Src::Var(result.to_owned()),
+                    ));
+
+                    // store result to dest
+                    prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
+                    instrs.push(Instruction::SimpleAssignment(
+                        dest.to_owned(),
+                        Src::Var(result),
                     ));
                 }
                 _ => return Err(MiddleEndError::InvalidLValue),

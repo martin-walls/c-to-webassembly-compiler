@@ -516,15 +516,25 @@ fn convert_ir_instr_to_wasm(
             // allocate byte_size many bytes on the stack, and set dest to be a pointer to there
             //
             // store the current stack pointer to dest
-            let mut load_stack_ptr_instrs = Vec::new();
-            load_stack_ptr(&mut load_stack_ptr_instrs);
-            store_var(
-                dest,
-                load_stack_ptr_instrs,
+            load_var_address(&dest, wasm_instrs, function_context);
+
+            // let mut load_stack_ptr_instrs = Vec::new();
+            load_stack_ptr(wasm_instrs);
+
+            store(
+                Box::new(IrType::PointerTo(
+                    prog_metadata.get_var_type(&dest).unwrap(),
+                )),
                 wasm_instrs,
-                function_context,
-                prog_metadata,
             );
+
+            // store_var(
+            //     dest,
+            //     load_stack_ptr_instrs,
+            //     wasm_instrs,
+            //     function_context,
+            //     prog_metadata,
+            // );
 
             let mut load_byte_size_instrs = Vec::new();
 

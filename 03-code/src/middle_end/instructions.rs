@@ -113,6 +113,13 @@ impl Src {
             _ => Err(MiddleEndError::UnwrapNonFunctionType),
         }
     }
+
+    pub fn unwrap_var(&self) -> Result<VarId, MiddleEndError> {
+        match self {
+            Src::Var(var_id) | Src::StoreAddressVar(var_id) => Ok(var_id.to_owned()),
+            _ => Err(MiddleEndError::UnwrapNonVarSrc),
+        }
+    }
 }
 
 impl fmt::Display for Src {
