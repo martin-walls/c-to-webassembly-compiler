@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 void nextGeneration(int xLen, int yLen, unsigned long grid[]) {
     unsigned long newGrid[yLen];
@@ -71,7 +70,6 @@ void life(int xLen, int yLen, unsigned long grid[], int numGenerations) {
         nextGeneration(xLen, yLen, grid);
         printGrid(xLen, yLen, grid);
         printf("\n");
-        // sleep(1);
     }
 }
 
