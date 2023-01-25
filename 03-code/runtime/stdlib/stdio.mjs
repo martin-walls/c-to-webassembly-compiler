@@ -3,6 +3,7 @@ import {
     I16_SIZE,
     I32_SIZE,
     I64_SIZE,
+    I8_SIZE,
     PTR_SIZE,
 } from "../memory_constants.mjs";
 import {
@@ -92,6 +93,11 @@ export function printf(wasm_memory) {
                         case "f":
                             // double
                             value = next_vararg_double();
+                            break;
+                        case "c":
+                            // char
+                            value = next_vararg_int(I8_SIZE);
+                            value = String.fromCharCode(value);
                             break;
                         case "s":
                             // string
