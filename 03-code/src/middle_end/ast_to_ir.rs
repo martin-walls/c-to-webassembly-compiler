@@ -18,7 +18,7 @@ use crate::parser::ast::{
     BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
     Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
-use log::{debug, info, trace};
+use log::{debug, trace};
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut prog = Box::new(Program::new());
@@ -360,7 +360,7 @@ fn convert_statement_to_ir(
                                 // non-function declaration (normal variable)
                                 Some(name) => {
                                     trace!("Variable declaration: {}", name);
-                                    let var = prog.new_var(ValueType::ModifiableLValue);
+                                    let var = prog.new_var(ValueType::LValue);
                                     context.add_variable_to_scope(
                                         name,
                                         var.to_owned(),
@@ -480,7 +480,7 @@ fn convert_statement_to_ir(
                                             src = converted_var;
                                         }
 
-                                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                                        let dest = prog.new_var(ValueType::LValue);
                                         prog.add_var_type(
                                             dest.to_owned(),
                                             src.get_type(&prog.program_metadata)?,
@@ -497,7 +497,7 @@ fn convert_statement_to_ir(
                                     }
                                     Initialiser::List(initialisers) => match *dest_type_info {
                                         IrType::ArrayOf(member_type, size) => {
-                                            let dest = prog.new_var(ValueType::ModifiableLValue);
+                                            let dest = prog.new_var(ValueType::LValue);
                                             let dest_type =
                                                 Box::new(IrType::ArrayOf(member_type, size));
                                             prog.add_var_type(
@@ -540,7 +540,7 @@ fn convert_statement_to_ir(
                                             instrs.append(&mut init_instrs);
                                         }
                                         IrType::Struct(struct_id) => {
-                                            let dest = prog.new_var(ValueType::ModifiableLValue);
+                                            let dest = prog.new_var(ValueType::LValue);
                                             let dest_type = Box::new(IrType::Struct(struct_id));
                                             prog.add_var_type(
                                                 dest.to_owned(),
@@ -627,7 +627,7 @@ fn convert_statement_to_ir(
             // put parameter names into scope
             if let Some(param_bindings) = param_bindings {
                 for (param_name, param_type) in param_bindings {
-                    let param_var = prog.new_var(ValueType::ModifiableLValue);
+                    let param_var = prog.new_var(ValueType::LValue);
                     param_var_mappings.push(param_var.to_owned());
                     let param_type = array_to_pointer_type(param_type);
                     context.add_variable_to_scope(
@@ -692,7 +692,7 @@ pub fn convert_expression_to_ir(
         },
         Expression::StringLiteral(s) => {
             let string_id = prog.new_string_literal(s);
-            let dest = prog.new_var(ValueType::ModifiableLValue);
+            let dest = prog.new_var(ValueType::LValue);
             instrs.push(Instruction::PointerToStringLiteral(
                 dest.to_owned(),
                 string_id,
@@ -765,7 +765,7 @@ pub fn convert_expression_to_ir(
             ));
 
             // array variable is a pointer to the start of the array
-            let ptr = prog.new_var(ValueType::ModifiableLValue);
+            let ptr = prog.new_var(ValueType::LValue);
             prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
             instrs.push(Instruction::Add(
                 ptr.to_owned(),
@@ -777,7 +777,7 @@ pub fn convert_expression_to_ir(
                 Ok((instrs, Src::StoreAddressVar(ptr)))
             } else {
                 // read from array index
-                let dest = prog.new_var(ValueType::ModifiableLValue);
+                let dest = prog.new_var(ValueType::LValue);
                 prog.add_var_type(dest.to_owned(), arr_inner_type)?;
                 instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
                 Ok((instrs, Src::Var(dest)))
@@ -828,7 +828,7 @@ pub fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var(ValueType::ModifiableLValue);
+                    let ptr = prog.new_var(ValueType::LValue);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -845,7 +845,7 @@ pub fn convert_expression_to_ir(
                         Ok((instrs, Src::StoreAddressVar(ptr)))
                     } else {
                         // load from struct member
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *ptr
                         instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
@@ -861,7 +861,7 @@ pub fn convert_expression_to_ir(
                         Ok((instrs, Src::StoreAddressVar(obj_ptr)))
                     } else {
                         // load from union
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *obj_ptr
                         instrs.push(Instruction::LoadFromAddress(
@@ -887,7 +887,7 @@ pub fn convert_expression_to_ir(
                     let member_type = struct_type.get_member_type(&member_name)?;
                     let member_byte_offset = struct_type.get_member_byte_offset(&member_name)?;
 
-                    let ptr = prog.new_var(ValueType::ModifiableLValue);
+                    let ptr = prog.new_var(ValueType::LValue);
                     prog.add_var_type(
                         ptr.to_owned(),
                         Box::new(IrType::PointerTo(member_type.to_owned())),
@@ -904,7 +904,7 @@ pub fn convert_expression_to_ir(
                         Ok((instrs, Src::StoreAddressVar(ptr)))
                     } else {
                         // load from struct member
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *ptr
                         instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
@@ -920,7 +920,7 @@ pub fn convert_expression_to_ir(
                         Ok((instrs, Src::StoreAddressVar(obj_var.unwrap_var()?)))
                     } else {
                         // load from union
-                        let dest = prog.new_var(ValueType::ModifiableLValue);
+                        let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *obj_ptr
                         instrs.push(Instruction::LoadFromAddress(dest.to_owned(), obj_var));
@@ -1250,7 +1250,7 @@ pub fn convert_expression_to_ir(
                 }
             } else {
                 // dereference load from memory address
-                let dest = prog.new_var(ValueType::ModifiableLValue);
+                let dest = prog.new_var(ValueType::LValue);
                 instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
                 // check whether the var is allowed to be dereferenced;
                 // if so, store the type of dest
@@ -1873,7 +1873,7 @@ pub fn convert_expression_to_ir(
             instrs.append(&mut dest_expr_instrs);
 
             // check that we're assigning to an lvalue
-            if !dest_var.get_value_type().is_modifiable_lvalue() {
+            if !dest_var.get_value_type().is_lvalue() {
                 return Err(MiddleEndError::AttemptToModifyNonLValue);
             }
 
@@ -1927,158 +1927,6 @@ pub fn convert_expression_to_ir(
         }
         Expression::ExpressionList(_, _) => {
             todo!("expression lists")
-        }
-    }
-}
-
-fn assert_no_var_has_runtime_byte_size(prog: &Box<Program>) {
-    for (_, function) in &prog.program_instructions.functions {
-        for instr in &function.instrs {
-            match instr {
-                Instruction::SimpleAssignment(dest, _)
-                | Instruction::LoadFromAddress(dest, _)
-                | Instruction::StoreToAddress(dest, _)
-                | Instruction::AllocateVariable(dest, _)
-                | Instruction::AddressOf(dest, _)
-                | Instruction::BitwiseNot(dest, _)
-                | Instruction::LogicalNot(dest, _)
-                | Instruction::Mult(dest, _, _)
-                | Instruction::Div(dest, _, _)
-                | Instruction::Mod(dest, _, _)
-                | Instruction::Add(dest, _, _)
-                | Instruction::Sub(dest, _, _)
-                | Instruction::LeftShift(dest, _, _)
-                | Instruction::RightShift(dest, _, _)
-                | Instruction::BitwiseAnd(dest, _, _)
-                | Instruction::BitwiseOr(dest, _, _)
-                | Instruction::BitwiseXor(dest, _, _)
-                | Instruction::LogicalAnd(dest, _, _)
-                | Instruction::LogicalOr(dest, _, _)
-                | Instruction::LessThan(dest, _, _)
-                | Instruction::GreaterThan(dest, _, _)
-                | Instruction::LessThanEq(dest, _, _)
-                | Instruction::GreaterThanEq(dest, _, _)
-                | Instruction::Equal(dest, _, _)
-                | Instruction::NotEqual(dest, _, _)
-                | Instruction::Call(dest, _, _)
-                | Instruction::PointerToStringLiteral(dest, _)
-                | Instruction::I8toI16(dest, _)
-                | Instruction::I8toU16(dest, _)
-                | Instruction::U8toI16(dest, _)
-                | Instruction::U8toU16(dest, _)
-                | Instruction::I16toI32(dest, _)
-                | Instruction::U16toI32(dest, _)
-                | Instruction::I16toU32(dest, _)
-                | Instruction::U16toU32(dest, _)
-                | Instruction::I32toU32(dest, _)
-                | Instruction::I32toU64(dest, _)
-                | Instruction::U32toU64(dest, _)
-                | Instruction::I64toU64(dest, _)
-                | Instruction::I32toI64(dest, _)
-                | Instruction::U32toI64(dest, _)
-                | Instruction::U32toF32(dest, _)
-                | Instruction::I32toF32(dest, _)
-                | Instruction::U64toF32(dest, _)
-                | Instruction::I64toF32(dest, _)
-                | Instruction::U32toF64(dest, _)
-                | Instruction::I32toF64(dest, _)
-                | Instruction::U64toF64(dest, _)
-                | Instruction::I64toF64(dest, _)
-                | Instruction::F32toF64(dest, _)
-                | Instruction::I32toI8(dest, _)
-                | Instruction::U32toI8(dest, _)
-                | Instruction::I64toI8(dest, _)
-                | Instruction::U64toI8(dest, _)
-                | Instruction::I32toU8(dest, _)
-                | Instruction::U32toU8(dest, _)
-                | Instruction::I64toU8(dest, _)
-                | Instruction::U64toU8(dest, _)
-                | Instruction::I64toI32(dest, _)
-                | Instruction::U64toI32(dest, _)
-                | Instruction::U32toPtr(dest, _)
-                | Instruction::I32toPtr(dest, _) => {
-                    let dest_type = prog.program_metadata.get_var_type(dest).unwrap();
-                    info!("Dest: {}", dest);
-                    assert!(dest_type
-                        .get_byte_size(&prog.program_metadata)
-                        .get_compile_time_value()
-                        .is_ok());
-                }
-                _ => {}
-            }
-        }
-    }
-    for instr in &prog.program_instructions.global_instrs {
-        match instr {
-            Instruction::SimpleAssignment(dest, _)
-            | Instruction::LoadFromAddress(dest, _)
-            | Instruction::StoreToAddress(dest, _)
-            | Instruction::AllocateVariable(dest, _)
-            | Instruction::AddressOf(dest, _)
-            | Instruction::BitwiseNot(dest, _)
-            | Instruction::LogicalNot(dest, _)
-            | Instruction::Mult(dest, _, _)
-            | Instruction::Div(dest, _, _)
-            | Instruction::Mod(dest, _, _)
-            | Instruction::Add(dest, _, _)
-            | Instruction::Sub(dest, _, _)
-            | Instruction::LeftShift(dest, _, _)
-            | Instruction::RightShift(dest, _, _)
-            | Instruction::BitwiseAnd(dest, _, _)
-            | Instruction::BitwiseOr(dest, _, _)
-            | Instruction::BitwiseXor(dest, _, _)
-            | Instruction::LogicalAnd(dest, _, _)
-            | Instruction::LogicalOr(dest, _, _)
-            | Instruction::LessThan(dest, _, _)
-            | Instruction::GreaterThan(dest, _, _)
-            | Instruction::LessThanEq(dest, _, _)
-            | Instruction::GreaterThanEq(dest, _, _)
-            | Instruction::Equal(dest, _, _)
-            | Instruction::NotEqual(dest, _, _)
-            | Instruction::Call(dest, _, _)
-            | Instruction::PointerToStringLiteral(dest, _)
-            | Instruction::I8toI16(dest, _)
-            | Instruction::I8toU16(dest, _)
-            | Instruction::U8toI16(dest, _)
-            | Instruction::U8toU16(dest, _)
-            | Instruction::I16toI32(dest, _)
-            | Instruction::U16toI32(dest, _)
-            | Instruction::I16toU32(dest, _)
-            | Instruction::U16toU32(dest, _)
-            | Instruction::I32toU32(dest, _)
-            | Instruction::I32toU64(dest, _)
-            | Instruction::U32toU64(dest, _)
-            | Instruction::I64toU64(dest, _)
-            | Instruction::I32toI64(dest, _)
-            | Instruction::U32toI64(dest, _)
-            | Instruction::U32toF32(dest, _)
-            | Instruction::I32toF32(dest, _)
-            | Instruction::U64toF32(dest, _)
-            | Instruction::I64toF32(dest, _)
-            | Instruction::U32toF64(dest, _)
-            | Instruction::I32toF64(dest, _)
-            | Instruction::U64toF64(dest, _)
-            | Instruction::I64toF64(dest, _)
-            | Instruction::F32toF64(dest, _)
-            | Instruction::I32toI8(dest, _)
-            | Instruction::U32toI8(dest, _)
-            | Instruction::I64toI8(dest, _)
-            | Instruction::U64toI8(dest, _)
-            | Instruction::I32toU8(dest, _)
-            | Instruction::U32toU8(dest, _)
-            | Instruction::I64toU8(dest, _)
-            | Instruction::U64toU8(dest, _)
-            | Instruction::I64toI32(dest, _)
-            | Instruction::U64toI32(dest, _)
-            | Instruction::U32toPtr(dest, _)
-            | Instruction::I32toPtr(dest, _) => {
-                let dest_type = prog.program_metadata.get_var_type(dest).unwrap();
-                assert!(dest_type
-                    .get_byte_size(&prog.program_metadata)
-                    .get_compile_time_value()
-                    .is_ok());
-            }
-            _ => {}
         }
     }
 }

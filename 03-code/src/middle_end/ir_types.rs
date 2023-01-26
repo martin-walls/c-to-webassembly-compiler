@@ -280,16 +280,6 @@ impl IrType {
         }
     }
 
-    /// Returns an error if self isn't a pointer type
-    pub fn require_object_pointer_type(&self) -> Result<(), MiddleEndError> {
-        match self.is_object_pointer_type() {
-            true => Ok(()),
-            false => Err(MiddleEndError::InvalidOperation(
-                "Require object pointer type failed",
-            )),
-        }
-    }
-
     pub fn is_pointer_type(&self) -> bool {
         match self {
             IrType::PointerTo(_) => true,
@@ -328,33 +318,6 @@ impl IrType {
         match self {
             IrType::Struct(_) | IrType::ArrayOf(_, _) => true,
             _ => false,
-        }
-    }
-
-    pub fn get_function_return_type(&self) -> Result<Box<IrType>, MiddleEndError> {
-        match self {
-            IrType::Function(return_type, _, _) => Ok(return_type.to_owned()),
-            _ => Err(MiddleEndError::InvalidOperation(
-                "Expected a function type to be able to get return type",
-            )),
-        }
-    }
-
-    pub fn get_function_param_types(&self) -> Result<Vec<Box<IrType>>, MiddleEndError> {
-        match self {
-            IrType::Function(_, param_types, _) => Ok(param_types.to_vec()),
-            _ => Err(MiddleEndError::InvalidOperation(
-                "Expected a function type to be able to get param types",
-            )),
-        }
-    }
-
-    pub fn is_function_variadic(&self) -> Result<bool, MiddleEndError> {
-        match self {
-            IrType::Function(_, _, is_variadic) => Ok(is_variadic.to_owned()),
-            _ => Err(MiddleEndError::InvalidOperation(
-                "Expected a function type to check whether is variadic",
-            )),
         }
     }
 
@@ -415,15 +378,6 @@ impl IrType {
                 Ok(Box::new(IrType::ArrayOf(resolved_member_type, size)))
             }
             (t, _) => Ok(Box::new(t.to_owned())),
-        }
-    }
-
-    pub fn is_wasm_type(&self) -> bool {
-        match self {
-            IrType::I32 | IrType::U32 | IrType::I64 | IrType::U64 | IrType::F32 | IrType::F64 => {
-                true
-            }
-            _ => false,
         }
     }
 }

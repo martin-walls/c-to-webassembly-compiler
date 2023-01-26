@@ -158,10 +158,6 @@ impl ProgramMetadata {
         label
     }
 
-    pub fn new_fun_id(&mut self) -> FunId {
-        self.fun_id_generator.new_id()
-    }
-
     pub fn new_fun_declaration(&mut self, name: String) -> Result<FunId, MiddleEndError> {
         match self.function_ids.get(&name) {
             None => {}
@@ -204,10 +200,6 @@ impl ProgramMetadata {
         }
     }
 
-    fn new_struct_id(&mut self) -> StructId {
-        self.struct_id_generator.new_id()
-    }
-
     pub fn add_struct_type(&mut self, struct_type: StructType) -> Result<StructId, MiddleEndError> {
         // check if the same struct type has already been stored in program
         for (existing_struct_id, existing_struct_type) in &self.structs {
@@ -215,7 +207,7 @@ impl ProgramMetadata {
                 return Ok(existing_struct_id.to_owned());
             }
         }
-        let struct_id = self.new_struct_id();
+        let struct_id = self.struct_id_generator.new_id();
         self.structs.insert(struct_id.to_owned(), struct_type);
         Ok(struct_id)
     }
@@ -227,10 +219,6 @@ impl ProgramMetadata {
         }
     }
 
-    fn new_union_id(&mut self) -> UnionId {
-        self.union_id_generator.new_id()
-    }
-
     pub fn add_union_type(&mut self, union_type: UnionType) -> Result<UnionId, MiddleEndError> {
         // check if the same union type has already been stored in program
         for (existing_union_id, existing_union_type) in &self.unions {
@@ -238,7 +226,7 @@ impl ProgramMetadata {
                 return Ok(existing_union_id.to_owned());
             }
         }
-        let union_id = self.new_union_id();
+        let union_id = self.union_id_generator.new_id();
         self.unions.insert(union_id.to_owned(), union_type);
         Ok(union_id)
     }
@@ -390,20 +378,12 @@ impl Program {
         self.program_metadata.get_var_type(var)
     }
 
-    fn new_struct_id(&mut self) -> StructId {
-        self.program_metadata.new_struct_id()
-    }
-
     pub fn add_struct_type(&mut self, struct_type: StructType) -> Result<StructId, MiddleEndError> {
         self.program_metadata.add_struct_type(struct_type)
     }
 
     pub fn get_struct_type(&self, struct_id: &StructId) -> Result<StructType, MiddleEndError> {
         self.program_metadata.get_struct_type(struct_id)
-    }
-
-    fn new_union_id(&mut self) -> UnionId {
-        self.program_metadata.new_union_id()
     }
 
     pub fn add_union_type(&mut self, union_type: UnionType) -> Result<UnionId, MiddleEndError> {

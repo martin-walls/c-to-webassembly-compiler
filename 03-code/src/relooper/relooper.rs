@@ -143,7 +143,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
 }
 
 fn init_label_variable(prog_metadata: &mut ProgramMetadata) -> VarId {
-    let label_var = prog_metadata.new_var(ValueType::ModifiableLValue);
+    let label_var = prog_metadata.new_var(ValueType::LValue);
     // make label variable an unsigned long
     prog_metadata
         .add_var_type(label_var.to_owned(), Box::new(IrType::U64))

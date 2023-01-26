@@ -3,8 +3,6 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Formatter;
 
-const INDENT_SIZE: u32 = 2;
-
 pub trait FmtIndented {
     fn fmt_indented(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result;
 }

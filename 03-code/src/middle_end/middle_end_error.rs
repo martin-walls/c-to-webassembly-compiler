@@ -20,8 +20,6 @@ pub enum MiddleEndError {
     UndeclaredStructTag(String),
     UndeclaredUnionTag(String),
     InvalidLValue,
-    InvalidFunctionCall,
-    DuplicateDeclaration(String),
     DuplicateFunctionDeclaration(String),
     DuplicateTypeDeclaration(String),
     DuplicateEnumConstantDeclaration(String),
@@ -45,7 +43,6 @@ pub enum MiddleEndError {
     TypeNotFound,
     FunctionNotFoundForId(FunId),
     InvalidAssignment,
-    ValueTypeNotSet(VarId),
     AttemptToModifyNonLValue,
     UndefinedArraySize,
     ArrayMemberSizeNotKnownAtCompileTime,
@@ -56,11 +53,9 @@ pub enum MiddleEndError {
     DereferenceNonPointerType(Box<IrType>),
     InvalidOperation(&'static str),
     TypeConversionError(&'static str, Box<IrType>, Option<Box<IrType>>),
-    MismatchedTypes(Box<IrType>, Box<IrType>, &'static str),
     UnwrapNonArrayType(Box<IrType>),
     UnwrapNonStructType(Box<IrType>),
     AssignNonAggregateValueToAggregateType,
-    AssignAggregateValueToNonAggregateType,
     MismatchedArrayInitialiserLength,
     ByteSizeNotKnownAtCompileTime,
     AttemptToStoreToNonVariable,
@@ -103,12 +98,6 @@ impl fmt::Display for MiddleEndError {
             }
             MiddleEndError::InvalidLValue => {
                 write!(f, "Invalid LValue used")
-            }
-            MiddleEndError::InvalidFunctionCall => {
-                write!(f, "Invalid function call")
-            }
-            MiddleEndError::DuplicateDeclaration(name) => {
-                write!(f, "Duplicate declaration: \"{}\"", name)
             }
             MiddleEndError::InvalidAbstractDeclarator => {
                 write!(f, "Invalid abstract declarator")

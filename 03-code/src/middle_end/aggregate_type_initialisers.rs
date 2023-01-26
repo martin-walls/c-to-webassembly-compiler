@@ -25,7 +25,7 @@ pub fn array_initialiser(
     };
 
     // pointer to the array member we're currently initialising
-    let member_ptr_var = prog.new_var(ValueType::ModifiableLValue);
+    let member_ptr_var = prog.new_var(ValueType::LValue);
     prog.add_var_type(
         member_ptr_var.to_owned(),
         Box::new(IrType::PointerTo(array_member_type.to_owned())),
@@ -141,7 +141,7 @@ pub fn struct_initialiser(
         let member_byte_offset = struct_type.get_member_byte_offset_by_index(member_index)?;
 
         // pointer to the struct member we're currently initialising
-        let member_ptr_var = prog.new_var(ValueType::ModifiableLValue);
+        let member_ptr_var = prog.new_var(ValueType::LValue);
         prog.add_var_type(
             member_ptr_var.to_owned(),
             Box::new(IrType::PointerTo(member_type.to_owned())),
