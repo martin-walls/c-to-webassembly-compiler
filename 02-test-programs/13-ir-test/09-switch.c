@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int main(int argc, char* argv) {
+int main(int argc, char *argv[]) {
     int x = 1;
     for (int x = 1; x < 7; x++) {
         switch (x) {
@@ -9,7 +9,7 @@ int main(int argc, char* argv) {
                 // printf("less than 3\n");
                 break;
             case 3:
-            //     printf("equal to 3\n");
+                //     printf("equal to 3\n");
                 break;
             case 4:
                 // printf("equal to 4\n");

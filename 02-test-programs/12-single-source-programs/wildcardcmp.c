@@ -45,7 +45,7 @@ int wildcardcmp(char *pattern, char *string) {
 /*
  * Expected output: 1111111110000
  */
-int main(int argc, char* argv) {
+int main(int argc, char *argv[]) {
     // should return 1
     printf("%d", wildcardcmp("foo*", "foo"));
     printf("%d", wildcardcmp("foobar", "foobar"));

@@ -13,7 +13,7 @@ int bar(int n) {
     return foo(n - 1);
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     int x = 20;
     int fx = foo(x);
     printf("foo(%d) = %d\n", x, fx);

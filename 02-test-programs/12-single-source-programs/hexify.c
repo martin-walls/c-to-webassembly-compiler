@@ -38,7 +38,7 @@ int hexify(unsigned char *in, size_t in_size, char *out, size_t out_size)
 }
 
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
     // pack a binary array
     unsigned char binary[3];
     binary[0] = 0xde;

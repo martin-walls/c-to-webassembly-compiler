@@ -20,7 +20,7 @@ void b() {
     }
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     a(3);
     a(5);
     b();

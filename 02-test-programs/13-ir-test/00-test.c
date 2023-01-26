@@ -27,6 +27,6 @@ double quadratic(double a, double b, double c, double x) {
     return add(a * x * x + b * x, c);
 }
 
-int main(int argc, int argv) {
+int main(int argc, char *argv[]) {
     return FOO ? quadratic(1, 2, 1, 5) : add(1, 2);
 }

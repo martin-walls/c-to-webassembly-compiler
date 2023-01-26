@@ -58,7 +58,7 @@ case_camel(char *str) {
     return str;
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     char str1[] = "hEllOWoRlD";
     char *upper = case_upper(str1);
     printf("upper: %s\n", upper);

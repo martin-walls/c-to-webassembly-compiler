@@ -9,7 +9,7 @@ long sum(long n) {
     return n + sum(n - 1);
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     long n = sum(100000);
     printf("%ld\n", n);
     return 0;

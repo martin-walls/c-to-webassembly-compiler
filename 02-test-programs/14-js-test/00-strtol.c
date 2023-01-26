@@ -32,7 +32,7 @@ void test_strtoul() {
     printf("endptr offset: %d\n", offset);
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     test_strtol();
     test_strtoul();
 

@@ -31,7 +31,7 @@ occurrences(char *needle, char *haystack) {
     return i;
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     char *text = "panamabananas";
     char *pattern = "ana";
     int count = occurrences(pattern, text);

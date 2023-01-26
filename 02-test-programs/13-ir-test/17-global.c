@@ -6,7 +6,7 @@ void foo() {
     printf("x: %d\n", x);
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     printf("x: %d\n", x);
     foo();
     return 0;

@@ -16,7 +16,7 @@ strlen(const char *str) {
     return str - ptr;
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     char *str1 = "hello world";
     size_t len = strlen(str1);
     printf("len: %d\n", len);

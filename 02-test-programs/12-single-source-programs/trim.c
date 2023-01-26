@@ -28,7 +28,7 @@ trim(char *str)
     return str;
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     char str[] = "    hello world  ";
     char *trimmed = trim(str);
     printf("%s\n", trimmed);

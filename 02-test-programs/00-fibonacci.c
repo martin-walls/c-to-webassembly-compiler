@@ -9,10 +9,10 @@ int fib(int n) {
   return fib(n-1) + fib(n-2);
 }
 
-int main(int argc, char* argv) {
-  for (int i = 0; i < 15; i++) {
-    printf("%d: %d\n", i, fib(i));
-  }
+int main(int argc, char *argv[]) {
+    for (int i = 0; i < 15; i++) {
+        printf("%d: %d\n", i, fib(i));
+    }
 
-  return 0;
+    return 0;
 }

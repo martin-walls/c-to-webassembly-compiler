@@ -1,4 +1,4 @@
-int main(int argc, int argv) {
+int main(int argc, char *argv[]) {
     int x = 5;
 //    int* px = &x;
 //    *px = 3;

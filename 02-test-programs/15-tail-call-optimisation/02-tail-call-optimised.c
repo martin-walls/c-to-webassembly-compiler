@@ -7,7 +7,7 @@ long sum(long n, long acc) {
     return sum(n - 1, acc + n);
 }
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]) {
     long n = sum(1000000, 0);
     printf("%ld\n", n);
     return 0;
