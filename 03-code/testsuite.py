@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 import yaml
+from enum import Enum, auto
+from typing import Generator
 
 TEST_PROGRAMS_DIR = Path(__file__).parent.parent.resolve() / "02-test-programs"
 TESTS_DIR = Path(__file__).parent.resolve() / "tests"
@@ -15,6 +17,46 @@ COMPILE_OUTPUT_DIR = TESTS_DIR / "build"
 os.makedirs(COMPILE_OUTPUT_DIR, exist_ok=True)
 
 NODE_RUNTIME_PATH = Path(__file__).parent.resolve() / "runtime" / "run.mjs"
+
+
+class TestSpec:
+    def __init__(self, name: str, source: Path, args: list[str]):
+        self.name = name
+        self.source = source
+        self.args = args
+
+
+class InvalidTestSpecFileException(Exception):
+    """ Raised when the test spec file's syntax is malformed. """
+
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = None
+
+    def __str__(self):
+        if self.message:
+            return f"InvalidTestSpecFileException: {self.message}"
+        else:
+            return "InvalidTestSpecFileException"
+
+
+class TestFailedException(Exception):
+    """ Raised when a test fails. """
+
+    def __init__(self, message, *args):
+        self.message = message
+
+    def __str__(self):
+        return f"TestFailedException: {self.message}"
+
+
+def get_test_specs() -> Generator[TestSpec, None, None]:
+    test_spec_files = TESTS_DIR.glob("*.yaml")
+    for test_spec_file in test_spec_files:
+        if test_spec_file.is_file():
+            yield read_test_file(test_spec_file)
 
 
 def get_wasm_output_filepath(name: str) -> Path:
@@ -90,39 +132,6 @@ def run_gcc(name: str, args: list[str]) -> (str, int):
     return run_process_result.stdout, run_process_result.returncode
 
 
-class TestSpec:
-    def __init__(self, name: str, source: Path, args: list[str]):
-        self.name = name
-        self.source = source
-        self.args = args
-
-
-class InvalidTestSpecFileException(Exception):
-    """ Raised when the test spec file's syntax is malformed. """
-
-    def __init__(self, *args):
-        if args:
-            self.message = args[0]
-        else:
-            self.message = None
-
-    def __str__(self):
-        if self.message:
-            return f"InvalidTestSpecFileException: {self.message}"
-        else:
-            return "InvalidTestSpecFileException"
-
-
-class TestFailedException(Exception):
-    """ Raised when a test fails. """
-
-    def __init__(self, message, *args):
-        self.message = message
-
-    def __str__(self):
-        return f"TestFailedException: {self.message}"
-
-
 def read_test_file(filepath: Path) -> TestSpec:
     with open(filepath, "r") as f:
         # load spec from file
@@ -182,35 +191,31 @@ def run_test(test_spec: TestSpec):
         print(gcc_run_stdout)
         print(f"Wasm stdout, with exit code {wasm_run_exit_code}:")
         print(wasm_run_stdout)
-        print(f"Wasm stderr:")
+        print("Wasm stderr:")
         print(wasm_run_stderr)
         raise TestFailedException("GCC and wasm outputs didn't match.")
 
 
-def run_all_tests(tests_dir: Path, test_name_filter: str or None):
+def run_all_tests(test_name_filter: str or None):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
         print("Error building project.")
-        exit()
+        return
 
     passed_tests = []
     failed_tests = []
 
-    test_spec_files = tests_dir.glob("*.yaml")
-    for test_spec_file in test_spec_files:
-        if test_spec_file.is_file():
-            test_spec = read_test_file(test_spec_file)
-
-            if test_name_filter is None or test_name_filter in test_spec.name:
-                try:
-                    print(f"Running test: {test_spec.name}")
-                    run_test(test_spec)
-                    print("\tTest passed")
-                    passed_tests.append(test_spec)
-                except TestFailedException as e:
-                    print(f"\tTest failed: {e.message}")
-                    failed_tests.append(test_spec)
+    for test_spec in get_test_specs():
+        if test_name_filter is None or test_name_filter in test_spec.name:
+            try:
+                print(f"Running test: {test_spec.name}")
+                run_test(test_spec)
+                print("\tTest passed")
+                passed_tests.append(test_spec)
+            except TestFailedException as e:
+                print(f"\tTest failed: {e.message}")
+                failed_tests.append(test_spec)
 
     print()
     if len(failed_tests) == 0:
@@ -225,9 +230,45 @@ def run_all_tests(tests_dir: Path, test_name_filter: str or None):
             print(f"\t{test.name}")
 
 
+def run_program(test_name_filter: str or None, args: list[str]):
+    # compile rust project
+    build_exit_code = build_project()
+    if build_exit_code != 0:
+        print("Error building project.")
+        return
+
+    for test_spec in get_test_specs():
+        if test_name_filter is None or test_name_filter in test_spec.name:
+            print(f"Running {test_spec.name}")
+            # compile wasm
+            compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name)
+
+            if compiler_exit_code != 0:
+                print("Wasm compiler stdout:")
+                print(compiler_stdout)
+                return
+
+            # run wasm
+            # pass supplied args if any, else use the args from the test spec
+            wasm_run_stdout, wasm_run_stderr, wasm_run_exit_code = run_wasm(test_spec.name,
+                                                                            args if len(args) > 1 else test_spec.args)
+
+            print("Stdout:")
+            print(wasm_run_stdout)
+            if wasm_run_stderr:
+                print("Stderr:")
+                print(wasm_run_stderr)
+
+
 if __name__ == "__main__":
     args = [arg for arg in sys.argv[1:]]
     test_name_filter = None
-    if len(args) >= 1:
-        test_name_filter = args[0]
-    run_all_tests(TESTS_DIR, test_name_filter)
+
+    if len(args) >= 1 and (args[0] == "--run" or args[0] == "-r"):
+        if len(args) >= 2:
+            test_name_filter = args[1]
+            run_program(test_name_filter, args[2:])
+    else:
+        if len(args) >= 1:
+            test_name_filter = args[0]
+        run_all_tests(test_name_filter)
