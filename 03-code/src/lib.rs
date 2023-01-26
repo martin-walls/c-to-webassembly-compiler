@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_parens)]
 
 mod backend;
 mod enabled_optimisations;
@@ -23,7 +24,6 @@ use std::path::Path;
 #[macro_use]
 extern crate lalrpop_util;
 
-#[allow(unused_parens)]
 #[derive(ClapParser, Debug)]
 pub struct CliConfig {
     /// The path to the input file to compile
