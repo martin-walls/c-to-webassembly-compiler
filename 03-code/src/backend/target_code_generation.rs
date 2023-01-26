@@ -25,7 +25,7 @@ use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport}
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
-use crate::middle_end::ids::{FunId, Id, LabelId, VarId};
+use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
