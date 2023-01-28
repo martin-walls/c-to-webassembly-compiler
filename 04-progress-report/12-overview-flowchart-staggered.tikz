@@ -1,0 +1,16 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\onslide<1>{\node [style=Flowchart Box] (0) at (0, 8) {Source code};}
+		\onslide<1-2>{\node [style=Flowchart Box] (1) at (0, 4) {AST};}
+		\onslide<2-3>{\node [style=Flowchart Box] (2) at (0, 0) {Three-address code IR};}
+		\onslide<3-4>{\node [style=Flowchart Box] (4) at (0, -4) {Relooper algorithm};}
+		\onslide<4->{\node [style=Flowchart Box] (5) at (0, -8) {Wasm binary};}
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\onslide<1>{\draw [style=Arrow] (0) to (1);}
+		\onslide<2>{\draw [style=Arrow] (1) to (2);}
+		\onslide<3>{\draw [style=Arrow] (2) to (4);}
+		\onslide<4>{\draw [style=Arrow] (4) to (5);}
+		\onslide<2-3>{\draw [style=Arrow, in=-10, out=10, loop] (2) to ();}
+	\end{pgfonlayer}
+\end{tikzpicture}
