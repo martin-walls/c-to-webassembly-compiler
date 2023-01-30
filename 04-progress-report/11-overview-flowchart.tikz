@@ -5,6 +5,7 @@
 		\node [style=Flowchart Box] (2) at (0, 0) {Three-address code IR};
 		\node [style=Flowchart Box] (4) at (0, -4) {Relooper algorithm};
 		\node [style=Flowchart Box] (5) at (0, -8) {Wasm binary};
+		\node [style=Flowchart Box Dashed] (6) at (0, -12) {NodeJS runtime};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=Arrow] (0) to node [right=1.5cm] {Lexer/parser generator} (1);
@@ -12,5 +13,6 @@
 		\draw [style=Arrow] (4) to node [right=1.5cm] {Target code generation} (5);
 		\draw [style=Arrow] (2) to (4);
 		\draw [style=Arrow, in=-10, out=10, loop] (2) to node [right=0.2cm] {Optimise} ();
+		\draw [style=Dashed arrow] (5) to (6);
 	\end{pgfonlayer}
 \end{tikzpicture}

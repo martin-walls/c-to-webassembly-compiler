@@ -42,7 +42,10 @@ I have implemented some of the C standard library in JavaScript, for example \te
 I have written a test framework in Python to allow me to test the correctness of my compiler easily.
 For each C source file I specify, the test script compiles it with my compiler and also with GCC, and checks that the outputs and exit codes match.
 
-I have implemented tail-code optimisation and unreachable procedure elimination.
+I have implemented tail-call optimisation and unreachable procedure elimination.
+For tail-call optimisation, I found all recursive calls in a function, and replaced them with code that sets the parameter variables to the new values and loops back to the entry point.
+This is effective at preventing out-of-memory and stack overflow errors.
+For unreachable procedure elimination, I first generated the call graph for the program. Then I walked over the graph, marked all functions we can reach, then deleted all unmarked functions.
 
 
 \end{document}

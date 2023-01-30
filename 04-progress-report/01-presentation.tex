@@ -1,5 +1,5 @@
 \documentclass{beamer}
-% \usetheme{boxes}
+\usetheme{default}
 
 \usepackage{fontspec}
 \defaultfontfeatures{Scale=MatchLowercase, Mapping=tex-text, Numbers=Lining}
@@ -32,17 +32,67 @@
 \scalebox{0.7}{\tikzfig{12-overview-flowchart-staggered}}
 \column{0.7\textwidth}
 
-\only<1>{
-\begin{itemize}
+
+\only<1>{\begin{itemize}
 \item Rust parser generator: LALRPOP
 \item Custom lexer, to handle \texttt{typedef} definitions (context-sensitivity).
 \end{itemize}}
 
-\only<2>{
-\begin{itemize}
+\only<2>{\begin{itemize}
 \item Defined three-address code representation
 \item For each node in the AST, define transformation to three-address code
+\item Complexity:
+\begin{itemize}
+\item Switch statement logic: fall-through and \texttt{default} cases
+\item Assignment: evaluating an expression either as loading a value or storing to that address
+\end{itemize}
 \end{itemize}}
+
+\only<6>{
+IR optimisation:
+\begin{itemize}
+\item Tail-call optimisation
+\begin{itemize}
+\item Find recursive tail-calls in each procedure
+\item Instead, set the parameter variables to the new values and loop back to the entry point
+\end{itemize}
+\item Unreachable procedure elimination
+\begin{itemize}
+\item Generate call graph
+\item Walk call graph, marking all reached functions
+\item Remove all unmarked functions
+\end{itemize}
+\end{itemize}}
+
+\only<3>{
+Implemented the Relooper algorithm
+
+\begin{itemize}
+\item Turning the linear sequence of IR instructions into a structure of `blocks'
+\end{itemize}
+\vspace{20pt}
+\resizebox{\linewidth}{!}{\tikzfig{13-relooper-blocks}}
+}
+
+\only<4>{
+Target code generation
+\begin{itemize}
+\item Memory layout:
+\begin{itemize}
+\item Pushing/popping function call stack frames
+\item Updating stack and frame pointers
+\item Allocating addresses for variables
+\end{itemize}
+\end{itemize}}
+
+\only<5>{
+NodeJS runtime:
+\begin{itemize}
+\item Instantiate WebAssembly module
+\item Initialise memory, and store program arguments
+\item Implemented some of the C standard library, e.g.\ \texttt{printf}
+\end{itemize}
+}
 
 \end{columns}
 \end{frame}
