@@ -3,8 +3,9 @@
 
 \usepackage{fontspec}
 \defaultfontfeatures{Scale=MatchLowercase, Mapping=tex-text, Numbers=Lining}
+\setmainfont{Libertinus Sans}
 \setsansfont{Libertinus Sans}
-\setmonofont{Luxi Mono}
+\setmonofont[Scale=0.78]{Luxi Mono}
 
 \usepackage{tikzit}
 \input{\string ~/UNI/mrw.tikzdefs}
@@ -19,10 +20,10 @@
 \titlepage
 \end{frame}
 
-\begin{frame}
-\frametitle{Project overview}
-\centering\scalebox{0.7}{\tikzfig{11-overview-flowchart}}
-\end{frame}
+% \begin{frame}
+% \frametitle{Project overview}
+% \centering\scalebox{0.7}{\tikzfig{11-overview-flowchart}}
+% \end{frame}
 
 \begin{frame}
 \frametitle{Achieved work}
@@ -36,31 +37,16 @@
 \only<1>{\begin{itemize}
 \item Rust parser generator: LALRPOP
 \item Custom lexer, to handle \texttt{typedef} definitions (context-sensitivity).
+\item Avoiding ambiguities e.g.\ dangling \texttt{else}
 \end{itemize}}
 
 \only<2>{\begin{itemize}
 \item Defined three-address code representation
-\item For each node in the AST, define transformation to three-address code
+\item For each node in the AST, defined transformation to three-address code
 \item Complexity:
 \begin{itemize}
 \item Switch statement logic: fall-through and \texttt{default} cases
 \item Assignment: evaluating an expression either as loading a value or storing to that address
-\end{itemize}
-\end{itemize}}
-
-\only<6>{
-IR optimisation:
-\begin{itemize}
-\item Tail-call optimisation
-\begin{itemize}
-\item Find recursive tail-calls in each procedure
-\item Instead, set the parameter variables to the new values and loop back to the entry point
-\end{itemize}
-\item Unreachable procedure elimination
-\begin{itemize}
-\item Generate call graph
-\item Walk call graph, marking all reached functions
-\item Remove all unmarked functions
 \end{itemize}
 \end{itemize}}
 
@@ -77,12 +63,10 @@ Implemented the Relooper algorithm
 \only<4>{
 Target code generation
 \begin{itemize}
-\item Memory layout:
-\begin{itemize}
+\item Defined WebAssembly instructions for each IR instruction
 \item Pushing/popping function call stack frames
 \item Updating stack and frame pointers
 \item Allocating addresses for variables
-\end{itemize}
 \end{itemize}}
 
 \only<5>{
@@ -94,7 +78,26 @@ NodeJS runtime:
 \end{itemize}
 }
 
+\only<6>{
+\frametitle{Implemented optimisations}
+\begin{itemize}
+\item Tail-call optimisation
+\begin{itemize}
+\item Find recursive tail-calls in each procedure
+\item Instead, set the parameter variables to the new values and loop back to the entry point
+\end{itemize}
+\item Unreachable procedure elimination
+\begin{itemize}
+\item Generate call graph
+\item Walk call graph, marking all reached functions
+\item Remove all unmarked functions
+\end{itemize}
+\end{itemize}}
+
+
 \end{columns}
 \end{frame}
+
+% end with 'ive done my success criteria, plan to write up in x', just kinda draw to a close
 
 \end{document}
