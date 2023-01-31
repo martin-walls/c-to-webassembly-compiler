@@ -11,7 +11,7 @@ use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::memory_operations::{
     load, load_constant, load_src, load_var, load_var_address, store, store_var,
 };
-use crate::backend::profiler::{initialise_profiler, log_stack_ptr};
+use crate::backend::profiler::initialise_profiler;
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
     load_stack_ptr, overwrite_current_stack_frame_with_new_stack_frame, pop_stack_frame,
