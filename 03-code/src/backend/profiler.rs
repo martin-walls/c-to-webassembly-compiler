@@ -1,6 +1,5 @@
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
-use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::ir_types::IrType;
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
