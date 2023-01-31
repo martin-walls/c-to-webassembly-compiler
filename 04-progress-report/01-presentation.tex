@@ -1,9 +1,8 @@
 \documentclass{beamer}
-\usetheme{default}
+\usetheme[numbering=none]{metropolis}
 
 \usepackage{fontspec}
 \defaultfontfeatures{Scale=MatchLowercase, Mapping=tex-text, Numbers=Lining}
-\setmainfont{Libertinus Sans}
 \setsansfont{Libertinus Sans}
 \setmonofont[Scale=0.78]{Luxi Mono}
 
@@ -30,9 +29,8 @@
 \begin{columns}
 \column{0.3\textwidth}
 \setbeamercovered{transparent}
-\scalebox{0.7}{\tikzfig{12-overview-flowchart-staggered}}
+\centering\scalebox{0.6}{\tikzfig{12-overview-flowchart-staggered}}
 \column{0.7\textwidth}
-
 
 \only<1>{\begin{itemize}
 \item Rust parser generator: LALRPOP
@@ -97,6 +95,7 @@ NodeJS runtime:
 
 \end{columns}
 \end{frame}
+
 
 % end with 'ive done my success criteria, plan to write up in x', just kinda draw to a close
 
