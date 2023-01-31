@@ -2,7 +2,8 @@ use crate::backend::memory_constants::{
     FRAME_PTR_ADDR, PTR_SIZE, STACK_PTR_ADDR, TEMP_FRAME_PTR_ADDR,
 };
 use crate::backend::memory_operations::{load, load_constant, load_var, store, store_var};
-use crate::backend::target_code_generation_context::FunctionContext;
+use crate::backend::profiler::log_stack_ptr;
+use crate::backend::target_code_generation_context::{FunctionContext, ModuleContext};
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -71,7 +72,11 @@ pub fn load_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     });
 }
 
-pub fn increment_stack_ptr_by_known_offset(offset: u32, wasm_instrs: &mut Vec<WasmInstruction>) {
+pub fn increment_stack_ptr_by_known_offset(
+    offset: u32,
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    module_context: &ModuleContext,
+) {
     // address operand
     wasm_instrs.push(WasmInstruction::I32Const {
         n: STACK_PTR_ADDR as i32,
@@ -87,11 +92,15 @@ pub fn increment_stack_ptr_by_known_offset(offset: u32, wasm_instrs: &mut Vec<Wa
             offset: 0,
         },
     });
+
+    // log stack ptr every time we change it
+    log_stack_ptr(wasm_instrs, module_context);
 }
 
 pub fn increment_stack_ptr_dynamic(
     mut load_byte_size_instrs: Vec<WasmInstruction>,
     wasm_instrs: &mut Vec<WasmInstruction>,
+    module_context: &ModuleContext,
 ) {
     // address operand
     wasm_instrs.push(WasmInstruction::I32Const {
@@ -110,9 +119,15 @@ pub fn increment_stack_ptr_dynamic(
             offset: 0,
         },
     });
+
+    // log stack ptr every time we change it
+    log_stack_ptr(wasm_instrs, module_context);
 }
 
-pub fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
+pub fn set_stack_ptr_to_frame_ptr(
+    wasm_instrs: &mut Vec<WasmInstruction>,
+    module_context: &ModuleContext,
+) {
     // address operand
     wasm_instrs.push(WasmInstruction::I32Const {
         n: STACK_PTR_ADDR as i32,
@@ -126,6 +141,9 @@ pub fn set_stack_ptr_to_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
             offset: 0,
         },
     });
+
+    // log stack ptr every time we change it
+    log_stack_ptr(wasm_instrs, module_context);
 }
 
 fn set_temp_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
@@ -181,6 +199,7 @@ pub fn set_up_new_stack_frame(
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // create a new stack frame for the callee
@@ -211,7 +230,7 @@ pub fn set_up_new_stack_frame(
     set_temp_frame_ptr_to_stack_ptr(wasm_instrs);
 
     // increment stack pointer
-    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs);
+    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs, module_context);
 
     let (return_type, param_types) = match &**callee_function_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
@@ -228,7 +247,7 @@ pub fn set_up_new_stack_frame(
             unreachable!()
         }
     };
-    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs);
+    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs, module_context);
 
     // store function parameters in callee's stack frame
     let mut param_index = 0;
@@ -256,7 +275,11 @@ pub fn set_up_new_stack_frame(
                 store(var_type, wasm_instrs);
 
                 // advance the stack pointer
-                increment_stack_ptr_by_known_offset(var_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(
+                    var_byte_size as u32,
+                    wasm_instrs,
+                    module_context,
+                );
             }
             Src::Constant(constant) => {
                 // address operand for where to store param
@@ -280,7 +303,11 @@ pub fn set_up_new_stack_frame(
                 store(param_type.to_owned(), wasm_instrs);
 
                 // advance the stack pointer
-                increment_stack_ptr_by_known_offset(param_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(
+                    param_byte_size as u32,
+                    wasm_instrs,
+                    module_context,
+                );
             }
             Src::StoreAddressVar(_) | Src::Fun(_) => {
                 unreachable!()
@@ -298,11 +325,12 @@ pub fn pop_stack_frame(
     callee_function_type: &Box<IrType>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // pop the top stack frame
     // restore the stack pointer value
-    set_stack_ptr_to_frame_ptr(wasm_instrs);
+    set_stack_ptr_to_frame_ptr(wasm_instrs, module_context);
     // restore the previous frame ptr value
     restore_previous_frame_ptr(wasm_instrs);
 
@@ -343,6 +371,7 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // leave frame ptr where it is
@@ -395,8 +424,8 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
     }
 
     // reset stack ptr for setting up the new stack frame
-    set_stack_ptr_to_frame_ptr(wasm_instrs);
-    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs);
+    set_stack_ptr_to_frame_ptr(wasm_instrs, module_context);
+    increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs, module_context);
 
     // leave space for the return value
     let return_type_byte_size = match return_type.get_byte_size(prog_metadata) {
@@ -405,7 +434,7 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
             unreachable!()
         }
     };
-    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs);
+    increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs, module_context);
 
     // now store the params in their correct positions in the new stack frame
     for param_index in 0..params.len() {
@@ -435,7 +464,11 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
                 store(var_type, wasm_instrs);
 
                 // advance stack ptr
-                increment_stack_ptr_by_known_offset(var_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(
+                    var_byte_size as u32,
+                    wasm_instrs,
+                    module_context,
+                );
             }
             Src::Constant(constant) => {
                 // address operand for where to store param
@@ -459,7 +492,11 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
                 store(param_type.to_owned(), wasm_instrs);
 
                 // advance the stack pointer
-                increment_stack_ptr_by_known_offset(param_byte_size as u32, wasm_instrs);
+                increment_stack_ptr_by_known_offset(
+                    param_byte_size as u32,
+                    wasm_instrs,
+                    module_context,
+                );
             }
             Src::StoreAddressVar(_) | Src::Fun(_) => {
                 unreachable!()

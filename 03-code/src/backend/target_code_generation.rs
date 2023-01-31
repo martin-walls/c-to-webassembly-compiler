@@ -101,6 +101,7 @@ pub fn generate_target_code(
             &global_block,
             initial_top_of_stack_addr,
             &mut global_wasm_instrs,
+            &module_context,
             &prog.program_metadata,
         );
 
@@ -141,7 +142,11 @@ pub fn generate_target_code(
         .get_byte_size(&prog.program_metadata)
         .get_compile_time_value()
         .unwrap();
-    increment_stack_ptr_by_known_offset(PTR_SIZE + i32_byte_size as u32, &mut global_wasm_instrs);
+    increment_stack_ptr_by_known_offset(
+        PTR_SIZE + i32_byte_size as u32,
+        &mut global_wasm_instrs,
+        &module_context,
+    );
 
     // store params argc and argv in main()'s stack frame
     //
@@ -156,7 +161,11 @@ pub fn generate_target_code(
         mem_arg: MemArg::zero(),
     });
     // increment stack ptr
-    increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+    increment_stack_ptr_by_known_offset(
+        i32_byte_size as u32,
+        &mut global_wasm_instrs,
+        &module_context,
+    );
 
     // address operand for where to store argv param
     load_stack_ptr(&mut global_wasm_instrs);
@@ -169,7 +178,11 @@ pub fn generate_target_code(
         mem_arg: MemArg::zero(),
     });
     // increment stack ptr
-    increment_stack_ptr_by_known_offset(i32_byte_size as u32, &mut global_wasm_instrs);
+    increment_stack_ptr_by_known_offset(
+        i32_byte_size as u32,
+        &mut global_wasm_instrs,
+        &module_context,
+    );
 
     // call main()
     match prog
@@ -245,6 +258,7 @@ pub fn generate_target_code(
                 &mut function_wasm_instrs,
                 function.type_info,
                 function.param_var_mappings,
+                &module_context,
                 &prog.program_metadata,
             );
 
@@ -556,7 +570,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // increment stack pointer
-            increment_stack_ptr_dynamic(load_byte_size_instrs, wasm_instrs);
+            increment_stack_ptr_dynamic(load_byte_size_instrs, wasm_instrs, module_context);
         }
         Instruction::AddressOf(dest, src) => {
             // store the address of src in dest
@@ -1771,10 +1785,9 @@ fn convert_ir_instr_to_wasm(
                 params,
                 wasm_instrs,
                 function_context,
+                module_context,
                 prog_metadata,
             );
-
-            log_stack_ptr(wasm_instrs, module_context);
 
             // call the function
             wasm_instrs.push(WasmInstruction::Call {
@@ -1785,13 +1798,12 @@ fn convert_ir_instr_to_wasm(
                     .to_owned(),
             });
 
-            log_stack_ptr(wasm_instrs, module_context);
-
             pop_stack_frame(
                 dest,
                 callee_function_type,
                 wasm_instrs,
                 function_context,
+                module_context,
                 prog_metadata,
             );
         }
@@ -1803,6 +1815,7 @@ fn convert_ir_instr_to_wasm(
                 params,
                 wasm_instrs,
                 function_context,
+                module_context,
                 prog_metadata,
             );
 

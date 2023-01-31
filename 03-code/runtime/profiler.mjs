@@ -14,7 +14,7 @@ function get_log_dir_path() {
 
 export function init_stack_ptr_log_file(source_filepath) {
     // put timestamp in log file name, so we don't overwrite previous logs
-    const log_name = `${basename(source_filepath)}-${Date.now()}.stackptrlog`;
+    const log_name = `${basename(source_filepath)}.${Date.now()}.stackptrlog`;
     return join(get_log_dir_path(), log_name);
 }
 

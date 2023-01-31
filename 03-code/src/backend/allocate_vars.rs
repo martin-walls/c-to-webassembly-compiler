@@ -1,5 +1,6 @@
 use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
+use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
 use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::Instruction;
@@ -13,6 +14,7 @@ pub fn allocate_local_vars(
     wasm_instrs: &mut Vec<WasmInstruction>,
     fun_type: Box<IrType>,
     fun_param_var_mappings: Vec<VarId>,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> HashMap<VarId, u32> {
     let block_vars = get_vars_with_types(block, prog_metadata);
@@ -75,7 +77,7 @@ pub fn allocate_local_vars(
     }
 
     // update stack pointer to after allocated vars
-    increment_stack_ptr_by_known_offset(stack_ptr_increment, wasm_instrs);
+    increment_stack_ptr_by_known_offset(stack_ptr_increment, wasm_instrs, module_context);
 
     var_offsets
 }
@@ -84,6 +86,7 @@ pub fn allocate_global_vars(
     block: &Box<Block>,
     initial_top_of_stack_addr: u32,
     wasm_instrs: &mut Vec<WasmInstruction>,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> HashMap<VarId, u32> {
     let global_vars = get_vars_with_types(block, prog_metadata);
@@ -106,7 +109,7 @@ pub fn allocate_global_vars(
         stack_ptr_increment += byte_size as u32;
     }
 
-    increment_stack_ptr_by_known_offset(stack_ptr_increment, wasm_instrs);
+    increment_stack_ptr_by_known_offset(stack_ptr_increment, wasm_instrs, module_context);
 
     var_addrs
 }
