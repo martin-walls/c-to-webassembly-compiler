@@ -11,6 +11,7 @@ pub struct ModuleContext {
     pub imported_func_idx_range: (FuncIdx, FuncIdx),
     pub defined_func_idx_range: (FuncIdx, FuncIdx),
     pub string_literal_id_to_ptr_map: HashMap<StringLiteralId, u32>,
+    pub log_stack_ptr_fun_id: Option<FunId>,
 }
 
 impl ModuleContext {
@@ -21,6 +22,7 @@ impl ModuleContext {
             imported_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             defined_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             string_literal_id_to_ptr_map: HashMap::new(),
+            log_stack_ptr_fun_id: None,
         }
     }
 

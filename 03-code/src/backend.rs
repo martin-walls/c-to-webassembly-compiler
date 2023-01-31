@@ -6,6 +6,7 @@ mod initialise_memory;
 mod integer_encoding;
 mod memory_constants;
 mod memory_operations;
+mod profiler;
 mod stack_frame_operations;
 pub mod target_code_generation;
 mod target_code_generation_context;

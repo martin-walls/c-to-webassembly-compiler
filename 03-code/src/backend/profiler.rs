@@ -1,0 +1,28 @@
+use crate::backend::target_code_generation_context::ModuleContext;
+use crate::middle_end::ir_types::IrType;
+use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
+
+const LOG_STACK_PTR_IMPORT_NAME: &str = "log_stack_ptr";
+
+pub fn initialise_profiler(module_context: &mut ModuleContext, prog: &mut ReloopedProgram) {
+    // declare new fun for log fun
+    let log_stack_ptr_fun_id = prog
+        .program_metadata
+        .new_fun_declaration(LOG_STACK_PTR_IMPORT_NAME.to_owned())
+        .unwrap();
+
+    // insert function stub to program
+    prog.program_blocks.functions.insert(
+        log_stack_ptr_fun_id.to_owned(),
+        ReloopedFunction {
+            block: None,
+            label_variable: None,
+            type_info: Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)),
+            param_var_mappings: Vec::new(),
+            body_is_defined: false,
+        },
+    );
+
+    // store fun id in module context
+    module_context.log_stack_ptr_fun_id = Some(log_stack_ptr_fun_id);
+}

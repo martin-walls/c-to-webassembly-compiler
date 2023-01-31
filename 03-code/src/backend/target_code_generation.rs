@@ -11,6 +11,7 @@ use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::memory_operations::{
     load, load_constant, load_src, load_var, load_var_address, store, store_var,
 };
+use crate::backend::profiler::initialise_profiler;
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
     load_stack_ptr, overwrite_current_stack_frame_with_new_stack_frame, pop_stack_frame,
@@ -34,15 +35,16 @@ use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 
-pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
+pub fn generate_target_code(mut prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
+    let mut module_context = ModuleContext::new();
+
+    initialise_profiler(&mut module_context, &mut prog);
 
     let (imported_functions, defined_functions) = separate_imported_and_defined_functions(
         &prog.program_metadata,
         prog.program_blocks.functions,
     );
-
-    let mut module_context = ModuleContext::new();
 
     module_context.calculate_func_idxs(&imported_functions, &defined_functions);
 
@@ -55,7 +57,9 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
     let mut func_idx_to_type_idx_map: HashMap<FuncIdx, TypeIdx> = HashMap::new();
     let mut func_idx_to_body_code_map: HashMap<FuncIdx, WasmExpression> = HashMap::new();
 
-    //////////////////////////////////////////////////////////////////////////
+    //
+    // global instrs
+    //
 
     // create a wasm function for the global instructions
     let mut global_wasm_instrs = Vec::new();
@@ -214,7 +218,7 @@ pub fn generate_target_code(prog: ReloopedProgram) -> Result<WasmModule, Backend
     };
     wasm_module.exports_section.exports.push(main_export);
 
-    /////////////////////////////////////////////////
+    // end global instrs
 
     // insert empty function type to module
     let empty_type = WasmFunctionType {
@@ -1763,6 +1767,7 @@ fn convert_ir_instr_to_wasm(
                 params,
                 wasm_instrs,
                 function_context,
+                module_context,
                 prog_metadata,
             );
 

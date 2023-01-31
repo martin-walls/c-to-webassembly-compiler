@@ -7,9 +7,14 @@ import {printf} from "./stdlib/stdio.mjs";
 import {put_args_into_memory} from "./init_memory.mjs";
 import {strtol, strtoul} from "./stdlib/stdlib.mjs";
 import {strlen, strstr} from "./stdlib/string.mjs";
+import {init_stack_ptr_log_file, log_stack_ptr} from "./profiler.mjs";
+
 
 const run = async (filename, args) => {
     const buffer = readFileSync(filename);
+
+    const stack_ptr_log_path = init_stack_ptr_log_file(filename);
+    console.log(stack_ptr_log_path);
 
     let memory = new WebAssembly.Memory({initial: 1});
 
@@ -24,6 +29,7 @@ const run = async (filename, args) => {
             strtoul: strtoul(memory),
             strlen: strlen(memory),
             strstr: strstr(memory),
+            log_stack_ptr: log_stack_ptr(memory, stack_ptr_log_path)
         },
     };
 
@@ -34,7 +40,6 @@ const run = async (filename, args) => {
 
     // put the arguments into wasm memory
     const {argc, argv} = put_args_into_memory(args, memory);
-
 
     // run the program
     const exit_code = main(argc, argv);

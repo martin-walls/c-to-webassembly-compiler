@@ -10,5 +10,6 @@ pub fn get_imported_function_names() -> Vec<String> {
         "strtol".to_owned(),
         "strlen".to_owned(),
         "strstr".to_owned(),
+        "log_stack_ptr".to_owned(),
     ]
 }

@@ -2,7 +2,7 @@ use crate::backend::memory_constants::{
     FRAME_PTR_ADDR, PTR_SIZE, STACK_PTR_ADDR, TEMP_FRAME_PTR_ADDR,
 };
 use crate::backend::memory_operations::{load, load_constant, load_var, store, store_var};
-use crate::backend::target_code_generation_context::FunctionContext;
+use crate::backend::target_code_generation_context::{FunctionContext, ModuleContext};
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -181,6 +181,7 @@ pub fn set_up_new_stack_frame(
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
+    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // create a new stack frame for the callee
@@ -291,6 +292,18 @@ pub fn set_up_new_stack_frame(
 
     // set the frame pointer to point at the new stack frame
     set_frame_ptr_to_temp_frame_ptr(wasm_instrs);
+
+    // profiler: log stack ptr
+    // TODO: add a flag to enable/disable this optimisation
+    if let Some(log_stack_ptr_fun_id) = &module_context.log_stack_ptr_fun_id {
+        let log_stack_ptr_func_idx = module_context
+            .fun_id_to_func_idx_map
+            .get(log_stack_ptr_fun_id)
+            .unwrap();
+        wasm_instrs.push(WasmInstruction::Call {
+            func_idx: log_stack_ptr_func_idx.to_owned(),
+        })
+    }
 }
 
 pub fn pop_stack_frame(
