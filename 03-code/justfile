@@ -13,8 +13,8 @@ run-test *ARGS:
 run WASM *ARGS:
     ./runtime/run.mjs {{WASM}} {{ARGS}}
 
-compile SOURCE OUTPUT="module.wasm" LOG_LEVEL="error" OPTIMISE="all": build
-    RUST_LOG={{LOG_LEVEL}} ./target/debug/c_to_wasm_compiler {{SOURCE}} -o {{OUTPUT}} --optimise {{OPTIMISE}}
+compile SOURCE OUTPUT="module.wasm" LOG_LEVEL="error" *ARGS="": build
+    RUST_LOG={{LOG_LEVEL}} ./target/debug/c_to_wasm_compiler {{SOURCE}} -o {{OUTPUT}} {{ARGS}}
 
 build:
     cargo build

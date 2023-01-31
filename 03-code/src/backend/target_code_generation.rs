@@ -26,6 +26,7 @@ use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport}
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
+use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
@@ -35,9 +36,12 @@ use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
 pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 
-pub fn generate_target_code(mut prog: ReloopedProgram) -> Result<WasmModule, BackendError> {
+pub fn generate_target_code(
+    mut prog: ReloopedProgram,
+    enabled_profiling: &EnabledProfiling,
+) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
-    let mut module_context = ModuleContext::new();
+    let mut module_context = ModuleContext::new(enabled_profiling);
 
     initialise_profiler(&mut module_context, &mut prog);
 

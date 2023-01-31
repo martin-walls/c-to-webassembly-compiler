@@ -1,27 +1,30 @@
 use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
+use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::ids::Id;
 use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
 use std::collections::HashMap;
 
-pub struct ModuleContext {
+pub struct ModuleContext<'a> {
     pub fun_id_to_func_idx_map: HashMap<FunId, FuncIdx>,
     // (inclusive, exclusive)
     pub imported_func_idx_range: (FuncIdx, FuncIdx),
     pub defined_func_idx_range: (FuncIdx, FuncIdx),
     pub string_literal_id_to_ptr_map: HashMap<StringLiteralId, u32>,
+    pub enabled_profiling: &'a EnabledProfiling,
     pub log_stack_ptr_fun_id: Option<FunId>,
 }
 
-impl ModuleContext {
-    pub fn new() -> Self {
+impl<'a> ModuleContext<'a> {
+    pub fn new(enabled_profiling: &'a EnabledProfiling) -> Self {
         ModuleContext {
             fun_id_to_func_idx_map: HashMap::new(),
             // func_idx_to_fun_id_map: HashMap::new(),
             imported_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             defined_func_idx_range: (FuncIdx::initial_idx(), FuncIdx::initial_idx()),
             string_literal_id_to_ptr_map: HashMap::new(),
+            enabled_profiling,
             log_stack_ptr_fun_id: None,
         }
     }

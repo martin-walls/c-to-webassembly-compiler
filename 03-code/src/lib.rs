@@ -3,6 +3,7 @@
 
 mod backend;
 mod enabled_optimisations;
+mod enabled_profiling;
 mod fmt_indented;
 mod middle_end;
 mod parser;
@@ -11,6 +12,7 @@ mod relooper;
 
 use crate::backend::target_code_generation::generate_target_code;
 use crate::enabled_optimisations::EnabledOptimisations;
+use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
@@ -34,6 +36,9 @@ pub struct CliConfig {
     /// Which optimisations to enable
     #[arg(long, value_enum, default_value_t = EnabledOptimisations::All)]
     optimise: EnabledOptimisations,
+    /// Which profiling to enable
+    #[arg(long, value_enum, default_value_t = EnabledProfiling::All)]
+    profiling: EnabledProfiling,
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
@@ -50,7 +55,7 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     // Run the Relooper algorithm
     let relooped_ir = reloop(ir);
     // Generate target wasm code
-    let wasm_module = generate_target_code(relooped_ir)?;
+    let wasm_module = generate_target_code(relooped_ir, &config.profiling)?;
     // write binary to file
     wasm_module.write_to_file(Path::new(&config.output))?;
     Ok(())
