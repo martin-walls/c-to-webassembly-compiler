@@ -1,4 +1,5 @@
 use crate::backend::target_code_generation_context::ModuleContext;
+use crate::backend::wasm_instructions::WasmInstruction;
 use crate::middle_end::ir_types::IrType;
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 
@@ -25,4 +26,17 @@ pub fn initialise_profiler(module_context: &mut ModuleContext, prog: &mut Reloop
 
     // store fun id in module context
     module_context.log_stack_ptr_fun_id = Some(log_stack_ptr_fun_id);
+}
+
+pub fn log_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>, module_context: &ModuleContext) {
+    // TODO: add a flag to enable/disable this optimisation
+    if let Some(log_stack_ptr_fun_id) = &module_context.log_stack_ptr_fun_id {
+        let log_stack_ptr_func_idx = module_context
+            .fun_id_to_func_idx_map
+            .get(log_stack_ptr_fun_id)
+            .unwrap();
+        wasm_instrs.push(WasmInstruction::Call {
+            func_idx: log_stack_ptr_func_idx.to_owned(),
+        })
+    }
 }

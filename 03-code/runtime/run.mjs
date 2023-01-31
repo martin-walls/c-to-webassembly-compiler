@@ -14,7 +14,6 @@ const run = async (filename, args) => {
     const buffer = readFileSync(filename);
 
     const stack_ptr_log_path = init_stack_ptr_log_file(filename);
-    console.log(stack_ptr_log_path);
 
     let memory = new WebAssembly.Memory({initial: 1});
 

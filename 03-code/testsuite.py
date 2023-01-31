@@ -4,7 +4,6 @@ import os
 import sys
 from pathlib import Path
 import yaml
-from enum import Enum, auto
 from typing import Generator
 
 TEST_PROGRAMS_DIR = Path(__file__).parent.parent.resolve() / "02-test-programs"

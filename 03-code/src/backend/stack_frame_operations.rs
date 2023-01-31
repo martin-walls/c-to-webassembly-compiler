@@ -181,7 +181,6 @@ pub fn set_up_new_stack_frame(
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
     // create a new stack frame for the callee
@@ -292,18 +291,6 @@ pub fn set_up_new_stack_frame(
 
     // set the frame pointer to point at the new stack frame
     set_frame_ptr_to_temp_frame_ptr(wasm_instrs);
-
-    // profiler: log stack ptr
-    // TODO: add a flag to enable/disable this optimisation
-    if let Some(log_stack_ptr_fun_id) = &module_context.log_stack_ptr_fun_id {
-        let log_stack_ptr_func_idx = module_context
-            .fun_id_to_func_idx_map
-            .get(log_stack_ptr_fun_id)
-            .unwrap();
-        wasm_instrs.push(WasmInstruction::Call {
-            func_idx: log_stack_ptr_func_idx.to_owned(),
-        })
-    }
 }
 
 pub fn pop_stack_frame(

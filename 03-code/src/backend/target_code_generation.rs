@@ -11,7 +11,7 @@ use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::memory_operations::{
     load, load_constant, load_src, load_var, load_var_address, store, store_var,
 };
-use crate::backend::profiler::initialise_profiler;
+use crate::backend::profiler::{initialise_profiler, log_stack_ptr};
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
     load_stack_ptr, overwrite_current_stack_frame_with_new_stack_frame, pop_stack_frame,
@@ -1767,9 +1767,10 @@ fn convert_ir_instr_to_wasm(
                 params,
                 wasm_instrs,
                 function_context,
-                module_context,
                 prog_metadata,
             );
+
+            log_stack_ptr(wasm_instrs, module_context);
 
             // call the function
             wasm_instrs.push(WasmInstruction::Call {
@@ -1779,6 +1780,8 @@ fn convert_ir_instr_to_wasm(
                     .unwrap()
                     .to_owned(),
             });
+
+            log_stack_ptr(wasm_instrs, module_context);
 
             pop_stack_frame(
                 dest,
