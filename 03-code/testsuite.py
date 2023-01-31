@@ -2,6 +2,7 @@
 import subprocess
 import os
 import sys
+import argparse
 from pathlib import Path
 import yaml
 from typing import Generator
@@ -88,7 +89,7 @@ def compile_wasm(filepath: Path, name: str) -> (str, int):
     # )
 
     compile_process_result = subprocess.run(
-        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath],
+        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath, "--profiling", "none"],
         capture_output=True, env=compile_env, universal_newlines=True
     )
 
@@ -260,14 +261,18 @@ def run_program(test_name_filter: str or None, args: list[str]):
 
 
 if __name__ == "__main__":
-    args = [arg for arg in sys.argv[1:]]
-    test_name_filter = None
+    # parse CLI args
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filter", nargs="?", default=None)
 
-    if len(args) >= 1 and (args[0] == "--run" or args[0] == "-r"):
-        if len(args) >= 2:
-            test_name_filter = args[1]
-            run_program(test_name_filter, args[2:])
+    parser.add_argument("--run", "-r", action="store_true",
+                        help="run a test file and show output, optionally specifying different arguments")
+    # arguments to pass through to the test when using --run
+    parser.add_argument("--args", nargs="+", help="arguments to pass through to the test program when using --run")
+
+    args = parser.parse_args()
+
+    if args.run:
+        run_program(args.filter, args.args if args.args else [])
     else:
-        if len(args) >= 1:
-            test_name_filter = args[0]
-        run_all_tests(test_name_filter)
+        run_all_tests(args.filter)
