@@ -4,6 +4,7 @@ use crate::CliConfig;
 pub struct EnabledOptimisations {
     tail_call: bool,
     unreachable_procedure: bool,
+    stack_allocation: bool,
 }
 
 impl EnabledOptimisations {
@@ -11,6 +12,7 @@ impl EnabledOptimisations {
         EnabledOptimisations {
             tail_call: true,
             unreachable_procedure: true,
+            stack_allocation: true,
         }
     }
 
@@ -30,6 +32,12 @@ impl EnabledOptimisations {
             enabled_optimisations.unreachable_procedure = false;
         }
 
+        if cli_config.opt_stack_allocation {
+            enabled_optimisations.stack_allocation = true;
+        } else if cli_config.noopt_stack_allocation {
+            enabled_optimisations.stack_allocation = false;
+        }
+
         enabled_optimisations
     }
 
@@ -39,5 +47,9 @@ impl EnabledOptimisations {
 
     pub fn is_unreachable_procedure_elimination_enabled(&self) -> bool {
         self.unreachable_procedure
+    }
+
+    pub fn is_stack_allocation_optimisation_enabled(&self) -> {
+        self.stack_allocation
     }
 }

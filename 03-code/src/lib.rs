@@ -48,6 +48,13 @@ pub struct CliConfig {
     #[arg(long, group = "group_opt_unreachable_procedure")]
     noopt_unreachable_procedure: bool,
 
+    /// Enable stack allocation optimisation (default)
+    #[arg(long, group = "group_opt_stack_allocation")]
+    opt_stack_allocation: bool,
+    /// Disable stack allocation optimisation
+    #[arg(long, group = "group_opt_stack_allocation")]
+    noopt_stack_allocation: bool,
+
     /// Enable stack usage profiling
     #[arg(long, group = "group_prof_stack")]
     prof_stack: bool,
