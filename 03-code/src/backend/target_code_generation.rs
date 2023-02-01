@@ -2,7 +2,6 @@ use log::{debug, info};
 use std::borrow::ToOwned;
 use std::collections::{HashMap, VecDeque};
 
-use crate::backend::allocate_vars::{allocate_global_vars, allocate_local_vars};
 use crate::backend::backend_error::BackendError;
 use crate::backend::import_export_names::get_imported_function_names;
 use crate::backend::import_export_names::MAIN_FUNCTION_EXPORT_NAME;
@@ -12,6 +11,7 @@ use crate::backend::memory_operations::{
     load, load_constant, load_src, load_var, load_var_address, store, store_var,
 };
 use crate::backend::profiler::initialise_profiler;
+use crate::backend::stack_allocation::allocate_vars::{allocate_global_vars, allocate_local_vars};
 use crate::backend::stack_frame_operations::{
     increment_stack_ptr_by_known_offset, increment_stack_ptr_dynamic, load_frame_ptr,
     load_stack_ptr, overwrite_current_stack_frame_with_new_stack_frame, pop_stack_frame,

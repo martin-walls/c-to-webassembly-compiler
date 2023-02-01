@@ -49,7 +49,7 @@ impl EnabledOptimisations {
         self.unreachable_procedure
     }
 
-    pub fn is_stack_allocation_optimisation_enabled(&self) -> {
+    pub fn is_stack_allocation_optimisation_enabled(&self) -> bool {
         self.stack_allocation
     }
 }

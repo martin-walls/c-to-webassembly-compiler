@@ -1,4 +1,3 @@
-mod allocate_vars;
 mod backend_error;
 mod float_encoding;
 mod import_export_names;
@@ -7,6 +6,7 @@ mod integer_encoding;
 mod memory_constants;
 mod memory_operations;
 mod profiler;
+mod stack_allocation;
 mod stack_frame_operations;
 pub mod target_code_generation;
 mod target_code_generation_context;
