@@ -1,4 +1,5 @@
 mod backend_error;
+mod dataflow_analysis;
 mod float_encoding;
 mod import_export_names;
 mod initialise_memory;
