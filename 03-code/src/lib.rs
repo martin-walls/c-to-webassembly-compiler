@@ -16,7 +16,7 @@ use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::relooper::relooper::reloop;
 use clap::Parser as ClapParser;
-use log::{info, trace};
+use log::{debug, info, trace};
 use middle_end::ast_to_ir::convert_to_ir;
 use parser::parser::parse;
 use preprocessor::preprocess;
@@ -33,15 +33,35 @@ pub struct CliConfig {
     /// The path of the output file to generate
     #[arg(short, long, default_value_t = ("module.wasm".to_owned()))]
     output: String,
-    /// Which optimisations to enable
-    #[arg(long, value_enum, default_value_t = EnabledOptimisations::All)]
-    optimise: EnabledOptimisations,
-    /// Which profiling to enable
-    #[arg(long, value_enum, default_value_t = EnabledProfiling::All)]
-    profiling: EnabledProfiling,
+
+    /// Enable tail-call optimisation (default)
+    #[arg(long, group = "group_opt_tailcall")]
+    opt_tailcall: bool,
+    /// Disable tail-call optimisation
+    #[arg(long, group = "group_opt_tailcall")]
+    noopt_tailcall: bool,
+
+    /// Enable unreachable procedure elimination (default)
+    #[arg(long, group = "group_opt_unreachable_procedure")]
+    opt_unreachable_procedure: bool,
+    /// Disable unreachable procedure elimination
+    #[arg(long, group = "group_opt_unreachable_procedure")]
+    noopt_unreachable_procedure: bool,
+
+    /// Enable stack usage profiling
+    #[arg(long, group = "group_prof_stack")]
+    prof_stack: bool,
+    /// Disable stack usage profiling (default)
+    #[arg(long, group = "group_prof_stack")]
+    noprof_stack: bool,
 }
 
 pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
+    let enabled_optimisations = EnabledOptimisations::construct(&config);
+    let enabled_profiling = EnabledProfiling::construct(&config);
+    debug!("{:?}", enabled_optimisations);
+    debug!("{:?}", enabled_profiling);
+
     // Run C preprocessor
     let source = preprocess(Path::new(&config.filepath))?;
     // Generate AST
@@ -50,12 +70,12 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     let mut ir = convert_to_ir(ast)?;
     trace!("Non-optimised IR: {}", ir);
     // Run optimisations on the IR
-    optimise_ir(&mut ir, &config.optimise)?;
+    optimise_ir(&mut ir, &enabled_optimisations)?;
     info!("Optimised IR: {}", ir);
     // Run the Relooper algorithm
     let relooped_ir = reloop(ir);
     // Generate target wasm code
-    let wasm_module = generate_target_code(relooped_ir, &config.profiling)?;
+    let wasm_module = generate_target_code(relooped_ir, &enabled_profiling)?;
     // write binary to file
     wasm_module.write_to_file(Path::new(&config.output))?;
     Ok(())

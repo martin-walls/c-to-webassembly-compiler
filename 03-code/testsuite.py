@@ -75,7 +75,7 @@ def build_project() -> int:
     return process_result.returncode
 
 
-def compile_wasm(filepath: Path, name: str, enabled_profiling: str) -> (str, int):
+def compile_wasm(filepath: Path, name: str) -> (str, int):
     print("\tCompiling wasm...")
 
     compile_env = os.environ.copy()
@@ -89,7 +89,7 @@ def compile_wasm(filepath: Path, name: str, enabled_profiling: str) -> (str, int
     # )
 
     compile_process_result = subprocess.run(
-        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath, "--profiling", enabled_profiling],
+        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath],
         capture_output=True, env=compile_env, universal_newlines=True
     )
 
@@ -160,7 +160,7 @@ def read_test_file(filepath: Path) -> TestSpec:
         )
 
 
-def run_test(test_spec: TestSpec, enabled_profiling: str):
+def run_test(test_spec: TestSpec):
     # compile gcc
     gcc_stdout, gcc_exit_code = compile_gcc(test_spec.source, test_spec.name)
 
@@ -173,7 +173,7 @@ def run_test(test_spec: TestSpec, enabled_profiling: str):
     gcc_run_stdout, gcc_run_exit_code = run_gcc(test_spec.name, test_spec.args)
 
     # compile wasm
-    compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name, enabled_profiling)
+    compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name)
 
     if compiler_exit_code != 0:
         print("Wasm compiler stdout:")
@@ -196,7 +196,7 @@ def run_test(test_spec: TestSpec, enabled_profiling: str):
         raise TestFailedException("GCC and wasm outputs didn't match.")
 
 
-def run_all_tests(test_name_filter: str or None, enabled_profiling: str):
+def run_all_tests(test_name_filter: str or None):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -210,7 +210,7 @@ def run_all_tests(test_name_filter: str or None, enabled_profiling: str):
         if test_name_filter is None or test_name_filter in test_spec.name:
             try:
                 print(f"Running test: {test_spec.name}")
-                run_test(test_spec, enabled_profiling)
+                run_test(test_spec)
                 print("\tTest passed")
                 passed_tests.append(test_spec)
             except TestFailedException as e:
@@ -230,7 +230,7 @@ def run_all_tests(test_name_filter: str or None, enabled_profiling: str):
             print(f"\t{test.name}")
 
 
-def run_program(test_name_filter: str or None, args: list[str], enabled_profiling: str):
+def run_program(test_name_filter: str or None, args: list[str]):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -241,7 +241,7 @@ def run_program(test_name_filter: str or None, args: list[str], enabled_profilin
         if test_name_filter is None or test_name_filter in test_spec.name:
             print(f"Running {test_spec.name}")
             # compile wasm
-            compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name, enabled_profiling)
+            compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name)
 
             if compiler_exit_code != 0:
                 print("Wasm compiler stdout:")
@@ -270,11 +270,9 @@ if __name__ == "__main__":
     # arguments to pass through to the test when using --run
     parser.add_argument("--args", nargs="+", help="arguments to pass through to the test program when using --run")
 
-    parser.add_argument("--profiling", choices=["all", "none"], default="none")
-
     args = parser.parse_args()
 
     if args.run:
-        run_program(args.filter, args.args if args.args else [], args.profiling)
+        run_program(args.filter, args.args if args.args else [])
     else:
-        run_all_tests(args.filter, args.profiling)
+        run_all_tests(args.filter)
