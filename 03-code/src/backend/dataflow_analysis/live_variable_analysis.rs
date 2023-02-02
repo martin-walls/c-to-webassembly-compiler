@@ -3,7 +3,7 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::{Instruction, Src};
 use std::collections::{HashMap, HashSet};
 
-type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
+pub type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
 
 pub fn live_variable_analysis(flowgraph: &Flowgraph) -> LiveVariableMap {
     // for every instr, which vars are live at that point

@@ -1,3 +1,4 @@
+use crate::backend::dataflow_analysis::clash_graph::generate_clash_graph;
 use crate::backend::dataflow_analysis::flowgraph::generate_flowgraph;
 use crate::backend::dataflow_analysis::live_variable_analysis::live_variable_analysis;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
@@ -20,9 +21,11 @@ pub fn optimised_allocate_local_vars(
 ) -> VariableAllocationMap {
     let flowgraph = generate_flowgraph(block);
 
-    let live = live_variable_analysis(&flowgraph);
+    let live_vars = live_variable_analysis(&flowgraph);
 
-    debug!("{:#?}", live);
+    let clash_graph = generate_clash_graph(&live_vars);
+
+    debug!("{}", clash_graph);
 
     todo!()
 }
