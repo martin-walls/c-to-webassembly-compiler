@@ -75,7 +75,7 @@ def build_project() -> int:
     return process_result.returncode
 
 
-def compile_wasm(filepath: Path, name: str) -> (str, int):
+def compile_wasm(filepath: Path, name: str, compiler_args: list[str]) -> (str, int):
     print("\tCompiling wasm...")
 
     compile_env = os.environ.copy()
@@ -83,13 +83,8 @@ def compile_wasm(filepath: Path, name: str) -> (str, int):
 
     output_filepath = get_wasm_output_filepath(name)
 
-    # compile_process_result = subprocess.run(
-    #     ["cargo", "run", "--", filepath, "-o", output_filepath],
-    #     capture_output=True, env=compile_env, universal_newlines=True
-    # )
-
     compile_process_result = subprocess.run(
-        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath],
+        [PROJECT_BUILD_PATH, filepath, "-o", output_filepath, *compiler_args],
         capture_output=True, env=compile_env, universal_newlines=True
     )
 
@@ -160,7 +155,7 @@ def read_test_file(filepath: Path) -> TestSpec:
         )
 
 
-def run_test(test_spec: TestSpec):
+def run_test(test_spec: TestSpec, wasm_compiler_args: list[str]):
     # compile gcc
     gcc_stdout, gcc_exit_code = compile_gcc(test_spec.source, test_spec.name)
 
@@ -173,7 +168,7 @@ def run_test(test_spec: TestSpec):
     gcc_run_stdout, gcc_run_exit_code = run_gcc(test_spec.name, test_spec.args)
 
     # compile wasm
-    compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name)
+    compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name, wasm_compiler_args)
 
     if compiler_exit_code != 0:
         print("Wasm compiler stdout:")
@@ -196,7 +191,7 @@ def run_test(test_spec: TestSpec):
         raise TestFailedException("GCC and wasm outputs didn't match.")
 
 
-def run_all_tests(test_name_filter: str or None):
+def run_all_tests(test_name_filter: str or None, wasm_compiler_args: list[str]):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -210,7 +205,7 @@ def run_all_tests(test_name_filter: str or None):
         if test_name_filter is None or test_name_filter in test_spec.name:
             try:
                 print(f"Running test: {test_spec.name}")
-                run_test(test_spec)
+                run_test(test_spec, wasm_compiler_args)
                 print("\tTest passed")
                 passed_tests.append(test_spec)
             except TestFailedException as e:
@@ -230,7 +225,7 @@ def run_all_tests(test_name_filter: str or None):
             print(f"\t{test.name}")
 
 
-def run_program(test_name_filter: str or None, args: list[str]):
+def run_program(test_name_filter: str or None, program_args: list[str], wasm_compiler_args: list[str]):
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -241,7 +236,7 @@ def run_program(test_name_filter: str or None, args: list[str]):
         if test_name_filter is None or test_name_filter in test_spec.name:
             print(f"Running {test_spec.name}")
             # compile wasm
-            compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name)
+            compiler_stdout, compiler_exit_code = compile_wasm(test_spec.source, test_spec.name, wasm_compiler_args)
 
             if compiler_exit_code != 0:
                 print("Wasm compiler stdout:")
@@ -251,7 +246,8 @@ def run_program(test_name_filter: str or None, args: list[str]):
             # run wasm
             # pass supplied args if any, else use the args from the test spec
             wasm_run_stdout, wasm_run_stderr, wasm_run_exit_code = run_wasm(test_spec.name,
-                                                                            args if len(args) > 1 else test_spec.args)
+                                                                            program_args if len(
+                                                                                program_args) > 1 else test_spec.args)
 
             print("Stdout:")
             print(wasm_run_stdout)
@@ -269,10 +265,14 @@ if __name__ == "__main__":
                         help="run a test file and show output, optionally specifying different arguments")
     # arguments to pass through to the test when using --run
     parser.add_argument("--args", nargs="+", help="arguments to pass through to the test program when using --run")
+    # flags to pass to my wasm compiler
+    parser.add_argument("--flags", nargs="+", help="Flags to pass to the Wasm compiler")
 
     args = parser.parse_args()
 
+    wasm_compiler_args = [f"--{flag}" for flag in (args.flags if args.flags else [])]
+
     if args.run:
-        run_program(args.filter, args.args if args.args else [])
+        run_program(args.filter, args.args if args.args else [], wasm_compiler_args)
     else:
-        run_all_tests(args.filter)
+        run_all_tests(args.filter, wasm_compiler_args)
