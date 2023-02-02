@@ -1,2 +1,2 @@
-mod flowgraph;
-mod live_variable_analysis;
+pub mod flowgraph;
+pub mod live_variable_analysis;

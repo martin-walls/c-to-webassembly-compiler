@@ -26,6 +26,7 @@ use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport}
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
+use crate::enabled_optimisations::EnabledOptimisations;
 use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::ids::{FunId, Id, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
@@ -38,6 +39,7 @@ pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 
 pub fn generate_target_code(
     mut prog: ReloopedProgram,
+    enabled_optimisations: &EnabledOptimisations,
     enabled_profiling: &EnabledProfiling,
 ) -> Result<WasmModule, BackendError> {
     let mut wasm_module = WasmModule::new();
@@ -260,6 +262,7 @@ pub fn generate_target_code(
                 function.param_var_mappings,
                 &module_context,
                 &prog.program_metadata,
+                enabled_optimisations,
             );
 
             let mut function_context = FunctionContext::new(

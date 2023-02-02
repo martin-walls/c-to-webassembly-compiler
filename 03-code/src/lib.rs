@@ -82,7 +82,8 @@ pub fn run(config: CliConfig) -> Result<(), Box<dyn Error>> {
     // Run the Relooper algorithm
     let relooped_ir = reloop(ir);
     // Generate target wasm code
-    let wasm_module = generate_target_code(relooped_ir, &enabled_profiling)?;
+    let wasm_module =
+        generate_target_code(relooped_ir, &enabled_optimisations, &enabled_profiling)?;
     // write binary to file
     wasm_module.write_to_file(Path::new(&config.output))?;
     Ok(())

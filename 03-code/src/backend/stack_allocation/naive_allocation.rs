@@ -1,4 +1,5 @@
 use crate::backend::memory_constants::PTR_SIZE;
+use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;
@@ -16,7 +17,7 @@ pub fn naive_allocate_local_vars(
     fun_param_var_mappings: Vec<VarId>,
     module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
-) -> HashMap<VarId, u32> {
+) -> VariableAllocationMap {
     let block_vars = get_vars_from_block(block, prog_metadata);
 
     let mut var_offsets = HashMap::new();
@@ -88,7 +89,7 @@ pub fn naive_allocate_global_vars(
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
-) -> HashMap<VarId, u32> {
+) -> VariableAllocationMap {
     let global_vars = get_vars_from_block(block, prog_metadata);
 
     let mut var_addrs = HashMap::new();
