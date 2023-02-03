@@ -1,11 +1,13 @@
 use crate::backend::dataflow_analysis::live_variable_analysis::LiveVariableMap;
 use crate::middle_end::ids::VarId;
+use crate::middle_end::ir::ProgramMetadata;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Clone)]
 pub struct ClashGraph {
-    clashes: HashMap<VarId, HashSet<VarId>>,
+    pub clashes: HashMap<VarId, HashSet<VarId>>,
 }
 
 impl ClashGraph {
@@ -15,16 +17,35 @@ impl ClashGraph {
         }
     }
 
-    fn add_clash(&mut self, var1: VarId, var2: VarId) {
-        if !self.clashes.contains_key(&var1) {
-            self.clashes.insert(var1.to_owned(), HashSet::new());
+    fn add_var(&mut self, var: VarId) {
+        if !self.clashes.contains_key(&var) {
+            self.clashes.insert(var, HashSet::new());
         }
+    }
+
+    pub fn remove_var(&mut self, var: &VarId) {
+        self.clashes.remove(var);
+        for (var, clashes) in &mut self.clashes {
+            clashes.remove(var);
+        }
+    }
+
+    fn add_clash(&mut self, var1: VarId, var2: VarId) {
+        self.add_var(var1.to_owned());
         self.clashes.get_mut(&var1).unwrap().insert(var2.to_owned());
 
-        if !self.clashes.contains_key(&var2) {
-            self.clashes.insert(var2.to_owned(), HashSet::new());
-        }
+        self.add_var(var2.to_owned());
         self.clashes.get_mut(&var2).unwrap().insert(var1);
+    }
+
+    pub fn count_clashes(&self, var: &VarId) -> usize {
+        match self.clashes.get(var) {
+            Some(clashes) => clashes.len(),
+            None => {
+                // if var isn't in clash graph, it has no clashes to other vars
+                0 as usize
+            }
+        }
     }
 }
 
@@ -48,6 +69,9 @@ pub fn generate_clash_graph(live_vars: &LiveVariableMap) -> ClashGraph {
     for (_instr, simultaneously_live_vars) in live_vars {
         if simultaneously_live_vars.len() < 2 {
             // no clashes
+            for var in simultaneously_live_vars {
+                clash_graph.add_var(var.to_owned());
+            }
             continue;
         }
 
