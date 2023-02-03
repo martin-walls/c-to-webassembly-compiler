@@ -1,4 +1,3 @@
-use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
@@ -8,7 +7,7 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub fn naive_allocate_local_vars(
     vars: HashMap<VarId, Box<IrType>>,

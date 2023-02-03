@@ -1,6 +1,5 @@
 use crate::backend::dataflow_analysis::live_variable_analysis::LiveVariableMap;
 use crate::middle_end::ids::VarId;
-use crate::middle_end::ir::ProgramMetadata;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;

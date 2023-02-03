@@ -128,7 +128,7 @@ fn add_block_to_flowgraph_and_get_entries_and_exits(
             }
         }
         Block::Loop { id: _, inner, next } => {
-            let (mut inner_entry_instrs, inner_exit_instrs) =
+            let (inner_entry_instrs, inner_exit_instrs) =
                 add_block_to_flowgraph_and_get_entries_and_exits(
                     inner,
                     flowgraph,
