@@ -7,16 +7,16 @@ from pathlib import Path
 import yaml
 from typing import Generator
 
-TEST_PROGRAMS_DIR = Path(__file__).parent.parent.resolve() / "02-test-programs"
-TESTS_DIR = Path(__file__).parent.resolve() / "tests"
+TEST_PROGRAMS_DIR = Path(__file__).parent.parent.parent.resolve() / "02-test-programs"
+TESTS_DIR = Path(__file__).parent.parent.resolve() / "tests"
 
-PROJECT_BUILD_PATH = Path(__file__).parent.resolve() / "target" / "debug" / "c_to_wasm_compiler"
+PROJECT_BUILD_PATH = Path(__file__).parent.parent.resolve() / "target" / "debug" / "c_to_wasm_compiler"
 
 COMPILE_OUTPUT_DIR = TESTS_DIR / "build"
 # create output dir if it doesn't exist
 os.makedirs(COMPILE_OUTPUT_DIR, exist_ok=True)
 
-NODE_RUNTIME_PATH = Path(__file__).parent.resolve() / "runtime" / "run.mjs"
+NODE_RUNTIME_PATH = Path(__file__).parent.parent.resolve() / "runtime" / "run.mjs"
 
 
 class TestSpec:
