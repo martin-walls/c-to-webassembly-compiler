@@ -2,13 +2,13 @@ default:
     just --list
 
 cloc:
-    cloc . --by-file --force-lang=Rust,lalrpop --exclude-list-file=.gitignore
+    cloc . --by-file --force-lang=Rust,lalrpop --list-file=.cloc
 
 test *ARGS:
-    ./testsuite.py {{ARGS}}
+    ./tools/testsuite.py {{ARGS}}
 
 run-test *ARGS:
-    ./testsuite.py --run {{ARGS}}
+    ./tools/testsuite.py --run {{ARGS}}
 
 run WASM *ARGS:
     ./runtime/run.mjs {{WASM}} {{ARGS}}
@@ -23,7 +23,7 @@ objdump WASM:
     wasm-objdump {{WASM}} -d
 
 profile-stack LOGFILE *ARGS:
-    ./profiler.py stack {{LOGFILE}} {{ARGS}}
+    ./tools/profiler.py stack {{LOGFILE}} {{ARGS}}
 
 clear-logs:
     rm ./logs/*.stackptrlog
