@@ -1,0 +1,3 @@
+name: stack-allocation-1
+source: 16-stack-allocation/00-stack-allocation-test-1.c
+args:
