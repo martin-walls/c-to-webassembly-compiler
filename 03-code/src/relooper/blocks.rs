@@ -1,8 +1,9 @@
+use std::fmt;
+use std::fmt::Formatter;
+
 use crate::fmt_indented::{FmtIndented, IndentLevel};
 use crate::middle_end::ids::{Id, LabelId};
 use crate::middle_end::instructions::Instruction;
-use std::fmt;
-use std::fmt::Formatter;
 
 /// A 'label' block. This is a list of instructions starting with a label
 /// and ending with one or more branch instructions.
@@ -25,9 +26,9 @@ impl Label {
         let mut targets = Vec::new();
         for instr in &self.instrs {
             match instr {
-                Instruction::Br(label_id)
-                | Instruction::BrIfEq(_, _, label_id)
-                | Instruction::BrIfNotEq(_, _, label_id) => {
+                Instruction::Br(_, label_id)
+                | Instruction::BrIfEq(_, _, _, label_id)
+                | Instruction::BrIfNotEq(_, _, _, label_id) => {
                     // set semantics - only want one copy of each label to branch to,
                     // even if there are multiple branches
                     if !targets.contains(label_id) {

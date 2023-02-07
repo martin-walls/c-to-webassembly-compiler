@@ -1,3 +1,5 @@
+use log::{debug, trace};
+
 use crate::middle_end::aggregate_type_initialisers::{
     array_initialiser, convert_string_literal_to_init_list_of_chars_ast, struct_initialiser,
 };
@@ -18,7 +20,6 @@ use crate::parser::ast::{
     BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
     Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
-use log::{debug, trace};
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Box<Program>, MiddleEndError> {
     let mut prog = Box::new(Program::new());
@@ -47,19 +48,19 @@ fn convert_statement_to_ir(
             }
             context.pop_scope();
         }
-        Statement::Goto(x) => match prog.resolve_identifier_to_label(&x.0) {
-            Some(label) => instrs.push(Instruction::Br(label.to_owned())),
-            None => {
-                let label = prog.new_identifier_label(x.0);
-                instrs.push(Instruction::Br(label));
-            }
-        },
+        Statement::Goto(x) => {
+            let label = match prog.resolve_identifier_to_label(&x.0) {
+                Some(label) => label.to_owned(),
+                None => prog.new_identifier_label(x.0),
+            };
+            instrs.push(Instruction::Br(prog.new_instr_id(), label));
+        }
         Statement::Continue => match context.get_continue_label() {
             None => {
                 return Err(MiddleEndError::ContinueOutsideLoopContext);
             }
             Some(label) => {
-                instrs.push(Instruction::Br(label.to_owned()));
+                instrs.push(Instruction::Br(prog.new_instr_id(), label.to_owned()));
             }
         },
         Statement::Break => match context.get_break_label() {
@@ -67,24 +68,27 @@ fn convert_statement_to_ir(
                 return Err(MiddleEndError::BreakOutsideLoopOrSwitchContext);
             }
             Some(label) => {
-                instrs.push(Instruction::Br(label.to_owned()));
+                instrs.push(Instruction::Br(prog.new_instr_id(), label.to_owned()));
             }
         },
         Statement::Return(expr) => match expr {
             None => {
-                instrs.push(Instruction::Ret(None));
+                instrs.push(Instruction::Ret(prog.new_instr_id(), None));
             }
             Some(expr) => {
                 let (mut expr_instrs, expr_var) = convert_expression_to_ir(expr, prog, context)?;
                 instrs.append(&mut expr_instrs);
-                instrs.push(Instruction::Ret(Some(expr_var)));
+                instrs.push(Instruction::Ret(prog.new_instr_id(), Some(expr_var)));
             }
         },
         Statement::While(cond, body) => {
             let loop_start_label = prog.new_label();
             let loop_end_label = prog.new_label();
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label.to_owned()));
+            instrs.push(Instruction::Label(
+                prog.new_instr_id(),
+                loop_start_label.to_owned(),
+            ));
             context.push_loop(LoopContext::while_loop(
                 loop_start_label.to_owned(),
                 loop_end_label.to_owned(),
@@ -94,6 +98,7 @@ fn convert_statement_to_ir(
             instrs.append(&mut cond_instrs);
             // jump out of loop if condition false
             instrs.push(Instruction::BrIfEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_end_label.to_owned(),
@@ -101,8 +106,8 @@ fn convert_statement_to_ir(
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
             // jump back to start of loop to evaluate condition again
-            instrs.push(Instruction::Br(loop_start_label));
-            instrs.push(Instruction::Label(loop_end_label));
+            instrs.push(Instruction::Br(prog.new_instr_id(), loop_start_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), loop_end_label));
             context.pop_loop();
         }
         Statement::DoWhile(body, cond) => {
@@ -110,7 +115,10 @@ fn convert_statement_to_ir(
             let loop_end_label = prog.new_label();
             let loop_continue_label = prog.new_label();
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label.to_owned()));
+            instrs.push(Instruction::Label(
+                prog.new_instr_id(),
+                loop_start_label.to_owned(),
+            ));
             context.push_loop(LoopContext::do_while_loop(
                 loop_start_label.to_owned(),
                 loop_end_label.to_owned(),
@@ -119,19 +127,20 @@ fn convert_statement_to_ir(
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
             // continue label
-            instrs.push(Instruction::Label(loop_continue_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), loop_continue_label));
             // loop condition
             let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
             instrs.append(&mut cond_instrs);
             // jump back to start of loop if condition true
 
             instrs.push(Instruction::BrIfNotEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_start_label,
             ));
             // end of loop
-            instrs.push(Instruction::Label(loop_end_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), loop_end_label));
             context.pop_loop();
         }
         Statement::For(init, cond, end, body) => {
@@ -152,7 +161,10 @@ fn convert_statement_to_ir(
                 },
             }
             // start of loop label
-            instrs.push(Instruction::Label(loop_start_label.to_owned()));
+            instrs.push(Instruction::Label(
+                prog.new_instr_id(),
+                loop_start_label.to_owned(),
+            ));
             context.push_loop(LoopContext::for_loop(
                 loop_start_label.to_owned(),
                 loop_end_label.to_owned(),
@@ -163,6 +175,7 @@ fn convert_statement_to_ir(
                 None => {
                     let temp = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         temp.to_owned(),
                         Src::Constant(Constant::Int(1)),
                     ));
@@ -176,6 +189,7 @@ fn convert_statement_to_ir(
                 }
             };
             instrs.push(Instruction::BrIfEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 loop_end_label.to_owned(),
@@ -183,7 +197,7 @@ fn convert_statement_to_ir(
             // loop body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
             // continue label
-            instrs.push(Instruction::Label(loop_continue_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), loop_continue_label));
             // end-of-loop expression, before looping back to condition again
             match end {
                 None => {}
@@ -193,9 +207,9 @@ fn convert_statement_to_ir(
                 }
             }
             // loop back to condition
-            instrs.push(Instruction::Br(loop_start_label));
+            instrs.push(Instruction::Br(prog.new_instr_id(), loop_start_label));
             // end of loop label
-            instrs.push(Instruction::Label(loop_end_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), loop_end_label));
             context.pop_loop();
         }
         Statement::If(cond, body) => {
@@ -205,6 +219,7 @@ fn convert_statement_to_ir(
             // if condition is false, jump to after body
             let if_end_label = prog.new_label();
             instrs.push(Instruction::BrIfEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 if_end_label.to_owned(),
@@ -212,7 +227,7 @@ fn convert_statement_to_ir(
             // if statement body
             instrs.append(&mut convert_statement_to_ir(body, prog, context)?);
             // end of if statement label
-            instrs.push(Instruction::Label(if_end_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), if_end_label));
         }
         Statement::IfElse(cond, true_body, false_body) => {
             let (mut cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context)?;
@@ -220,6 +235,7 @@ fn convert_statement_to_ir(
             // if condition is false, jump to else body
             let else_label = prog.new_label();
             instrs.push(Instruction::BrIfEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 else_label.to_owned(),
@@ -228,11 +244,14 @@ fn convert_statement_to_ir(
             instrs.append(&mut convert_statement_to_ir(true_body, prog, context)?);
             // jump to after else body
             let else_end_label = prog.new_label();
-            instrs.push(Instruction::Br(else_end_label.to_owned()));
+            instrs.push(Instruction::Br(
+                prog.new_instr_id(),
+                else_end_label.to_owned(),
+            ));
             // else body
-            instrs.push(Instruction::Label(else_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), else_label));
             instrs.append(&mut convert_statement_to_ir(false_body, prog, context)?);
-            instrs.push(Instruction::Label(else_end_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), else_end_label));
         }
         Statement::Switch(switch_expr, body) => {
             let switch_end_label = prog.new_label();
@@ -245,6 +264,7 @@ fn convert_statement_to_ir(
                     let temp = prog.new_var(ValueType::RValue);
                     prog.add_var_type(temp.to_owned(), c.get_type(None))?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         temp.to_owned(),
                         Src::Constant(c),
                     ));
@@ -266,10 +286,13 @@ fn convert_statement_to_ir(
             // the switch (ie. if no cases match)
             match switch_context.default_block_label {
                 Some(label) => {
-                    instrs.push(Instruction::Br(label));
+                    instrs.push(Instruction::Br(prog.new_instr_id(), label));
                 }
                 None => {
-                    instrs.push(Instruction::Br(switch_end_label.to_owned()));
+                    instrs.push(Instruction::Br(
+                        prog.new_instr_id(),
+                        switch_end_label.to_owned(),
+                    ));
                 }
             }
 
@@ -279,13 +302,13 @@ fn convert_statement_to_ir(
             }
 
             // end of switch label
-            instrs.push(Instruction::Label(switch_end_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), switch_end_label));
         }
         Statement::Labelled(stmt) => {
             match stmt {
                 LabelledStatement::Named(Identifier(label_name), stmt) => {
                     let label = prog.new_identifier_label(label_name);
-                    instrs.push(Instruction::Label(label));
+                    instrs.push(Instruction::Label(prog.new_instr_id(), label));
                     instrs.append(&mut convert_statement_to_ir(stmt, prog, context)?);
                 }
                 LabelledStatement::Case(expr, stmt) => {
@@ -299,11 +322,16 @@ fn convert_statement_to_ir(
                     // check if case condition matches the switch expression
                     // if so, jump to the corresponding block
                     condition_instrs.push(Instruction::BrIfEq(
+                        prog.new_instr_id(),
                         Src::Var(context.get_switch_variable().unwrap()),
                         expr_var,
                         case_body_label.to_owned(),
                     ));
-                    context.new_switch_case_block(case_body_label, condition_instrs)?;
+                    context.new_switch_case_block(
+                        case_body_label,
+                        condition_instrs,
+                        &mut prog.program_metadata,
+                    )?;
                     // start of case body - the result of this will be automatically pushed to
                     // the case block we just created, because we're in a switch context
                     convert_statement_to_ir(stmt, prog, context)?;
@@ -314,7 +342,11 @@ fn convert_statement_to_ir(
                     context.add_default_switch_block_label(case_body_label.to_owned())?;
                     // default case has no condition instruction to add, because it'll get added
                     // at the end of converting the whole switch statement
-                    context.new_switch_case_block(case_body_label, Vec::new())?;
+                    context.new_switch_case_block(
+                        case_body_label,
+                        Vec::new(),
+                        &mut prog.program_metadata,
+                    )?;
                     convert_statement_to_ir(stmt, prog, context)?;
                     return Ok(instrs);
                 }
@@ -386,11 +418,15 @@ fn convert_statement_to_ir(
                                             }
                                         };
                                         instrs.push(Instruction::AllocateVariable(
+                                            prog.new_instr_id(),
                                             var,
                                             array_byte_size,
                                         ));
                                     } else {
-                                        instrs.push(Instruction::DeclareVariable(var));
+                                        instrs.push(Instruction::DeclareVariable(
+                                            prog.new_instr_id(),
+                                            var,
+                                        ));
                                     }
                                 }
                                 None => unreachable!(),
@@ -464,6 +500,7 @@ fn convert_statement_to_ir(
                                                     c.get_type(Some(dest_type_info.to_owned())),
                                                 )?;
                                                 instrs.push(Instruction::SimpleAssignment(
+                                                    prog.new_instr_id(),
                                                     temp.to_owned(),
                                                     src,
                                                 ));
@@ -486,6 +523,7 @@ fn convert_statement_to_ir(
                                             src.get_type(&prog.program_metadata)?,
                                         )?;
                                         instrs.push(Instruction::SimpleAssignment(
+                                            prog.new_instr_id(),
                                             dest.to_owned(),
                                             src,
                                         ));
@@ -526,6 +564,7 @@ fn convert_statement_to_ir(
                                                 }
                                             };
                                             instrs.push(Instruction::AllocateVariable(
+                                                prog.new_instr_id(),
                                                 dest.to_owned(),
                                                 array_byte_size,
                                             ));
@@ -568,6 +607,7 @@ fn convert_statement_to_ir(
                                                 }
                                             };
                                             instrs.push(Instruction::AllocateVariable(
+                                                prog.new_instr_id(),
                                                 dest.to_owned(),
                                                 byte_size,
                                             ));
@@ -694,6 +734,7 @@ pub fn convert_expression_to_ir(
             let string_id = prog.new_string_literal(s);
             let dest = prog.new_var(ValueType::LValue);
             instrs.push(Instruction::PointerToStringLiteral(
+                prog.new_instr_id(),
                 dest.to_owned(),
                 string_id,
             ));
@@ -727,14 +768,22 @@ pub fn convert_expression_to_ir(
                     // index should be int not long, so we can add it to ptr
                     let temp_index_var = prog.new_var(index_var.get_value_type());
                     prog.add_var_type(temp_index_var.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::U64toI32(temp_index_var.to_owned(), index_var));
+                    instrs.push(Instruction::U64toI32(
+                        prog.new_instr_id(),
+                        temp_index_var.to_owned(),
+                        index_var,
+                    ));
                     index_var = Src::Var(temp_index_var);
                 }
                 IrType::U64 => {
                     // index should be int not long, so we can add it to ptr
                     let temp_index_var = prog.new_var(index_var.get_value_type());
                     prog.add_var_type(temp_index_var.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::I64toI32(temp_index_var.to_owned(), index_var));
+                    instrs.push(Instruction::I64toI32(
+                        prog.new_instr_id(),
+                        temp_index_var.to_owned(),
+                        index_var,
+                    ));
                     index_var = Src::Var(temp_index_var);
                 }
                 _ => {}
@@ -759,6 +808,7 @@ pub fn convert_expression_to_ir(
             let left_var_type = left_var.get_type(&prog.program_metadata)?;
             prog.add_var_type(ptr_offset_var.to_owned(), left_var_type)?;
             instrs.push(Instruction::Mult(
+                prog.new_instr_id(),
                 ptr_offset_var.to_owned(),
                 left_var,
                 right_var,
@@ -768,6 +818,7 @@ pub fn convert_expression_to_ir(
             let ptr = prog.new_var(ValueType::LValue);
             prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
             instrs.push(Instruction::Add(
+                prog.new_instr_id(),
                 ptr.to_owned(),
                 arr_var,
                 Src::Var(ptr_offset_var),
@@ -779,7 +830,11 @@ pub fn convert_expression_to_ir(
                 // read from array index
                 let dest = prog.new_var(ValueType::LValue);
                 prog.add_var_type(dest.to_owned(), arr_inner_type)?;
-                instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
+                instrs.push(Instruction::LoadFromAddress(
+                    prog.new_instr_id(),
+                    dest.to_owned(),
+                    Src::Var(ptr),
+                ));
                 Ok((instrs, Src::Var(dest)))
             }
         }
@@ -805,7 +860,12 @@ pub fn convert_expression_to_ir(
             }
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), dest_type)?;
-            instrs.push(Instruction::Call(dest.to_owned(), fun_id, param_srcs));
+            instrs.push(Instruction::Call(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                fun_id,
+                param_srcs,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::DirectMemberSelection(obj, Identifier(member_name)) => {
@@ -820,7 +880,11 @@ pub fn convert_expression_to_ir(
                 obj_ptr.to_owned(),
                 Box::new(IrType::PointerTo(obj_var_type.to_owned())),
             )?;
-            instrs.push(Instruction::AddressOf(obj_ptr.to_owned(), obj_var));
+            instrs.push(Instruction::AddressOf(
+                prog.new_instr_id(),
+                obj_ptr.to_owned(),
+                obj_var,
+            ));
 
             match *obj_var_type {
                 IrType::Struct(struct_id) => {
@@ -835,6 +899,7 @@ pub fn convert_expression_to_ir(
                     )?;
                     // ptr = obj_ptr + (byte offset)
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         ptr.to_owned(),
                         Src::Var(obj_ptr),
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
@@ -848,7 +913,11 @@ pub fn convert_expression_to_ir(
                         let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *ptr
-                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
+                        instrs.push(Instruction::LoadFromAddress(
+                            prog.new_instr_id(),
+                            dest.to_owned(),
+                            Src::Var(ptr),
+                        ));
                         Ok((instrs, Src::Var(dest)))
                     }
                 }
@@ -865,6 +934,7 @@ pub fn convert_expression_to_ir(
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *obj_ptr
                         instrs.push(Instruction::LoadFromAddress(
+                            prog.new_instr_id(),
                             dest.to_owned(),
                             Src::Var(obj_ptr),
                         ));
@@ -894,6 +964,7 @@ pub fn convert_expression_to_ir(
                     )?;
                     // ptr = (address of struct) + (byte offset)
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         ptr.to_owned(),
                         obj_var,
                         Src::Constant(Constant::Int(member_byte_offset as i128)),
@@ -907,7 +978,11 @@ pub fn convert_expression_to_ir(
                         let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *ptr
-                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), Src::Var(ptr)));
+                        instrs.push(Instruction::LoadFromAddress(
+                            prog.new_instr_id(),
+                            dest.to_owned(),
+                            Src::Var(ptr),
+                        ));
                         Ok((instrs, Src::Var(dest)))
                     }
                 }
@@ -923,7 +998,11 @@ pub fn convert_expression_to_ir(
                         let dest = prog.new_var(ValueType::LValue);
                         prog.add_var_type(dest.to_owned(), member_type)?;
                         // dest = *obj_ptr
-                        instrs.push(Instruction::LoadFromAddress(dest.to_owned(), obj_var));
+                        instrs.push(Instruction::LoadFromAddress(
+                            prog.new_instr_id(),
+                            dest.to_owned(),
+                            obj_var,
+                        ));
                         Ok((instrs, Src::Var(dest)))
                     }
                 }
@@ -951,11 +1030,13 @@ pub fn convert_expression_to_ir(
                     // the returned value is the variable before incrementing
                     prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
 
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
@@ -969,6 +1050,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::LoadFromAddress(
+                        prog.new_instr_id(),
                         src_to_increment.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
@@ -976,6 +1058,7 @@ pub fn convert_expression_to_ir(
                     // the returned value is the variable before incrementing
                     prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(src_to_increment.to_owned()),
                     ));
@@ -987,13 +1070,18 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         result.to_owned(),
                         Src::Var(src_to_increment),
                         Src::Constant(Constant::Int(1)),
                     ));
 
                     // store value back
-                    instrs.push(Instruction::StoreToAddress(var, Src::Var(result)));
+                    instrs.push(Instruction::StoreToAddress(
+                        prog.new_instr_id(),
+                        var,
+                        Src::Var(result),
+                    ));
                 }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
@@ -1020,11 +1108,13 @@ pub fn convert_expression_to_ir(
                     // the returned value is the variable before decrementing
                     prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
 
                     instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
                         var.to_owned(),
                         Src::Var(var),
                         Src::Constant(Constant::Int(1)),
@@ -1038,6 +1128,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::LoadFromAddress(
+                        prog.new_instr_id(),
                         src_to_decrement.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
@@ -1045,6 +1136,7 @@ pub fn convert_expression_to_ir(
                     // the returned value is the variable before decrementing
                     prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(src_to_decrement.to_owned()),
                     ));
@@ -1056,13 +1148,18 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
                         result.to_owned(),
                         Src::Var(src_to_decrement),
                         Src::Constant(Constant::Int(1)),
                     ));
 
                     // store value back
-                    instrs.push(Instruction::StoreToAddress(var, Src::Var(result)));
+                    instrs.push(Instruction::StoreToAddress(
+                        prog.new_instr_id(),
+                        var,
+                        Src::Var(result),
+                    ));
                 }
                 _ => return Err(MiddleEndError::InvalidLValue),
             }
@@ -1088,12 +1185,14 @@ pub fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         var.to_owned(),
                         Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(var),
                     ));
@@ -1106,6 +1205,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::LoadFromAddress(
+                        prog.new_instr_id(),
                         src_to_increment.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
@@ -1117,6 +1217,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         result.to_owned(),
                         Src::Var(src_to_increment),
                         Src::Constant(Constant::Int(1)),
@@ -1130,6 +1231,7 @@ pub fn convert_expression_to_ir(
 
                     // store value back
                     instrs.push(Instruction::StoreToAddress(
+                        prog.new_instr_id(),
                         var,
                         Src::Var(result.to_owned()),
                     ));
@@ -1137,6 +1239,7 @@ pub fn convert_expression_to_ir(
                     // store result to dest
                     prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(result),
                     ));
@@ -1165,12 +1268,14 @@ pub fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
                         var.to_owned(),
                         Src::Var(var.to_owned()),
                         Src::Constant(Constant::Int(1)),
                     ));
                     prog.add_var_type(dest.to_owned(), expr_var_type)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(var),
                     ));
@@ -1183,6 +1288,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::LoadFromAddress(
+                        prog.new_instr_id(),
                         src_to_decrement.to_owned(),
                         Src::Var(var.to_owned()),
                     ));
@@ -1194,6 +1300,7 @@ pub fn convert_expression_to_ir(
                         expr_var_type.dereference_pointer_type()?,
                     )?;
                     instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
                         result.to_owned(),
                         Src::Var(src_to_decrement),
                         Src::Constant(Constant::Int(1)),
@@ -1207,6 +1314,7 @@ pub fn convert_expression_to_ir(
 
                     // store value back
                     instrs.push(Instruction::StoreToAddress(
+                        prog.new_instr_id(),
                         var,
                         Src::Var(result.to_owned()),
                     ));
@@ -1214,6 +1322,7 @@ pub fn convert_expression_to_ir(
                     // store result to dest
                     prog.add_var_type(dest.to_owned(), expr_var_type.dereference_pointer_type()?)?;
                     instrs.push(Instruction::SimpleAssignment(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Var(result),
                     ));
@@ -1227,7 +1336,11 @@ pub fn convert_expression_to_ir(
             instrs.append(&mut expr_instrs);
             let expr_var_type = expr_var.get_type(&prog.program_metadata)?;
             let dest = prog.new_var(ValueType::RValue);
-            instrs.push(Instruction::AddressOf(dest.to_owned(), expr_var));
+            instrs.push(Instruction::AddressOf(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                expr_var,
+            ));
             // store type of dest
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(expr_var_type)))?;
             Ok((instrs, Src::Var(dest)))
@@ -1251,7 +1364,11 @@ pub fn convert_expression_to_ir(
             } else {
                 // dereference load from memory address
                 let dest = prog.new_var(ValueType::LValue);
-                instrs.push(Instruction::LoadFromAddress(dest.to_owned(), expr_var));
+                instrs.push(Instruction::LoadFromAddress(
+                    prog.new_instr_id(),
+                    dest.to_owned(),
+                    expr_var,
+                ));
                 // check whether the var is allowed to be dereferenced;
                 // if so, store the type of dest
                 match *expr_var_type {
@@ -1319,6 +1436,7 @@ pub fn convert_expression_to_ir(
                 UnaryOperator::Plus => {
                     let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
                         expr_var,
@@ -1335,6 +1453,7 @@ pub fn convert_expression_to_ir(
                 UnaryOperator::Minus => {
                     let dest = prog.new_var(ValueType::RValue);
                     instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         Src::Constant(Constant::Int(0)),
                         expr_var,
@@ -1350,7 +1469,11 @@ pub fn convert_expression_to_ir(
                 }
                 UnaryOperator::BitwiseNot => {
                     let dest = prog.new_var(ValueType::RValue);
-                    instrs.push(Instruction::BitwiseNot(dest.to_owned(), expr_var));
+                    instrs.push(Instruction::BitwiseNot(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        expr_var,
+                    ));
                     if !expr_var_type.is_integral_type() {
                         return Err(MiddleEndError::InvalidOperation(
                             "Bitwise not of a non-integral type",
@@ -1362,7 +1485,11 @@ pub fn convert_expression_to_ir(
                 }
                 UnaryOperator::LogicalNot => {
                     let dest = prog.new_var(ValueType::RValue);
-                    instrs.push(Instruction::LogicalNot(dest.to_owned(), expr_var));
+                    instrs.push(Instruction::LogicalNot(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        expr_var,
+                    ));
                     if !expr_var_type.is_scalar_type() {
                         return Err(MiddleEndError::InvalidOperation(
                             "Logical not of a non-scalar type",
@@ -1396,7 +1523,11 @@ pub fn convert_expression_to_ir(
             };
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), size));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                size,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::SizeOfType(t) => {
@@ -1420,7 +1551,11 @@ pub fn convert_expression_to_ir(
             };
             let dest = prog.new_var(ValueType::RValue);
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), byte_size));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                byte_size,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         Expression::BinaryOp(op, left, right) => {
@@ -1442,7 +1577,12 @@ pub fn convert_expression_to_ir(
                     right_var_type.require_arithmetic_type()?;
                     // left_var_type and right_var_type are the same cos of binary conversion
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    instrs.push(Instruction::Mult(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Mult(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::Div => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1453,7 +1593,12 @@ pub fn convert_expression_to_ir(
                     left_var_type.require_arithmetic_type()?;
                     right_var_type.require_arithmetic_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    instrs.push(Instruction::Div(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Div(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::Mod => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1464,7 +1609,12 @@ pub fn convert_expression_to_ir(
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    instrs.push(Instruction::Mod(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Mod(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::Add => {
                     let (mut convert_instrs, mut left_var, mut right_var) =
@@ -1518,13 +1668,19 @@ pub fn convert_expression_to_ir(
                             }
                         };
                         instrs.push(Instruction::Mult(
+                            prog.new_instr_id(),
                             temp.to_owned(),
                             right_var,
                             ptr_object_byte_size,
                         ));
                         right_var = Src::Var(temp);
                     }
-                    instrs.push(Instruction::Add(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Add(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::Sub => {
                     let (mut convert_instrs, mut left_var, mut right_var) =
@@ -1567,6 +1723,7 @@ pub fn convert_expression_to_ir(
                             }
                         };
                         instrs.push(Instruction::Mult(
+                            prog.new_instr_id(),
                             temp_right_var.to_owned(),
                             right_var,
                             ptr_object_byte_size,
@@ -1576,13 +1733,22 @@ pub fn convert_expression_to_ir(
                         // convert ptr to i32
                         let temp_left_var = prog.new_var(left_var.get_value_type());
                         prog.add_var_type(temp_left_var.to_owned(), Box::new(IrType::I32))?;
-                        instrs.push(Instruction::PtrToI32(temp_left_var.to_owned(), left_var));
+                        instrs.push(Instruction::PtrToI32(
+                            prog.new_instr_id(),
+                            temp_left_var.to_owned(),
+                            left_var,
+                        ));
                         left_var = Src::Var(temp_left_var);
                     } else {
                         // pointer - pointer -> int
                         prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     }
-                    instrs.push(Instruction::Sub(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Sub(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::LeftShift => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1593,7 +1759,12 @@ pub fn convert_expression_to_ir(
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    instrs.push(Instruction::LeftShift(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::LeftShift(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::RightShift => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1605,6 +1776,7 @@ pub fn convert_expression_to_ir(
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::RightShift(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1627,7 +1799,12 @@ pub fn convert_expression_to_ir(
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::LessThan(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::LessThan(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::GreaterThan => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1647,6 +1824,7 @@ pub fn convert_expression_to_ir(
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::GreaterThan(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1670,6 +1848,7 @@ pub fn convert_expression_to_ir(
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LessThanEq(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1693,6 +1872,7 @@ pub fn convert_expression_to_ir(
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::GreaterThanEq(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1716,7 +1896,12 @@ pub fn convert_expression_to_ir(
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::Equal(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::Equal(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::NotEqual => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1736,7 +1921,12 @@ pub fn convert_expression_to_ir(
                     }
                     // result of comparison is always int
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::NotEqual(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::NotEqual(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::BitwiseAnd => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1748,6 +1938,7 @@ pub fn convert_expression_to_ir(
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::BitwiseAnd(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1762,7 +1953,12 @@ pub fn convert_expression_to_ir(
                     left_var_type.require_integral_type()?;
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
-                    instrs.push(Instruction::BitwiseOr(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::BitwiseOr(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
                 BinaryOperator::BitwiseXor => {
                     let (mut convert_instrs, left_var, right_var) =
@@ -1774,6 +1970,7 @@ pub fn convert_expression_to_ir(
                     right_var_type.require_integral_type()?;
                     prog.add_var_type(dest.to_owned(), left_var_type)?;
                     instrs.push(Instruction::BitwiseXor(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1786,6 +1983,7 @@ pub fn convert_expression_to_ir(
                     // result is always int 0 or 1
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
                     instrs.push(Instruction::LogicalAnd(
+                        prog.new_instr_id(),
                         dest.to_owned(),
                         left_var,
                         right_var,
@@ -1797,7 +1995,12 @@ pub fn convert_expression_to_ir(
                     right_var_type.require_scalar_type()?;
                     // result is always int 0 or 1
                     prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-                    instrs.push(Instruction::LogicalOr(dest.to_owned(), left_var, right_var));
+                    instrs.push(Instruction::LogicalOr(
+                        prog.new_instr_id(),
+                        dest.to_owned(),
+                        left_var,
+                        right_var,
+                    ));
                 }
             }
             Ok((instrs, Src::Var(dest)))
@@ -1810,6 +2013,7 @@ pub fn convert_expression_to_ir(
             let end_label = prog.new_label();
             // if condition false, execute the false instructions
             instrs.push(Instruction::BrIfEq(
+                prog.new_instr_id(),
                 cond_var,
                 Src::Constant(Constant::Int(0)),
                 false_label.to_owned(),
@@ -1846,17 +2050,25 @@ pub fn convert_expression_to_ir(
             prog.add_var_type(dest.to_owned(), true_var.get_type(&prog.program_metadata)?)?;
 
             // assign the result to dest
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), true_var));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                true_var,
+            ));
             // jump over the false instructions
-            instrs.push(Instruction::Br(end_label.to_owned()));
+            instrs.push(Instruction::Br(prog.new_instr_id(), end_label.to_owned()));
             // false instructions
-            instrs.push(Instruction::Label(false_label));
+            instrs.push(Instruction::Label(prog.new_instr_id(), false_label));
             instrs.append(&mut false_instrs);
             instrs.append(&mut unary_convert_false_instrs);
             instrs.append(&mut false_binary_convert_instrs);
             // assign the result to dest
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), false_var));
-            instrs.push(Instruction::Label(end_label));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                false_var,
+            ));
+            instrs.push(Instruction::Label(prog.new_instr_id(), end_label));
 
             Ok((instrs, Src::Var(dest)))
         }
@@ -1903,9 +2115,17 @@ pub fn convert_expression_to_ir(
             // either store to the memory address given by the pointer dest,
             // or store into the local var dest
             if is_store_to_address {
-                instrs.push(Instruction::StoreToAddress(dest.to_owned(), src_var));
+                instrs.push(Instruction::StoreToAddress(
+                    prog.new_instr_id(),
+                    dest.to_owned(),
+                    src_var,
+                ));
             } else {
-                instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src_var));
+                instrs.push(Instruction::SimpleAssignment(
+                    prog.new_instr_id(),
+                    dest.to_owned(),
+                    src_var,
+                ));
             }
             Ok((instrs, Src::Var(dest)))
         }

@@ -1,24 +1,8 @@
-use crate::middle_end::ids::{Id, IdGenerator};
-use crate::middle_end::instructions::Instruction;
-use crate::relooper::blocks::Block;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InstructionId(u64);
-
-impl Id for InstructionId {
-    fn initial_id() -> Self {
-        InstructionId(0)
-    }
-
-    fn next_id(&self) -> Self {
-        InstructionId(self.0 + 1)
-    }
-
-    fn as_u64(&self) -> u64 {
-        self.0
-    }
-}
+use crate::middle_end::ids::{Id, IdGenerator, InstructionId};
+use crate::middle_end::instructions::Instruction;
+use crate::relooper::blocks::Block;
 
 #[derive(Debug)]
 pub struct Flowgraph {
@@ -232,11 +216,11 @@ fn add_instrs_to_flowgraph(
         flowgraph.add_instr(instr_id.to_owned(), instr.to_owned());
 
         match instr {
-            Instruction::Break(_)
-            | Instruction::Continue(_)
-            | Instruction::EndHandledBlock(_)
-            | Instruction::Ret(_)
-            | Instruction::TailCall(_, _) => {
+            Instruction::Break(..)
+            | Instruction::Continue(..)
+            | Instruction::EndHandledBlock(..)
+            | Instruction::Ret(..)
+            | Instruction::TailCall(..) => {
                 // successive from previous instr
                 for prev_instr_id in &prev_instrs {
                     flowgraph.add_successor(prev_instr_id.to_owned(), instr_id.to_owned());
@@ -254,11 +238,11 @@ fn add_instrs_to_flowgraph(
                     exit_instrs.insert(instr_id.to_owned());
                 }
             }
-            Instruction::Br(_) | Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
+            Instruction::Br(..) | Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..) => {
                 unreachable!("Relooper algorithm removes all unstructured branch instrs")
             }
-            Instruction::IfEqElse(_, _, instrs1, instrs2)
-            | Instruction::IfNotEqElse(_, _, instrs1, instrs2) => {
+            Instruction::IfEqElse(_, _, _, instrs1, instrs2)
+            | Instruction::IfNotEqElse(_, _, _, instrs1, instrs2) => {
                 // successive from previous instr
                 for prev_instr_id in &prev_instrs {
                     flowgraph.add_successor(prev_instr_id.to_owned(), instr_id.to_owned());

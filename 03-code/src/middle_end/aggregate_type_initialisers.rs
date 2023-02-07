@@ -31,6 +31,7 @@ pub fn array_initialiser(
         Box::new(IrType::PointerTo(array_member_type.to_owned())),
     )?;
     instrs.push(Instruction::SimpleAssignment(
+        prog.new_instr_id(),
         member_ptr_var.to_owned(),
         Src::Var(dest),
     ));
@@ -64,7 +65,11 @@ pub fn array_initialiser(
                             temp.to_owned(),
                             c.get_type(Some(array_member_type.to_owned())),
                         )?;
-                        instrs.push(Instruction::SimpleAssignment(temp.to_owned(), expr_var));
+                        instrs.push(Instruction::SimpleAssignment(
+                            prog.new_instr_id(),
+                            temp.to_owned(),
+                            expr_var,
+                        ));
                         expr_var = Src::Var(temp);
                     }
                     let (mut convert_instrs, converted_var) = convert_type_for_assignment(
@@ -78,6 +83,7 @@ pub fn array_initialiser(
                 }
 
                 instrs.push(Instruction::StoreToAddress(
+                    prog.new_instr_id(),
                     member_ptr_var.to_owned(),
                     expr_var,
                 ));
@@ -110,6 +116,7 @@ pub fn array_initialiser(
         }
         // increment pointer to the next member
         instrs.push(Instruction::Add(
+            prog.new_instr_id(),
             member_ptr_var.to_owned(),
             Src::Var(member_ptr_var.to_owned()),
             Src::Constant(Constant::Int(array_member_byte_size as i128)),
@@ -148,10 +155,12 @@ pub fn struct_initialiser(
         )?;
         // member_ptr_var = &dest + byte_offset
         instrs.push(Instruction::AddressOf(
+            prog.new_instr_id(),
             member_ptr_var.to_owned(),
             Src::Var(dest.to_owned()),
         ));
         instrs.push(Instruction::Add(
+            prog.new_instr_id(),
             member_ptr_var.to_owned(),
             Src::Var(member_ptr_var.to_owned()),
             Src::Constant(Constant::Int(member_byte_offset as i128)),
@@ -198,7 +207,11 @@ pub fn struct_initialiser(
                             temp.to_owned(),
                             c.get_type(Some(member_type.to_owned())),
                         )?;
-                        instrs.push(Instruction::SimpleAssignment(temp.to_owned(), expr_var));
+                        instrs.push(Instruction::SimpleAssignment(
+                            prog.new_instr_id(),
+                            temp.to_owned(),
+                            expr_var,
+                        ));
                         expr_var = Src::Var(temp);
                     }
                     let (mut convert_instrs, converted_var) = convert_type_for_assignment(
@@ -211,7 +224,11 @@ pub fn struct_initialiser(
                     expr_var = converted_var;
                 }
 
-                instrs.push(Instruction::StoreToAddress(member_ptr_var, expr_var));
+                instrs.push(Instruction::StoreToAddress(
+                    prog.new_instr_id(),
+                    member_ptr_var,
+                    expr_var,
+                ));
             }
             Initialiser::List(sub_member_initialisers) => match *member_type.to_owned() {
                 IrType::ArrayOf(sub_member_type, size) => {

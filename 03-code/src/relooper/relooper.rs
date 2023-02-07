@@ -1,11 +1,13 @@
+use std::collections::{HashMap, HashSet};
+
+use log::{error, info};
+
 use crate::middle_end::ids::{FunId, Id, IdGenerator, LabelId, ValueType, VarId};
 use crate::middle_end::instructions::{Constant, Instruction, Src};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::{Block, Label, LoopBlockId, MultipleBlockId};
 use crate::relooper::soupify::soupify;
-use log::{error, info};
-use std::collections::{HashMap, HashSet};
 
 pub type Labels = HashMap<LabelId, Label>;
 type Entries = Vec<LabelId>;
@@ -81,17 +83,19 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
             continue;
         }
         let label_var = init_label_variable(&mut prog.program_metadata);
-        let (labels, entry) = soupify(
-            function.instrs,
-            &mut prog.program_metadata.label_id_generator,
-        );
+        let (labels, entry) = soupify(function.instrs, &mut prog.program_metadata);
 
         let mut context = RelooperContext::new(
             &mut loop_block_id_generator,
             &mut multiple_block_id_generator,
             &label_var,
         );
-        let block = create_block_from_labels(labels, vec![entry], &mut context);
+        let block = create_block_from_labels(
+            labels,
+            vec![entry],
+            &mut context,
+            &mut prog.program_metadata,
+        );
         match block {
             Some(block) => {
                 info!("Created block for function {}:\n{}", fun_id, block);
@@ -117,7 +121,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
         let label_var = init_label_variable(&mut prog.program_metadata);
         let (labels, entry) = soupify(
             prog.program_instructions.global_instrs,
-            &mut prog.program_metadata.label_id_generator,
+            &mut prog.program_metadata,
         );
 
         let mut context = RelooperContext::new(
@@ -125,7 +129,12 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
             &mut multiple_block_id_generator,
             &label_var,
         );
-        let block = create_block_from_labels(labels, vec![entry], &mut context);
+        let block = create_block_from_labels(
+            labels,
+            vec![entry],
+            &mut context,
+            &mut prog.program_metadata,
+        );
         match block {
             Some(block) => {
                 info!("Created block for global instructions:\n{}", block);
@@ -156,9 +165,9 @@ fn assert_no_branch_instrs_left(block: &Box<Block>) {
         Block::Simple { internal, next } => {
             for instr in &internal.instrs {
                 let is_branch_instr = match instr {
-                    Instruction::Br(_)
-                    | Instruction::BrIfEq(_, _, _)
-                    | Instruction::BrIfNotEq(_, _, _) => true,
+                    Instruction::Br(..) | Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..) => {
+                        true
+                    }
                     _ => false,
                 };
                 assert!(
@@ -195,6 +204,7 @@ fn create_block_from_labels(
     mut labels: Labels,
     entries: Entries,
     context: &mut RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) -> Option<Box<Block>> {
     let reachability = calculate_reachability(&labels);
     let reachability_from_entries = combine_reachability_from_entries(&reachability, &entries);
@@ -211,8 +221,8 @@ fn create_block_from_labels(
         if !reachability_from_entries.contains(single_entry) {
             let next_entries: Entries = labels.get(single_entry).unwrap().possible_branch_targets();
             let mut this_label = labels.remove(single_entry).unwrap();
-            replace_branch_instrs(&mut this_label, context);
-            let next_block = create_block_from_labels(labels, next_entries, context);
+            replace_branch_instrs(&mut this_label, context, prog_metadata);
+            let next_block = create_block_from_labels(labels, next_entries, context, prog_metadata);
             return Some(Box::new(Block::Simple {
                 internal: this_label,
                 next: next_block,
@@ -230,19 +240,31 @@ fn create_block_from_labels(
         }
     }
     if can_return_to_all_entries {
-        return Some(create_loop_block(labels, entries, reachability, context));
+        return Some(create_loop_block(
+            labels,
+            entries,
+            reachability,
+            context,
+            prog_metadata,
+        ));
     }
 
     // if we have more than one entry, try to create a multiple block
     if entries.len() > 1 {
-        match try_create_multiple_block(&labels, &entries, &reachability, context) {
+        match try_create_multiple_block(&labels, &entries, &reachability, context, prog_metadata) {
             None => {}
             Some(block) => return Some(block),
         }
     }
 
     // if creating a multiple block fails, create a loop block
-    Some(create_loop_block(labels, entries, reachability, context))
+    Some(create_loop_block(
+        labels,
+        entries,
+        reachability,
+        context,
+        prog_metadata,
+    ))
 }
 
 fn calculate_reachability(labels: &Labels) -> ReachabilityMap {
@@ -302,7 +324,11 @@ fn combine_reachability_from_entries(
     Vec::from_iter(combined_reachability)
 }
 
-fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
+fn replace_branch_instrs(
+    label: &mut Label,
+    context: &RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
+) {
     // the only branch instructions in a label are at the end.
     //  (or a return, or a break/continue/endHandled instruction that's already been converted)
     // either the label ends in a single unconditional branch,
@@ -314,7 +340,7 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
 
     // we can safely unwrap, because a label must have instructions.
     let unconditional_branch_label_id = match label.instrs.last().unwrap() {
-        Instruction::Br(label_id) => Some(label_id),
+        Instruction::Br(_, label_id) => Some(label_id),
         // any other instruction we'll ignore.
         // most likely this is a return or a break/continue/endHandled
         // that's already been processed, or the other possible case
@@ -345,7 +371,7 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
 
     let conditional_branch_instr = match conditional_branch_instr_index {
         Some(index) => match label.instrs.get(index).unwrap() {
-            i @ Instruction::BrIfEq(_, _, _) | i @ Instruction::BrIfNotEq(_, _, _) => Some(i),
+            i @ Instruction::BrIfEq(..) | i @ Instruction::BrIfNotEq(..) => Some(i),
             _ => None,
         },
         None => None,
@@ -365,6 +391,7 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
 
             // replace the branch with an instruction setting the label variable
             let new_instr = Instruction::SimpleAssignment(
+                prog_metadata.new_instr_id(),
                 context.label_variable.to_owned(),
                 Src::Constant(Constant::Int(unconditional_branch_label_id.as_u64() as i128)),
             );
@@ -381,19 +408,23 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
                 label.instrs.get(label.instrs.len() - 1).unwrap().to_owned(),
             ];
             let new_instr = match conditional_branch_instr {
-                Instruction::BrIfEq(src1, src2, label_id) => Instruction::IfEqElse(
+                Instruction::BrIfEq(_, src1, src2, label_id) => Instruction::IfEqElse(
+                    prog_metadata.new_instr_id(),
                     src1.to_owned(),
                     src2.to_owned(),
                     vec![Instruction::SimpleAssignment(
+                        prog_metadata.new_instr_id(),
                         context.label_variable.to_owned(),
                         Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                     )],
                     else_instrs,
                 ),
-                Instruction::BrIfNotEq(src1, src2, label_id) => Instruction::IfNotEqElse(
+                Instruction::BrIfNotEq(_, src1, src2, label_id) => Instruction::IfNotEqElse(
+                    prog_metadata.new_instr_id(),
                     src1.to_owned(),
                     src2.to_owned(),
                     vec![Instruction::SimpleAssignment(
+                        prog_metadata.new_instr_id(),
                         context.label_variable.to_owned(),
                         Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                     )],
@@ -414,23 +445,28 @@ fn replace_branch_instrs(label: &mut Label, context: &RelooperContext) {
             // the case where we have both a conditional branch instruction and an unconditional
             // branch statement present
             let else_instrs = vec![Instruction::SimpleAssignment(
+                prog_metadata.new_instr_id(),
                 context.label_variable.to_owned(),
                 Src::Constant(Constant::Int(unconditional_branch_label_id.as_u64() as i128)),
             )];
             let new_instr = match conditional_branch_instr {
-                Instruction::BrIfEq(src1, src2, label_id) => Instruction::IfEqElse(
+                Instruction::BrIfEq(_, src1, src2, label_id) => Instruction::IfEqElse(
+                    prog_metadata.new_instr_id(),
                     src1.to_owned(),
                     src2.to_owned(),
                     vec![Instruction::SimpleAssignment(
+                        prog_metadata.new_instr_id(),
                         context.label_variable.to_owned(),
                         Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                     )],
                     else_instrs,
                 ),
-                Instruction::BrIfNotEq(src1, src2, label_id) => Instruction::IfNotEqElse(
+                Instruction::BrIfNotEq(_, src1, src2, label_id) => Instruction::IfNotEqElse(
+                    prog_metadata.new_instr_id(),
                     src1.to_owned(),
                     src2.to_owned(),
                     vec![Instruction::SimpleAssignment(
+                        prog_metadata.new_instr_id(),
                         context.label_variable.to_owned(),
                         Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                     )],
@@ -453,6 +489,7 @@ fn create_loop_block(
     entries: Entries,
     reachability: ReachabilityMap,
     context: &mut RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) -> Box<Block> {
     let mut inner_labels: Labels = HashMap::new();
     let mut next_labels: Labels = HashMap::new();
@@ -499,13 +536,15 @@ fn create_loop_block(
         &next_entries,
         &loop_block_id,
         context,
+        prog_metadata,
     );
 
     // entries for the inner block are the same as entries for this block
     // we can unwrap inner_block cos we know we can return to entries, so there must be
     // some labels in inner
-    let inner_block = create_block_from_labels(inner_labels, entries, context).unwrap();
-    let next_block = create_block_from_labels(next_labels, next_entries, context);
+    let inner_block =
+        create_block_from_labels(inner_labels, entries, context, prog_metadata).unwrap();
+    let next_block = create_block_from_labels(next_labels, next_entries, context, prog_metadata);
 
     Box::new(Block::Loop {
         id: loop_block_id,
@@ -520,92 +559,121 @@ fn replace_branch_instrs_inside_loop(
     next_entries: &Entries,
     loop_block_id: &LoopBlockId,
     context: &RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) {
     for (_inner_label_id, inner_label) in inner_labels {
         for i in 0..inner_label.instrs.len() {
             let instr = inner_label.instrs.get(i).unwrap();
             let mut new_instrs: Vec<Instruction> = Vec::new();
             match instr {
-                Instruction::Br(label_id) => {
+                Instruction::Br(_, label_id) => {
                     if loop_entries.contains(label_id) {
                         // set the label variable
                         new_instrs.push(Instruction::SimpleAssignment(
+                            prog_metadata.new_instr_id(),
                             context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch back to the start of the loop into a continue
-                        new_instrs.push(Instruction::Continue(loop_block_id.to_owned()));
+                        new_instrs.push(Instruction::Continue(
+                            prog_metadata.new_instr_id(),
+                            loop_block_id.to_owned(),
+                        ));
                     } else if next_entries.contains(label_id) {
                         // set the label variable
                         new_instrs.push(Instruction::SimpleAssignment(
+                            prog_metadata.new_instr_id(),
                             context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch out of the loop into a break
-                        new_instrs.push(Instruction::Break(loop_block_id.to_owned()));
+                        new_instrs.push(Instruction::Break(
+                            prog_metadata.new_instr_id(),
+                            loop_block_id.to_owned(),
+                        ));
                     }
                 }
-                Instruction::BrIfEq(src1, src2, label_id) => {
+                Instruction::BrIfEq(_, src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
+                                Instruction::Continue(
+                                    prog_metadata.new_instr_id(),
+                                    loop_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));
                     } else if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
+                                Instruction::Break(
+                                    prog_metadata.new_instr_id(),
+                                    loop_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));
                     }
                 }
-                Instruction::BrIfNotEq(src1, src2, label_id) => {
+                Instruction::BrIfNotEq(_, src1, src2, label_id) => {
                     if loop_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfNotEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch back to the start of the loop into a continue
-                                Instruction::Continue(loop_block_id.to_owned()),
+                                Instruction::Continue(
+                                    prog_metadata.new_instr_id(),
+                                    loop_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));
                     } else if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfNotEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 // set the label variable
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch out of the loop into a break
-                                Instruction::Break(loop_block_id.to_owned()),
+                                Instruction::Break(
+                                    prog_metadata.new_instr_id(),
+                                    loop_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));
@@ -630,6 +698,7 @@ fn try_create_multiple_block(
     entries: &Entries,
     reachability: &ReachabilityMap,
     context: &mut RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) -> Option<Box<Block>> {
     // "for each entry, find all the labels it reaches that can't be reached by any other entry"
     let mut uniquely_reachable_labels: HashMap<LabelId, Vec<LabelId>> = HashMap::new();
@@ -720,15 +789,21 @@ fn try_create_multiple_block(
                 &next_entries,
                 &multiple_block_id,
                 context,
+                prog_metadata,
             );
 
-            let handled_block =
-                create_block_from_labels(handled_labels, vec![handled_label_entry], context)
-                    .unwrap();
+            let handled_block = create_block_from_labels(
+                handled_labels,
+                vec![handled_label_entry],
+                context,
+                prog_metadata,
+            )
+            .unwrap();
             handled_blocks.push(handled_block);
         }
 
-        let next_block = create_block_from_labels(next_labels, next_entries, context);
+        let next_block =
+            create_block_from_labels(next_labels, next_entries, context, prog_metadata);
 
         return Some(Box::new(Block::Multiple {
             id: multiple_block_id,
@@ -744,51 +819,66 @@ fn replace_branch_instrs_inside_handled_block(
     next_entries: &Entries,
     multiple_block_id: &MultipleBlockId,
     context: &RelooperContext,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) {
     for (_handled_label_id, handled_label) in handled_labels {
         for i in 0..handled_label.instrs.len() {
             let instr = handled_label.instrs.get(i).unwrap();
             let mut new_instrs: Vec<Instruction> = Vec::new();
             match instr {
-                Instruction::Br(label_id) => {
+                Instruction::Br(_, label_id) => {
                     if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::SimpleAssignment(
+                            prog_metadata.new_instr_id(),
                             context.label_variable.to_owned(),
                             Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                         ));
                         // turn branch to next block into end handled block instruction
-                        new_instrs.push(Instruction::EndHandledBlock(multiple_block_id.to_owned()));
+                        new_instrs.push(Instruction::EndHandledBlock(
+                            prog_metadata.new_instr_id(),
+                            multiple_block_id.to_owned(),
+                        ));
                     }
                 }
-                Instruction::BrIfEq(src1, src2, label_id) => {
+                Instruction::BrIfEq(_, src1, src2, label_id) => {
                     if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
+                                Instruction::EndHandledBlock(
+                                    prog_metadata.new_instr_id(),
+                                    multiple_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));
                     }
                 }
-                Instruction::BrIfNotEq(src1, src2, label_id) => {
+                Instruction::BrIfNotEq(_, src1, src2, label_id) => {
                     if next_entries.contains(label_id) {
                         new_instrs.push(Instruction::IfNotEqElse(
+                            prog_metadata.new_instr_id(),
                             src1.to_owned(),
                             src2.to_owned(),
                             vec![
                                 Instruction::SimpleAssignment(
+                                    prog_metadata.new_instr_id(),
                                     context.label_variable.to_owned(),
                                     Src::Constant(Constant::Int(label_id.as_u64() as i128)),
                                 ),
                                 // turn branch to next block into end handled block instruction
-                                Instruction::EndHandledBlock(multiple_block_id.to_owned()),
+                                Instruction::EndHandledBlock(
+                                    prog_metadata.new_instr_id(),
+                                    multiple_block_id.to_owned(),
+                                ),
                             ],
                             vec![],
                         ));

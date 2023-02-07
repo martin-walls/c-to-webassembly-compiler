@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
+use log::trace;
+
 use crate::middle_end::ids::{FunId, LabelId, StructId, UnionId, VarId};
 use crate::middle_end::instructions::Instruction;
+use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
-use log::trace;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Context {
@@ -119,6 +122,7 @@ impl Context {
         &mut self,
         case_body_label: LabelId,
         mut case_condition_instrs: Vec<Instruction>,
+        prog_metadata: &mut Box<ProgramMetadata>,
     ) -> Result<(), MiddleEndError> {
         if self.loop_stack.is_empty() {
             return Err(MiddleEndError::CaseOutsideSwitchContext);
@@ -132,7 +136,10 @@ impl Context {
                     LoopOrSwitchContext::Switch(switch_context) => {
                         // every case block must have a label so it can be jumped to,
                         // so enforce that by adding it here
-                        let case_instrs = vec![Instruction::Label(case_body_label)];
+                        let case_instrs = vec![Instruction::Label(
+                            prog_metadata.new_instr_id(),
+                            case_body_label,
+                        )];
                         switch_context.case_blocks.push(case_instrs);
                         switch_context
                             .case_condition_instrs

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::backend::memory_constants::PTR_SIZE;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_allocation::naive_allocation::{
@@ -11,7 +13,6 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
-use std::collections::HashMap;
 
 pub type VariableAllocationMap = HashMap<VarId, u32>;
 
@@ -21,7 +22,7 @@ pub fn allocate_local_vars(
     fun_type: Box<IrType>,
     fun_param_var_mappings: Vec<VarId>,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &mut Box<ProgramMetadata>,
     enabled_optimisations: &EnabledOptimisations,
 ) -> VariableAllocationMap {
     let mut var_offsets: VariableAllocationMap = HashMap::new();
