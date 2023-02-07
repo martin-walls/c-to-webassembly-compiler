@@ -4,7 +4,7 @@ use log::trace;
 
 use crate::middle_end::ids::{FunId, LabelId, StructId, UnionId, VarId};
 use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir::{Program, ProgramMetadata};
+use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{EnumConstant, IrType};
 use crate::middle_end::middle_end_error::MiddleEndError;
 

@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::backend::dataflow_analysis::flowgraph::{Flowgraph, InstructionId};
+use crate::backend::dataflow_analysis::flowgraph::Flowgraph;
 use crate::backend::dataflow_analysis::instruction_def_ref::{def_set, ref_set};
-use crate::middle_end::ids::VarId;
-use crate::middle_end::instructions::{Instruction, Src};
+use crate::middle_end::ids::{InstructionId, VarId};
 
 pub type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
 

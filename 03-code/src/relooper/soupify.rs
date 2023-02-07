@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use log::trace;
 
-use crate::middle_end::ids::{IdGenerator, LabelId};
+use crate::middle_end::ids::LabelId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::relooper::blocks::Label;
