@@ -1,22 +1,25 @@
+use std::collections::HashMap;
+
+use log::trace;
+
 use crate::middle_end::ids::{IdGenerator, LabelId};
 use crate::middle_end::instructions::Instruction;
+use crate::middle_end::ir::ProgramMetadata;
 use crate::relooper::blocks::Label;
 use crate::relooper::relooper::Labels;
-use log::trace;
-use std::collections::HashMap;
 
 /// Given a list of instructions, generate a 'soup of labelled blocks'
 pub fn soupify(
     mut instrs: Vec<Instruction>,
-    label_generator: &mut IdGenerator<LabelId>,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) -> (Labels, LabelId) {
     assert!(
         !instrs.is_empty(),
         "List of instructions to soupify should be non-empty"
     );
-    remove_label_fallthrough(&mut instrs);
-    add_block_gap_labels_after_conditionals(&mut instrs, label_generator);
-    insert_entry_label_if_necessary(&mut instrs, label_generator);
+    remove_label_fallthrough(&mut instrs, prog_metadata);
+    add_block_gap_labels_after_conditionals(&mut instrs, prog_metadata);
+    insert_entry_label_if_necessary(&mut instrs, prog_metadata);
     remove_consecutive_labels(&mut instrs);
     trace!("Processed instrs for soupifying:");
     for instr in &instrs {
@@ -28,12 +31,18 @@ pub fn soupify(
 /// Add a new label at the start of the instructions, to be our entry-point
 fn insert_entry_label_if_necessary(
     instrs: &mut Vec<Instruction>,
-    label_generator: &mut IdGenerator<LabelId>,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) {
     match instrs.get(0) {
-        Some(Instruction::Label(_)) => {}
+        Some(Instruction::Label(..)) => {}
         Some(_) => {
-            instrs.insert(0, Instruction::Label(label_generator.new_id()));
+            instrs.insert(
+                0,
+                Instruction::Label(
+                    prog_metadata.new_instr_id(),
+                    prog_metadata.label_id_generator.new_id(),
+                ),
+            );
         }
         None => {}
     }
@@ -49,7 +58,7 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
 
     for instr in instrs.iter() {
         match instr {
-            Instruction::Label(label_id) => {
+            Instruction::Label(_, label_id) => {
                 if let Some(prev_label_id) = prev_instr_label {
                     label_remappings.insert(label_id.to_owned(), prev_label_id.to_owned());
                     // keep prev_instr_label the same for the next instr
@@ -67,26 +76,28 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
     for i in 0..instrs.len() {
         let instr = instrs.get(i).unwrap();
         match instr {
-            Instruction::Br(label_id) => match label_remappings.get(label_id) {
+            Instruction::Br(id, label_id) => match label_remappings.get(label_id) {
                 None => {}
                 Some(new_label_id) => {
-                    instrs[i] = Instruction::Br(new_label_id.to_owned().to_owned());
+                    instrs[i] = Instruction::Br(id.to_owned(), new_label_id.to_owned().to_owned());
                 }
             },
-            Instruction::BrIfEq(s1, s2, label_id) => match label_remappings.get(label_id) {
+            Instruction::BrIfEq(id, s1, s2, label_id) => match label_remappings.get(label_id) {
                 None => {}
                 Some(new_label_id) => {
                     instrs[i] = Instruction::BrIfEq(
+                        id.to_owned(),
                         s1.to_owned(),
                         s2.to_owned(),
                         new_label_id.to_owned().to_owned(),
                     );
                 }
             },
-            Instruction::BrIfNotEq(s1, s2, label_id) => match label_remappings.get(label_id) {
+            Instruction::BrIfNotEq(id, s1, s2, label_id) => match label_remappings.get(label_id) {
                 None => {}
                 Some(new_label_id) => {
                     instrs[i] = Instruction::BrIfNotEq(
+                        id.to_owned(),
                         s1.to_owned(),
                         s2.to_owned(),
                         new_label_id.to_owned().to_owned(),
@@ -100,7 +111,7 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
     // remove all labels we've remapped
     // (remove all instructions for which the closure returns false)
     instrs.retain(|instr| {
-        if let Instruction::Label(label_id) = instr {
+        if let Instruction::Label(_, label_id) = instr {
             // if the label has been remapped, contains_key is true, so
             // return the negation
             return !label_remappings.contains_key(label_id);
@@ -113,7 +124,10 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
 /// branch instructions where fall-through exists. This adds a lot of redundant
 /// branch instructions, but this will allow us to split the instructions into a soup of blocks.
 /// We'll optimise out the redundant branches afterwards.
-fn remove_label_fallthrough(instrs: &mut Vec<Instruction>) {
+fn remove_label_fallthrough(
+    instrs: &mut Vec<Instruction>,
+    prog_metadata: &mut Box<ProgramMetadata>,
+) {
     let mut prev_instr_was_branch = false;
 
     let mut i = 0;
@@ -124,17 +138,20 @@ fn remove_label_fallthrough(instrs: &mut Vec<Instruction>) {
         let instr = instrs.get(i).unwrap();
         let mut instr_to_insert: Option<Instruction> = None;
         match instr {
-            Instruction::Label(label_id) => {
+            Instruction::Label(_, label_id) => {
                 // if the last instruction was already a branch, do nothing
                 if prev_instr_was_branch {
                     prev_instr_was_branch = false;
                 } else {
                     // if the previous instruction isn't a branch, insert a branch
                     // to this label
-                    instr_to_insert = Some(Instruction::Br(label_id.to_owned()));
+                    instr_to_insert = Some(Instruction::Br(
+                        prog_metadata.new_instr_id(),
+                        label_id.to_owned(),
+                    ));
                 }
             }
-            Instruction::Br(_) | Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
+            Instruction::Br(..) | Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..) => {
                 prev_instr_was_branch = true;
             }
             _ => {
@@ -157,7 +174,7 @@ fn remove_label_fallthrough(instrs: &mut Vec<Instruction>) {
 /// branches to directly after, so that a block always ends with a branch
 fn add_block_gap_labels_after_conditionals(
     instrs: &mut Vec<Instruction>,
-    label_generator: &mut IdGenerator<LabelId>,
+    prog_metadata: &mut Box<ProgramMetadata>,
 ) {
     let mut i = 0;
     loop {
@@ -168,7 +185,7 @@ fn add_block_gap_labels_after_conditionals(
         let mut insert_gap_label = false;
 
         match instr {
-            Instruction::BrIfEq(_, _, _) | Instruction::BrIfNotEq(_, _, _) => {
+            Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..) => {
                 insert_gap_label = true;
             }
             _ => {}
@@ -176,9 +193,15 @@ fn add_block_gap_labels_after_conditionals(
         match insert_gap_label {
             false => i += 1,
             true => {
-                let new_label = label_generator.new_id();
-                instrs.insert(i + 1, Instruction::Br(new_label.to_owned()));
-                instrs.insert(i + 2, Instruction::Label(new_label));
+                let new_label = prog_metadata.label_id_generator.new_id();
+                instrs.insert(
+                    i + 1,
+                    Instruction::Br(prog_metadata.new_instr_id(), new_label.to_owned()),
+                );
+                instrs.insert(
+                    i + 2,
+                    Instruction::Label(prog_metadata.new_instr_id(), new_label),
+                );
                 // increment i accounting for the new instructions we added
                 i += 3;
             }
@@ -196,7 +219,7 @@ fn instructions_to_soup_of_labels(instrs: Vec<Instruction>) -> (HashMap<LabelId,
     let mut entry: Option<LabelId> = None;
     for instr in instrs {
         match instr {
-            Instruction::Label(label_id) => {
+            Instruction::Label(_, label_id) => {
                 if let None = current_label_id {
                     // no previous block => this new block is the entry
                     entry = Some(label_id.to_owned());

@@ -1,14 +1,17 @@
-use crate::backend::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
-use crate::middle_end::ids::{
-    FunId, IdGenerator, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
-};
-use crate::middle_end::instructions::Instruction;
-use crate::middle_end::ir_types::{IrType, StructType, UnionType};
-use crate::middle_end::middle_end_error::MiddleEndError;
-use log::trace;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+
+use log::trace;
+
+use crate::backend::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
+use crate::middle_end::ids::{
+    FunId, IdGenerator, InstructionId, LabelId, StringLiteralId, StructId, UnionId, ValueType,
+    VarId,
+};
+use crate::middle_end::instructions::{Dest, Instruction};
+use crate::middle_end::ir_types::{IrType, StructType, UnionType};
+use crate::middle_end::middle_end_error::MiddleEndError;
 
 #[derive(Debug)]
 pub struct Function {
@@ -110,6 +113,7 @@ impl fmt::Display for ProgramInstructions {
 
 #[derive(Debug)]
 pub struct ProgramMetadata {
+    instr_id_generator: IdGenerator<InstructionId>,
     pub label_id_generator: IdGenerator<LabelId>,
     fun_id_generator: IdGenerator<FunId>,
     var_id_generator: IdGenerator<VarId>,
@@ -130,6 +134,7 @@ pub struct ProgramMetadata {
 impl ProgramMetadata {
     pub fn new() -> Self {
         ProgramMetadata {
+            instr_id_generator: IdGenerator::new(),
             label_id_generator: IdGenerator::new(),
             fun_id_generator: IdGenerator::new(),
             var_id_generator: IdGenerator::new(),
@@ -392,6 +397,10 @@ impl Program {
 
     pub fn get_union_type(&self, union_id: &UnionId) -> Result<UnionType, MiddleEndError> {
         self.program_metadata.get_union_type(union_id)
+    }
+
+    pub fn new_instr_id(&mut self) -> InstructionId {
+        self.program_metadata.new_instr_id()
     }
 }
 

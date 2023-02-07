@@ -1,8 +1,9 @@
+use log::trace;
+
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::MiddleEndError;
-use log::trace;
 
 pub fn unary_convert(
     src: Src,
@@ -53,21 +54,31 @@ pub fn binary_convert_separately(
     if *left_type == IrType::F64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => {
-                right_instrs.push(Instruction::I32toF64(right_dest.to_owned(), unary_right))
-            }
-            IrType::U32 => {
-                right_instrs.push(Instruction::U32toF64(right_dest.to_owned(), unary_right))
-            }
-            IrType::I64 => {
-                right_instrs.push(Instruction::I64toF64(right_dest.to_owned(), unary_right))
-            }
-            IrType::U64 => {
-                right_instrs.push(Instruction::U64toF64(right_dest.to_owned(), unary_right))
-            }
-            IrType::F32 => {
-                right_instrs.push(Instruction::F32toF64(right_dest.to_owned(), unary_right))
-            }
+            IrType::I32 => right_instrs.push(Instruction::I32toF64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U32 => right_instrs.push(Instruction::U32toF64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::I64 => right_instrs.push(Instruction::I64toF64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U64 => right_instrs.push(Instruction::U64toF64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::F32 => right_instrs.push(Instruction::F32toF64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F64))?;
@@ -76,21 +87,31 @@ pub fn binary_convert_separately(
     if *right_type == IrType::F64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => {
-                left_instrs.push(Instruction::I32toF64(left_dest.to_owned(), unary_left))
-            }
-            IrType::U32 => {
-                left_instrs.push(Instruction::U32toF64(left_dest.to_owned(), unary_left))
-            }
-            IrType::I64 => {
-                left_instrs.push(Instruction::I64toF64(left_dest.to_owned(), unary_left))
-            }
-            IrType::U64 => {
-                left_instrs.push(Instruction::U64toF64(left_dest.to_owned(), unary_left))
-            }
-            IrType::F32 => {
-                left_instrs.push(Instruction::F32toF64(left_dest.to_owned(), unary_left))
-            }
+            IrType::I32 => left_instrs.push(Instruction::I32toF64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U32 => left_instrs.push(Instruction::U32toF64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::I64 => left_instrs.push(Instruction::I64toF64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U64 => left_instrs.push(Instruction::U64toF64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::F32 => left_instrs.push(Instruction::F32toF64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F64))?;
@@ -101,18 +122,26 @@ pub fn binary_convert_separately(
     if *left_type == IrType::F32 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => {
-                right_instrs.push(Instruction::I32toF32(right_dest.to_owned(), unary_right))
-            }
-            IrType::U32 => {
-                right_instrs.push(Instruction::U32toF32(right_dest.to_owned(), unary_right))
-            }
-            IrType::I64 => {
-                right_instrs.push(Instruction::I64toF32(right_dest.to_owned(), unary_right))
-            }
-            IrType::U64 => {
-                right_instrs.push(Instruction::U64toF32(right_dest.to_owned(), unary_right))
-            }
+            IrType::I32 => right_instrs.push(Instruction::I32toF32(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U32 => right_instrs.push(Instruction::U32toF32(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::I64 => right_instrs.push(Instruction::I64toF32(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U64 => right_instrs.push(Instruction::U64toF32(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::F32))?;
@@ -121,18 +150,26 @@ pub fn binary_convert_separately(
     if *right_type == IrType::F32 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => {
-                left_instrs.push(Instruction::I32toF32(left_dest.to_owned(), unary_left))
-            }
-            IrType::U32 => {
-                left_instrs.push(Instruction::U32toF32(left_dest.to_owned(), unary_left))
-            }
-            IrType::I64 => {
-                left_instrs.push(Instruction::I64toF32(left_dest.to_owned(), unary_left))
-            }
-            IrType::U64 => {
-                left_instrs.push(Instruction::U64toF32(left_dest.to_owned(), unary_left))
-            }
+            IrType::I32 => left_instrs.push(Instruction::I32toF32(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U32 => left_instrs.push(Instruction::U32toF32(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::I64 => left_instrs.push(Instruction::I64toF32(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U64 => left_instrs.push(Instruction::U64toF32(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::F32))?;
@@ -143,15 +180,21 @@ pub fn binary_convert_separately(
     if *left_type == IrType::U64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => {
-                right_instrs.push(Instruction::I32toU64(right_dest.to_owned(), unary_right))
-            }
-            IrType::U32 => {
-                right_instrs.push(Instruction::U32toU64(right_dest.to_owned(), unary_right))
-            }
-            IrType::I64 => {
-                right_instrs.push(Instruction::I64toU64(right_dest.to_owned(), unary_right))
-            }
+            IrType::I32 => right_instrs.push(Instruction::I32toU64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U32 => right_instrs.push(Instruction::U32toU64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::I64 => right_instrs.push(Instruction::I64toU64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U64))?;
@@ -160,15 +203,21 @@ pub fn binary_convert_separately(
     if *right_type == IrType::U64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => {
-                left_instrs.push(Instruction::I32toU64(left_dest.to_owned(), unary_left))
-            }
-            IrType::U32 => {
-                left_instrs.push(Instruction::U32toU64(left_dest.to_owned(), unary_left))
-            }
-            IrType::I64 => {
-                left_instrs.push(Instruction::I64toU64(left_dest.to_owned(), unary_left))
-            }
+            IrType::I32 => left_instrs.push(Instruction::I32toU64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U32 => left_instrs.push(Instruction::U32toU64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::I64 => left_instrs.push(Instruction::I64toU64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U64))?;
@@ -179,12 +228,16 @@ pub fn binary_convert_separately(
     if *left_type == IrType::I64 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => {
-                right_instrs.push(Instruction::I32toI64(right_dest.to_owned(), unary_right))
-            }
-            IrType::U32 => {
-                right_instrs.push(Instruction::U32toI64(right_dest.to_owned(), unary_right))
-            }
+            IrType::I32 => right_instrs.push(Instruction::I32toI64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
+            IrType::U32 => right_instrs.push(Instruction::U32toI64(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::I64))?;
@@ -193,12 +246,16 @@ pub fn binary_convert_separately(
     if *right_type == IrType::I64 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => {
-                left_instrs.push(Instruction::I32toI64(left_dest.to_owned(), unary_left))
-            }
-            IrType::U32 => {
-                left_instrs.push(Instruction::U32toI64(left_dest.to_owned(), unary_left))
-            }
+            IrType::I32 => left_instrs.push(Instruction::I32toI64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
+            IrType::U32 => left_instrs.push(Instruction::U32toI64(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::I64))?;
@@ -209,9 +266,11 @@ pub fn binary_convert_separately(
     if *left_type == IrType::U32 {
         let right_dest = prog.new_var(unary_right.get_value_type());
         match *right_type {
-            IrType::I32 => {
-                right_instrs.push(Instruction::I32toU32(right_dest.to_owned(), unary_right))
-            }
+            IrType::I32 => right_instrs.push(Instruction::I32toU32(
+                prog.new_instr_id(),
+                right_dest.to_owned(),
+                unary_right,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(right_dest.to_owned(), Box::new(IrType::U32))?;
@@ -220,9 +279,11 @@ pub fn binary_convert_separately(
     if *right_type == IrType::U32 {
         let left_dest = prog.new_var(unary_left.get_value_type());
         match *left_type {
-            IrType::I32 => {
-                left_instrs.push(Instruction::I32toU32(left_dest.to_owned(), unary_left))
-            }
+            IrType::I32 => left_instrs.push(Instruction::I32toU32(
+                prog.new_instr_id(),
+                left_dest.to_owned(),
+                unary_left,
+            )),
             _ => unreachable!(),
         }
         prog.add_var_type(left_dest.to_owned(), Box::new(IrType::U32))?;
@@ -261,11 +322,19 @@ pub fn get_type_conversion_instrs(
             let intermediate_var = prog.new_var(src.get_value_type());
             let intermediate_type;
             if dest_type.is_signed_integral() {
-                instrs.push(Instruction::I8toI16(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::I8toI16(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::I16;
             } else {
                 // unsigned
-                instrs.push(Instruction::I8toU16(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::I8toU16(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::U16;
             }
             prog.add_var_type(
@@ -291,11 +360,19 @@ pub fn get_type_conversion_instrs(
             let intermediate_var = prog.new_var(src.get_value_type());
             let intermediate_type;
             if dest_type.is_signed_integral() {
-                instrs.push(Instruction::U8toI16(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::U8toI16(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::I16;
             } else {
                 // unsigned
-                instrs.push(Instruction::U8toU16(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::U8toU16(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::U16;
             }
             prog.add_var_type(
@@ -315,11 +392,19 @@ pub fn get_type_conversion_instrs(
             let intermediate_var = prog.new_var(src.get_value_type());
             let intermediate_type;
             if dest_type.is_signed_integral() {
-                instrs.push(Instruction::I16toI32(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::I16toI32(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::I32;
             } else {
                 // unsigned
-                instrs.push(Instruction::I16toU32(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::I16toU32(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::U32;
             }
             prog.add_var_type(
@@ -339,11 +424,19 @@ pub fn get_type_conversion_instrs(
             let intermediate_var = prog.new_var(src.get_value_type());
             let intermediate_type;
             if dest_type.is_signed_integral() {
-                instrs.push(Instruction::U16toI32(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::U16toI32(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::I32;
             } else {
                 // unsigned
-                instrs.push(Instruction::U16toU32(intermediate_var.to_owned(), src));
+                instrs.push(Instruction::U16toU32(
+                    prog.new_instr_id(),
+                    intermediate_var.to_owned(),
+                    src,
+                ));
                 intermediate_type = IrType::U32;
             }
             prog.add_var_type(
@@ -362,43 +455,71 @@ pub fn get_type_conversion_instrs(
         (IrType::I32, IrType::I8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
-            instrs.push(Instruction::I32toI8(dest.to_owned(), src));
+            instrs.push(Instruction::I32toI8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::U8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U8))?;
-            instrs.push(Instruction::I32toU8(dest.to_owned(), src));
+            instrs.push(Instruction::I32toU8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::U32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U32))?;
-            instrs.push(Instruction::I32toU32(dest.to_owned(), src));
+            instrs.push(Instruction::I32toU32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::I64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
-            instrs.push(Instruction::I32toI64(dest.to_owned(), src));
+            instrs.push(Instruction::I32toI64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::U64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
-            instrs.push(Instruction::I32toU64(dest.to_owned(), src));
+            instrs.push(Instruction::I32toU64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::F32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
-            instrs.push(Instruction::I32toF32(dest.to_owned(), src));
+            instrs.push(Instruction::I32toF32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I32, IrType::F64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
-            instrs.push(Instruction::I32toF64(dest.to_owned(), src));
+            instrs.push(Instruction::I32toF64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         // cast to void *
@@ -408,44 +529,72 @@ pub fn get_type_conversion_instrs(
                 dest.to_owned(),
                 Box::new(IrType::PointerTo(Box::new(IrType::Void))),
             )?;
-            instrs.push(Instruction::I32toPtr(dest.to_owned(), src));
+            instrs.push(Instruction::I32toPtr(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
 
         (IrType::U32, IrType::I8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
-            instrs.push(Instruction::U32toI8(dest.to_owned(), src));
+            instrs.push(Instruction::U32toI8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U32, IrType::U8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U8))?;
-            instrs.push(Instruction::U32toU8(dest.to_owned(), src));
+            instrs.push(Instruction::U32toU8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U32, IrType::I64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I64))?;
-            instrs.push(Instruction::U32toI64(dest.to_owned(), src));
+            instrs.push(Instruction::U32toI64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U32, IrType::U64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
-            instrs.push(Instruction::U32toU64(dest.to_owned(), src));
+            instrs.push(Instruction::U32toU64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U32, IrType::F32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
-            instrs.push(Instruction::U32toF32(dest.to_owned(), src));
+            instrs.push(Instruction::U32toF32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U32, IrType::F64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
-            instrs.push(Instruction::U32toF64(dest.to_owned(), src));
+            instrs.push(Instruction::U32toF64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         // cast to void *
@@ -455,88 +604,144 @@ pub fn get_type_conversion_instrs(
                 dest.to_owned(),
                 Box::new(IrType::PointerTo(Box::new(IrType::Void))),
             )?;
-            instrs.push(Instruction::U32toPtr(dest.to_owned(), src));
+            instrs.push(Instruction::U32toPtr(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
 
         (IrType::I64, IrType::I8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
-            instrs.push(Instruction::I64toI8(dest.to_owned(), src));
+            instrs.push(Instruction::I64toI8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I64, IrType::U8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U8))?;
-            instrs.push(Instruction::I64toU8(dest.to_owned(), src));
+            instrs.push(Instruction::I64toU8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I64, IrType::I32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::I64toI32(dest.to_owned(), src));
+            instrs.push(Instruction::I64toI32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I64, IrType::U64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U64))?;
-            instrs.push(Instruction::I64toU64(dest.to_owned(), src));
+            instrs.push(Instruction::I64toU64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I64, IrType::F32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
-            instrs.push(Instruction::I64toF32(dest.to_owned(), src));
+            instrs.push(Instruction::I64toF32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::I64, IrType::F64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
-            instrs.push(Instruction::I64toF64(dest.to_owned(), src));
+            instrs.push(Instruction::I64toF64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
 
         (IrType::U64, IrType::I8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I8))?;
-            instrs.push(Instruction::U64toI8(dest.to_owned(), src));
+            instrs.push(Instruction::U64toI8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U64, IrType::U8) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::U8))?;
-            instrs.push(Instruction::U64toU8(dest.to_owned(), src));
+            instrs.push(Instruction::U64toU8(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U64, IrType::I32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::U64toI32(dest.to_owned(), src));
+            instrs.push(Instruction::U64toI32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U64, IrType::F32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F32))?;
-            instrs.push(Instruction::U64toF32(dest.to_owned(), src));
+            instrs.push(Instruction::U64toF32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::U64, IrType::F64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
-            instrs.push(Instruction::U64toF64(dest.to_owned(), src));
+            instrs.push(Instruction::U64toF64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
 
         (IrType::F32, IrType::F64) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::F64))?;
-            instrs.push(Instruction::F32toF64(dest.to_owned(), src));
+            instrs.push(Instruction::F32toF64(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::F64, IrType::I32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::F64toI32(dest.to_owned(), src));
+            instrs.push(Instruction::F64toI32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
 
@@ -545,20 +750,32 @@ pub fn get_type_conversion_instrs(
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t)))?;
             // instrs.push(Instruction::AddressOf(dest.to_owned(), src));
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         // pointer to pointer
         (IrType::PointerTo(_), IrType::PointerTo(t2)) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::PointerTo(t2)))?;
-            instrs.push(Instruction::SimpleAssignment(dest.to_owned(), src));
+            instrs.push(Instruction::SimpleAssignment(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (IrType::PointerTo(_), IrType::I32) => {
             let dest = prog.new_var(src.get_value_type());
             prog.add_var_type(dest.to_owned(), Box::new(IrType::I32))?;
-            instrs.push(Instruction::PtrToI32(dest.to_owned(), src));
+            instrs.push(Instruction::PtrToI32(
+                prog.new_instr_id(),
+                dest.to_owned(),
+                src,
+            ));
             Ok((instrs, Src::Var(dest)))
         }
         (s, d) => {

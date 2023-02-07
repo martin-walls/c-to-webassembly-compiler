@@ -18,15 +18,18 @@ pub fn tail_call_optimise(
 
     // label so we can jump back to the start of the function
     let start_of_fun_label = prog_metadata.new_label();
-    fun_instrs.insert(0, Instruction::Label(start_of_fun_label.to_owned()));
+    fun_instrs.insert(
+        0,
+        Instruction::Label(prog_metadata.new_instr_id(), start_of_fun_label.to_owned()),
+    );
 
     for instr_i in 0..fun_instrs.len() {
         let instr = fun_instrs.get(instr_i).unwrap();
         match instr {
-            Instruction::Call(dest, fun_id, params) => {
+            Instruction::Call(_, dest, fun_id, params) => {
                 current_call_instr = Some((instr_i, dest, fun_id, params));
             }
-            Instruction::Ret(return_src) => {
+            Instruction::Ret(_, return_src) => {
                 if let Some((call_instr_i, call_instr_dest, call_instr_fun_id, params)) =
                     current_call_instr
                 {
@@ -40,15 +43,20 @@ pub fn tail_call_optimise(
                                     let new_param_src = params.get(param_i).unwrap();
                                     let param_var = param_var_mappings.get(param_i).unwrap();
                                     new_instrs.push(Instruction::SimpleAssignment(
+                                        prog_metadata.new_instr_id(),
                                         param_var.to_owned(),
                                         new_param_src.to_owned(),
                                     ));
                                 }
                                 // jump back to start of function
-                                new_instrs.push(Instruction::Br(start_of_fun_label.to_owned()));
+                                new_instrs.push(Instruction::Br(
+                                    prog_metadata.new_instr_id(),
+                                    start_of_fun_label.to_owned(),
+                                ));
                             } else {
                                 // optimise non-recursive tail call
                                 new_instrs.push(Instruction::TailCall(
+                                    prog_metadata.new_instr_id(),
                                     call_instr_fun_id.to_owned(),
                                     params.to_vec(),
                                 ));

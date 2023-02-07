@@ -1,11 +1,13 @@
+use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::hash::Hash;
+
+use log::debug;
+
 use crate::middle_end::ids::FunId;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::MiddleEndError;
-use log::debug;
-use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
-use std::hash::Hash;
 
 pub fn remove_unused_functions(prog: &mut Box<Program>) -> Result<(), MiddleEndError> {
     let call_graph = generate_call_graph(prog)?;
@@ -63,8 +65,8 @@ fn generate_call_graph(prog: &Box<Program>) -> Result<CallGraph, MiddleEndError>
 
         for instr in &function.instrs {
             match instr {
-                Instruction::Call(_, callee_fun_id, _)
-                | Instruction::TailCall(callee_fun_id, _) => {
+                Instruction::Call(_, _, callee_fun_id, _)
+                | Instruction::TailCall(_, callee_fun_id, _) => {
                     callee_fun_ids.insert(callee_fun_id.to_owned());
                 }
                 _ => {}
@@ -77,7 +79,8 @@ fn generate_call_graph(prog: &Box<Program>) -> Result<CallGraph, MiddleEndError>
     // add any functions called globally to entries
     for instr in &prog.program_instructions.global_instrs {
         match instr {
-            Instruction::Call(_, callee_fun_id, _) | Instruction::TailCall(callee_fun_id, _) => {
+            Instruction::Call(_, _, callee_fun_id, _)
+            | Instruction::TailCall(_, callee_fun_id, _) => {
                 call_graph.entries.insert(callee_fun_id.to_owned());
             }
             _ => {}

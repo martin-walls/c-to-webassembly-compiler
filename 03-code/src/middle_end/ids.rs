@@ -35,6 +35,29 @@ impl<T: Id + Clone> IdGenerator<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InstructionId(u64);
+
+impl Id for InstructionId {
+    fn initial_id() -> Self {
+        InstructionId(0)
+    }
+
+    fn next_id(&self) -> Self {
+        InstructionId(self.0 + 1)
+    }
+
+    fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Display for InstructionId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "i{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ValueType {
     LValue,
     RValue,

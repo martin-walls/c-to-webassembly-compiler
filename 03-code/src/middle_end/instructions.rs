@@ -1,10 +1,11 @@
-use crate::middle_end::ids::{FunId, LabelId, StringLiteralId, ValueType, VarId};
+use std::fmt;
+use std::fmt::Formatter;
+
+use crate::middle_end::ids::{FunId, InstructionId, LabelId, StringLiteralId, ValueType, VarId};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
-use std::fmt;
-use std::fmt::Formatter;
 
 #[derive(Debug, Clone)]
 pub enum Constant {
@@ -141,205 +142,214 @@ impl fmt::Display for Src {
 #[derive(Debug, Clone)]
 pub enum Instruction {
     // t = a
-    SimpleAssignment(Dest, Src),
+    SimpleAssignment(InstructionId, Dest, Src),
 
-    LoadFromAddress(Dest, Src),
+    LoadFromAddress(InstructionId, Dest, Src),
     // addr <- x
-    StoreToAddress(Dest, Src),
+    StoreToAddress(InstructionId, Dest, Src),
 
-    DeclareVariable(Dest),
-    AllocateVariable(Dest, Src),
+    DeclareVariable(InstructionId, Dest),
+    AllocateVariable(InstructionId, Dest, Src),
 
     // Unary operations
     // t = <op> a
-    AddressOf(Dest, Src),
-    BitwiseNot(Dest, Src),
-    LogicalNot(Dest, Src),
+    AddressOf(InstructionId, Dest, Src),
+    BitwiseNot(InstructionId, Dest, Src),
+    LogicalNot(InstructionId, Dest, Src),
     // Binary operations
     // t = a <op> b
-    Mult(Dest, Src, Src),
-    Div(Dest, Src, Src),
-    Mod(Dest, Src, Src),
-    Add(Dest, Src, Src),
-    Sub(Dest, Src, Src),
-    LeftShift(Dest, Src, Src),
-    RightShift(Dest, Src, Src),
-    BitwiseAnd(Dest, Src, Src),
-    BitwiseOr(Dest, Src, Src),
-    BitwiseXor(Dest, Src, Src),
-    LogicalAnd(Dest, Src, Src),
-    LogicalOr(Dest, Src, Src),
+    Mult(InstructionId, Dest, Src, Src),
+    Div(InstructionId, Dest, Src, Src),
+    Mod(InstructionId, Dest, Src, Src),
+    Add(InstructionId, Dest, Src, Src),
+    Sub(InstructionId, Dest, Src, Src),
+    LeftShift(InstructionId, Dest, Src, Src),
+    RightShift(InstructionId, Dest, Src, Src),
+    BitwiseAnd(InstructionId, Dest, Src, Src),
+    BitwiseOr(InstructionId, Dest, Src, Src),
+    BitwiseXor(InstructionId, Dest, Src, Src),
+    LogicalAnd(InstructionId, Dest, Src, Src),
+    LogicalOr(InstructionId, Dest, Src, Src),
 
     // comparison
-    LessThan(Dest, Src, Src),
-    GreaterThan(Dest, Src, Src),
-    LessThanEq(Dest, Src, Src),
-    GreaterThanEq(Dest, Src, Src),
-    Equal(Dest, Src, Src),
-    NotEqual(Dest, Src, Src),
+    LessThan(InstructionId, Dest, Src, Src),
+    GreaterThan(InstructionId, Dest, Src, Src),
+    LessThanEq(InstructionId, Dest, Src, Src),
+    GreaterThanEq(InstructionId, Dest, Src, Src),
+    Equal(InstructionId, Dest, Src, Src),
+    NotEqual(InstructionId, Dest, Src, Src),
 
     // control flow
-    Call(Dest, FunId, Vec<Src>),
-    TailCall(FunId, Vec<Src>),
-    Ret(Option<Src>),
-    Label(LabelId),
-    Br(LabelId),
-    BrIfEq(Src, Src, LabelId),
-    BrIfNotEq(Src, Src, LabelId),
-    PointerToStringLiteral(Dest, StringLiteralId),
+    Call(InstructionId, Dest, FunId, Vec<Src>),
+    TailCall(InstructionId, FunId, Vec<Src>),
+    Ret(InstructionId, Option<Src>),
+    Label(InstructionId, LabelId),
+    Br(InstructionId, LabelId),
+    BrIfEq(InstructionId, Src, Src, LabelId),
+    BrIfNotEq(InstructionId, Src, Src, LabelId),
+    PointerToStringLiteral(InstructionId, Dest, StringLiteralId),
 
     // char promotions
-    I8toI16(Dest, Src),
-    I8toU16(Dest, Src),
-    U8toI16(Dest, Src),
-    U8toU16(Dest, Src),
+    I8toI16(InstructionId, Dest, Src),
+    I8toU16(InstructionId, Dest, Src),
+    U8toI16(InstructionId, Dest, Src),
+    U8toU16(InstructionId, Dest, Src),
 
     // promotion to signed int
-    I16toI32(Dest, Src),
-    U16toI32(Dest, Src),
+    I16toI32(InstructionId, Dest, Src),
+    U16toI32(InstructionId, Dest, Src),
 
     // promotion to unsigned int
-    I16toU32(Dest, Src),
-    U16toU32(Dest, Src),
-    I32toU32(Dest, Src),
+    I16toU32(InstructionId, Dest, Src),
+    U16toU32(InstructionId, Dest, Src),
+    I32toU32(InstructionId, Dest, Src),
 
     // promotion to unsigned long
-    I32toU64(Dest, Src),
-    U32toU64(Dest, Src),
-    I64toU64(Dest, Src),
+    I32toU64(InstructionId, Dest, Src),
+    U32toU64(InstructionId, Dest, Src),
+    I64toU64(InstructionId, Dest, Src),
 
     // promotion to long
-    I32toI64(Dest, Src),
-    U32toI64(Dest, Src),
+    I32toI64(InstructionId, Dest, Src),
+    U32toI64(InstructionId, Dest, Src),
 
     // integer to float
-    U32toF32(Dest, Src),
-    I32toF32(Dest, Src),
-    U64toF32(Dest, Src),
-    I64toF32(Dest, Src),
+    U32toF32(InstructionId, Dest, Src),
+    I32toF32(InstructionId, Dest, Src),
+    U64toF32(InstructionId, Dest, Src),
+    I64toF32(InstructionId, Dest, Src),
     // integer to double
-    U32toF64(Dest, Src),
-    I32toF64(Dest, Src),
-    U64toF64(Dest, Src),
-    I64toF64(Dest, Src),
+    U32toF64(InstructionId, Dest, Src),
+    I32toF64(InstructionId, Dest, Src),
+    U64toF64(InstructionId, Dest, Src),
+    I64toF64(InstructionId, Dest, Src),
 
     // float promotion
-    F32toF64(Dest, Src),
+    F32toF64(InstructionId, Dest, Src),
 
     // double to int
-    F64toI32(Dest, Src),
+    F64toI32(InstructionId, Dest, Src),
 
     // integer truncation
-    I32toI8(Dest, Src),
-    U32toI8(Dest, Src),
-    I64toI8(Dest, Src),
-    U64toI8(Dest, Src),
+    I32toI8(InstructionId, Dest, Src),
+    U32toI8(InstructionId, Dest, Src),
+    I64toI8(InstructionId, Dest, Src),
+    U64toI8(InstructionId, Dest, Src),
 
-    I32toU8(Dest, Src),
-    U32toU8(Dest, Src),
-    I64toU8(Dest, Src),
-    U64toU8(Dest, Src),
+    I32toU8(InstructionId, Dest, Src),
+    U32toU8(InstructionId, Dest, Src),
+    I64toU8(InstructionId, Dest, Src),
+    U64toU8(InstructionId, Dest, Src),
 
-    I64toI32(Dest, Src),
-    U64toI32(Dest, Src),
+    I64toI32(InstructionId, Dest, Src),
+    U64toI32(InstructionId, Dest, Src),
 
     // cast to pointer
-    U32toPtr(Dest, Src),
-    I32toPtr(Dest, Src),
-    PtrToI32(Dest, Src),
+    U32toPtr(InstructionId, Dest, Src),
+    I32toPtr(InstructionId, Dest, Src),
+    PtrToI32(InstructionId, Dest, Src),
 
-    Nop,
+    Nop(InstructionId),
 
     // relooper control flow (never generated by AST to IR conversion, from relooper output only)
-    Break(LoopBlockId),
-    Continue(LoopBlockId),
-    EndHandledBlock(MultipleBlockId),
+    Break(InstructionId, LoopBlockId),
+    Continue(InstructionId, LoopBlockId),
+    EndHandledBlock(InstructionId, MultipleBlockId),
 
     // if ... else ... end
-    IfEqElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
-    IfNotEqElse(Src, Src, Vec<Instruction>, Vec<Instruction>),
+    IfEqElse(InstructionId, Src, Src, Vec<Instruction>, Vec<Instruction>),
+    IfNotEqElse(InstructionId, Src, Src, Vec<Instruction>, Vec<Instruction>),
+}
+
+impl Instruction {
+    pub fn has_side_effect(&self) -> bool {
+        match self {
+            Instruction::Call(..) | Instruction::TailCall(..) => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Instruction::SimpleAssignment(dest, src) => {
-                write!(f, "{} = {}", dest, src)
+            Instruction::SimpleAssignment(id, dest, src) => {
+                write!(f, "[{}] {} = {}", id, dest, src)
             }
-            Instruction::AddressOf(dest, src) => {
-                write!(f, "{} = &{}", dest, src)
+            Instruction::AddressOf(id, dest, src) => {
+                write!(f, "[{}] {} = &{}", id, dest, src)
             }
-            Instruction::LoadFromAddress(dest, src) => {
-                write!(f, "{} = *{}", dest, src)
+            Instruction::LoadFromAddress(id, dest, src) => {
+                write!(f, "[{}] {} = *{}", id, dest, src)
             }
-            Instruction::StoreToAddress(dest, src) => {
-                write!(f, "*{} <- {}", dest, src)
+            Instruction::StoreToAddress(id, dest, src) => {
+                write!(f, "[{}] *{} <- {}", id, dest, src)
             }
-            Instruction::AllocateVariable(dest, size) => {
-                write!(f, "allocate {} bytes for {}", size, dest)
+            Instruction::AllocateVariable(id, dest, size) => {
+                write!(f, "[{}] allocate {} bytes for {}", id, size, dest)
             }
-            Instruction::BitwiseNot(dest, src) => {
-                write!(f, "{} = ~{}", dest, src)
+            Instruction::BitwiseNot(id, dest, src) => {
+                write!(f, "[{}] {} = ~{}", id, dest, src)
             }
-            Instruction::LogicalNot(dest, src) => {
-                write!(f, "{} = !{}", dest, src)
+            Instruction::LogicalNot(id, dest, src) => {
+                write!(f, "[{}] {} = !{}", id, dest, src)
             }
-            Instruction::Mult(dest, left, right) => {
-                write!(f, "{} = {} * {}", dest, left, right)
+            Instruction::Mult(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} * {}", id, dest, left, right)
             }
-            Instruction::Div(dest, left, right) => {
-                write!(f, "{} = {} / {}", dest, left, right)
+            Instruction::Div(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} / {}", id, dest, left, right)
             }
-            Instruction::Mod(dest, left, right) => {
-                write!(f, "{} = {} % {}", dest, left, right)
+            Instruction::Mod(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} % {}", id, dest, left, right)
             }
-            Instruction::Add(dest, left, right) => {
-                write!(f, "{} = {} + {}", dest, left, right)
+            Instruction::Add(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} + {}", id, dest, left, right)
             }
-            Instruction::Sub(dest, left, right) => {
-                write!(f, "{} = {} - {}", dest, left, right)
+            Instruction::Sub(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} - {}", id, dest, left, right)
             }
-            Instruction::LeftShift(dest, left, right) => {
-                write!(f, "{} = {} << {}", dest, left, right)
+            Instruction::LeftShift(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} << {}", id, dest, left, right)
             }
-            Instruction::RightShift(dest, left, right) => {
-                write!(f, "{} = {} >> {}", dest, left, right)
+            Instruction::RightShift(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} >> {}", id, dest, left, right)
             }
-            Instruction::BitwiseAnd(dest, left, right) => {
-                write!(f, "{} = {} & {}", dest, left, right)
+            Instruction::BitwiseAnd(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} & {}", id, dest, left, right)
             }
-            Instruction::BitwiseOr(dest, left, right) => {
-                write!(f, "{} = {} | {}", dest, left, right)
+            Instruction::BitwiseOr(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} | {}", id, dest, left, right)
             }
-            Instruction::BitwiseXor(dest, left, right) => {
-                write!(f, "{} = {} ^ {}", dest, left, right)
+            Instruction::BitwiseXor(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} ^ {}", id, dest, left, right)
             }
-            Instruction::LogicalAnd(dest, left, right) => {
-                write!(f, "{} = {} && {}", dest, left, right)
+            Instruction::LogicalAnd(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} && {}", id, dest, left, right)
             }
-            Instruction::LogicalOr(dest, left, right) => {
-                write!(f, "{} = {} || {}", dest, left, right)
+            Instruction::LogicalOr(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} || {}", id, dest, left, right)
             }
-            Instruction::LessThan(dest, left, right) => {
-                write!(f, "{} = {} < {}", dest, left, right)
+            Instruction::LessThan(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} < {}", id, dest, left, right)
             }
-            Instruction::GreaterThan(dest, left, right) => {
-                write!(f, "{} = {} > {}", dest, left, right)
+            Instruction::GreaterThan(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} > {}", id, dest, left, right)
             }
-            Instruction::LessThanEq(dest, left, right) => {
-                write!(f, "{} = {} <= {}", dest, left, right)
+            Instruction::LessThanEq(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} <= {}", id, dest, left, right)
             }
-            Instruction::GreaterThanEq(dest, left, right) => {
-                write!(f, "{} = {} >= {}", dest, left, right)
+            Instruction::GreaterThanEq(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} >= {}", id, dest, left, right)
             }
-            Instruction::Equal(dest, left, right) => {
-                write!(f, "{} = {} == {}", dest, left, right)
+            Instruction::Equal(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} == {}", id, dest, left, right)
             }
-            Instruction::NotEqual(dest, left, right) => {
-                write!(f, "{} = {} != {}", dest, left, right)
+            Instruction::NotEqual(id, dest, left, right) => {
+                write!(f, "[{}] {} = {} != {}", id, dest, left, right)
             }
-            Instruction::Call(dest, fun, params) => {
-                write!(f, "{} = call {}(", dest, fun)?;
+            Instruction::Call(id, dest, fun, params) => {
+                write!(f, "[{}] {} = call {}(", id, dest, fun)?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
                         write!(f, "{}, ", param)?;
@@ -348,8 +358,8 @@ impl fmt::Display for Instruction {
                 }
                 write!(f, ")")
             }
-            Instruction::TailCall(fun, params) => {
-                write!(f, "tail-call {}(", fun)?;
+            Instruction::TailCall(id, fun, params) => {
+                write!(f, "[{}] tail-call {}(", id, fun)?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
                         write!(f, "{}, ", param)?;
@@ -358,78 +368,82 @@ impl fmt::Display for Instruction {
                 }
                 write!(f, ")")
             }
-            Instruction::Ret(src) => match src {
+            Instruction::Ret(id, src) => match src {
                 None => {
-                    write!(f, "return")
+                    write!(f, "[{}] return", id)
                 }
                 Some(src) => {
-                    write!(f, "return {}", src)
+                    write!(f, "[{}] return {}", id, src)
                 }
             },
-            Instruction::Label(label) => {
-                write!(f, "{}:", label)
+            Instruction::Label(id, label) => {
+                write!(f, "[{}] {}:", id, label)
             }
-            Instruction::Br(label) => {
-                write!(f, "goto {}", label)
+            Instruction::Br(id, label) => {
+                write!(f, "[{}] goto {}", id, label)
             }
-            Instruction::BrIfEq(left, right, label) => {
-                write!(f, "if {} == {} goto {}", left, right, label)
+            Instruction::BrIfEq(id, left, right, label) => {
+                write!(f, "[{}] if {} == {} goto {}", id, left, right, label)
             }
-            Instruction::BrIfNotEq(left, right, label) => {
-                write!(f, "if {} != {} goto {}", left, right, label)
+            Instruction::BrIfNotEq(id, left, right, label) => {
+                write!(f, "[{}] if {} != {} goto {}", id, left, right, label)
             }
-            Instruction::PointerToStringLiteral(dest, string_id) => {
-                write!(f, "{} = pointer to string literal {}", dest, string_id)
+            Instruction::PointerToStringLiteral(id, dest, string_id) => {
+                write!(
+                    f,
+                    "[{}] {} = pointer to string literal {}",
+                    id, dest, string_id
+                )
             }
-            Instruction::I8toI16(dest, src) | Instruction::U8toI16(dest, src) => {
-                write!(f, "{} = (I16) {}", dest, src)
+            Instruction::I8toI16(id, dest, src) | Instruction::U8toI16(id, dest, src) => {
+                write!(f, "[{}] {} = (I16) {}", id, dest, src)
             }
-            Instruction::I8toU16(dest, src) | Instruction::U8toU16(dest, src) => {
-                write!(f, "{} = (U16) {}", dest, src)
+            Instruction::I8toU16(id, dest, src) | Instruction::U8toU16(id, dest, src) => {
+                write!(f, "[{}] {} = (U16) {}", id, dest, src)
             }
-            Instruction::I16toI32(dest, src) | Instruction::U16toI32(dest, src) => {
-                write!(f, "{} = (I32) {}", dest, src)
+            Instruction::I16toI32(id, dest, src) | Instruction::U16toI32(id, dest, src) => {
+                write!(f, "[{}] {} = (I32) {}", id, dest, src)
             }
-            Instruction::I16toU32(dest, src)
-            | Instruction::U16toU32(dest, src)
-            | Instruction::I32toU32(dest, src) => {
-                write!(f, "{} = (U32) {}", dest, src)
+            Instruction::I16toU32(id, dest, src)
+            | Instruction::U16toU32(id, dest, src)
+            | Instruction::I32toU32(id, dest, src) => {
+                write!(f, "[{}] {} = (U32) {}", id, dest, src)
             }
-            Instruction::I32toI64(dest, src) | Instruction::U32toI64(dest, src) => {
-                write!(f, "{} = (I64) {}", dest, src)
+            Instruction::I32toI64(id, dest, src) | Instruction::U32toI64(id, dest, src) => {
+                write!(f, "[{}] {} = (I64) {}", id, dest, src)
             }
-            Instruction::I32toU64(dest, src)
-            | Instruction::U32toU64(dest, src)
-            | Instruction::I64toU64(dest, src) => {
-                write!(f, "{} = (U64) {}", dest, src)
+            Instruction::I32toU64(id, dest, src)
+            | Instruction::U32toU64(id, dest, src)
+            | Instruction::I64toU64(id, dest, src) => {
+                write!(f, "[{}] {} = (U64) {}", id, dest, src)
             }
-            Instruction::U32toF32(dest, src)
-            | Instruction::I32toF32(dest, src)
-            | Instruction::U64toF32(dest, src)
-            | Instruction::I64toF32(dest, src) => {
-                write!(f, "{} = (F32) {}", dest, src)
+            Instruction::U32toF32(id, dest, src)
+            | Instruction::I32toF32(id, dest, src)
+            | Instruction::U64toF32(id, dest, src)
+            | Instruction::I64toF32(id, dest, src) => {
+                write!(f, "[{}] {} = (F32) {}", id, dest, src)
             }
-            Instruction::U32toF64(dest, src)
-            | Instruction::I32toF64(dest, src)
-            | Instruction::U64toF64(dest, src)
-            | Instruction::I64toF64(dest, src)
-            | Instruction::F32toF64(dest, src) => {
-                write!(f, "{} = (F64) {}", dest, src)
+            Instruction::U32toF64(id, dest, src)
+            | Instruction::I32toF64(id, dest, src)
+            | Instruction::U64toF64(id, dest, src)
+            | Instruction::I64toF64(id, dest, src)
+            | Instruction::F32toF64(id, dest, src) => {
+                write!(f, "[{}] {} = (F64) {}", id, dest, src)
             }
-            Instruction::Nop => {
-                write!(f, "Nop")
+            Instruction::Nop(id) => {
+                write!(f, "[{}] Nop", id)
             }
-            Instruction::Break(loop_block_id) => {
-                write!(f, "break {}", loop_block_id)
+            Instruction::Break(id, loop_block_id) => {
+                write!(f, "[{}] break {}", id, loop_block_id)
             }
-            Instruction::Continue(loop_block_id) => {
-                write!(f, "continue {}", loop_block_id)
+            Instruction::Continue(id, loop_block_id) => {
+                write!(f, "[{}] continue {}", id, loop_block_id)
             }
-            Instruction::EndHandledBlock(multiple_block_id) => {
-                write!(f, "endHandled {}", multiple_block_id)
+            Instruction::EndHandledBlock(id, multiple_block_id) => {
+                write!(f, "[{}] endHandled {}", id, multiple_block_id)
             }
-            Instruction::IfEqElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} == {} {{ ", src1, src2)?;
+            Instruction::IfEqElse(id, src1, src2, if_block, else_block) => {
+                write!(f, "[{}] if {} == {} {{ ", id, src1, src2)?;
                 for instr in if_block {
                     write!(f, "{}; ", instr)?;
                 }
@@ -439,8 +453,8 @@ impl fmt::Display for Instruction {
                 }
                 write!(f, "}}")
             }
-            Instruction::IfNotEqElse(src1, src2, if_block, else_block) => {
-                write!(f, "if {} != {} {{ ", src1, src2)?;
+            Instruction::IfNotEqElse(id, src1, src2, if_block, else_block) => {
+                write!(f, "[{}] if {} != {} {{ ", id, src1, src2)?;
                 for instr in if_block {
                     write!(f, "{}; ", instr)?;
                 }
