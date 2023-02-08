@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::backend::stack_frame_operations::load_frame_ptr;
 use crate::backend::target_code_generation_context::FunctionContext;
 use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
@@ -5,7 +7,6 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::{Constant, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
-use log::debug;
 
 /// Insert a load instruction of the correct type
 pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
@@ -81,7 +82,12 @@ pub fn load_var_address(
     var_id: &VarId,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
+    prog_metadata: &Box<ProgramMetadata>,
 ) {
+    if prog_metadata.is_var_the_null_dest(var_id) {
+        return;
+    }
+
     match function_context.var_fp_offsets.get(var_id) {
         None => {
             match function_context.global_var_addrs.get(var_id) {
@@ -115,9 +121,13 @@ pub fn load_var(
     function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
+    if prog_metadata.is_var_the_null_dest(&var_id) {
+        return;
+    }
+
     let var_type = prog_metadata.get_var_type(&var_id).unwrap();
 
-    load_var_address(&var_id, wasm_instrs, function_context);
+    load_var_address(&var_id, wasm_instrs, function_context, prog_metadata);
 
     load(var_type, wasm_instrs);
 }
@@ -130,8 +140,13 @@ pub fn store_var(
     function_context: &FunctionContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) {
+    // ignore stores to the null dest
+    if prog_metadata.is_var_the_null_dest(&var_id) {
+        return;
+    }
+
     // address operand
-    load_var_address(&var_id, wasm_instrs, function_context);
+    load_var_address(&var_id, wasm_instrs, function_context, prog_metadata);
 
     // put the value to store onto the stack
     wasm_instrs.append(&mut store_value_instrs);

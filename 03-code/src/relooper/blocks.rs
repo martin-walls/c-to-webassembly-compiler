@@ -2,8 +2,10 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use crate::fmt_indented::{FmtIndented, IndentLevel};
-use crate::middle_end::ids::{Id, LabelId};
-use crate::middle_end::instructions::Instruction;
+use crate::middle_end::ids::{Id, InstructionId, LabelId};
+use crate::middle_end::instructions::{
+    remove_instr_from_instr_list, replace_instr_from_instr_list, Instruction,
+};
 
 /// A 'label' block. This is a list of instructions starting with a label
 /// and ending with one or more branch instructions.
@@ -40,6 +42,17 @@ impl Label {
         }
         targets
     }
+
+    /// Returns true if the instruction was successfully found and removed
+    fn remove_instr(&mut self, instr_id: &InstructionId) -> bool {
+        remove_instr_from_instr_list(instr_id, &mut self.instrs)
+    }
+
+    /// Returns true if the instruction was successfully found and replaced with
+    /// the new instruction
+    fn replace_instr(&mut self, instr_id: &InstructionId, new_instr: Instruction) -> bool {
+        replace_instr_from_instr_list(instr_id, new_instr, &mut self.instrs)
+    }
 }
 
 impl fmt::Display for Label {
@@ -66,6 +79,10 @@ pub enum Block {
     },
     Multiple {
         id: MultipleBlockId,
+        /// These are here to represent the Wasm instrs that will get inserted in
+        /// target code generation. They won't get directly translated to real
+        /// instructions.
+        pre_handled_blocks_instrs: Vec<Instruction>,
         handled_blocks: Vec<Box<Block>>,
         next: Option<Box<Block>>,
     },
@@ -95,6 +112,83 @@ impl Block {
                 }
 
                 labels
+            }
+        }
+    }
+
+    /// Returns true if the instruction was successfully found and removed
+    pub fn remove_instr(&mut self, instr_id: &InstructionId) -> bool {
+        match self {
+            Block::Simple { internal, next } => {
+                if internal.remove_instr(instr_id) {
+                    return true;
+                }
+                if let Some(next) = next {
+                    return next.remove_instr(instr_id);
+                }
+                false
+            }
+            Block::Loop { inner, next, .. } => {
+                if inner.remove_instr(instr_id) {
+                    return true;
+                }
+                if let Some(next) = next {
+                    return next.remove_instr(instr_id);
+                }
+                false
+            }
+            Block::Multiple {
+                handled_blocks,
+                next,
+                ..
+            } => {
+                for handled in handled_blocks {
+                    if handled.remove_instr(instr_id) {
+                        return true;
+                    }
+                }
+                if let Some(next) = next {
+                    return next.remove_instr(instr_id);
+                }
+                false
+            }
+        }
+    }
+
+    pub fn replace_instr(&mut self, instr_id: &InstructionId, new_instr: Instruction) -> bool {
+        match self {
+            Block::Simple { internal, next } => {
+                if internal.replace_instr(instr_id, new_instr.to_owned()) {
+                    return true;
+                }
+                if let Some(next) = next {
+                    return next.replace_instr(instr_id, new_instr);
+                }
+                false
+            }
+            Block::Loop { inner, next, .. } => {
+                if inner.replace_instr(instr_id, new_instr.to_owned()) {
+                    return true;
+                }
+                if let Some(next) = next {
+                    return next.replace_instr(instr_id, new_instr);
+                }
+                false
+            }
+            Block::Multiple {
+                handled_blocks,
+                next,
+                ..
+            } => {
+                for handled in handled_blocks {
+                    if handled.replace_instr(instr_id, new_instr.to_owned()) {
+                        return true;
+                    }
+                }
+                if let Some(next) = next {
+                    return next.replace_instr(instr_id, new_instr);
+                }
+                false
             }
         }
     }
@@ -160,6 +254,7 @@ impl FmtIndented for Block {
             }
             Block::Multiple {
                 id,
+                pre_handled_blocks_instrs: _,
                 handled_blocks,
                 next,
             } => {

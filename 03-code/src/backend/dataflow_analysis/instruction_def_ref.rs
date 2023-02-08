@@ -133,6 +133,9 @@ pub fn ref_set(instr: &Instruction) -> HashSet<VarId> {
             Src::Constant(_) => {}
             Src::Fun(_) => {}
         },
+        Instruction::ReferenceVariable(_, var) => {
+            referenced_vars.insert(var.to_owned());
+        }
         Instruction::StoreToAddress(_, src1, src2) => {
             referenced_vars.insert(src1.to_owned());
             match src2 {

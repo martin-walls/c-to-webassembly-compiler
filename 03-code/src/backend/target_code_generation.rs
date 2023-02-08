@@ -253,11 +253,11 @@ pub fn generate_target_code(
         // all functions have empty type, because params/result are stored in stack frame
         func_idx_to_type_idx_map.insert(wasm_func_idx.to_owned(), empty_type_idx.to_owned());
 
-        if let Some(block) = function.block {
+        if let Some(mut block) = function.block {
             let mut function_wasm_instrs = Vec::new();
 
             let var_offsets = allocate_local_vars(
-                &block,
+                &mut block,
                 &mut function_wasm_instrs,
                 function.type_info,
                 function.param_var_mappings,
@@ -430,6 +430,7 @@ fn convert_block_to_wasm(
         }
         Block::Multiple {
             id,
+            pre_handled_blocks_instrs: _,
             handled_blocks,
             next,
         } => {
@@ -535,14 +536,14 @@ fn convert_ir_instr_to_wasm(
 
             store(inner_dest_type, wasm_instrs);
         }
-        Instruction::DeclareVariable(..) => {
+        Instruction::DeclareVariable(..) | Instruction::ReferenceVariable(..) => {
             // no instructions to generate here
         }
         Instruction::AllocateVariable(_, dest, byte_size) => {
             // allocate byte_size many bytes on the stack, and set dest to be a pointer to there
             //
             // store the current stack pointer to dest
-            load_var_address(&dest, wasm_instrs, function_context);
+            load_var_address(&dest, wasm_instrs, function_context, prog_metadata);
 
             // let mut load_stack_ptr_instrs = Vec::new();
             load_stack_ptr(wasm_instrs);
@@ -587,7 +588,7 @@ fn convert_ir_instr_to_wasm(
             };
 
             let mut temp_instrs = Vec::new();
-            load_var_address(&src_var, &mut temp_instrs, function_context);
+            load_var_address(&src_var, &mut temp_instrs, function_context, prog_metadata);
 
             store_var(
                 dest,
@@ -1921,7 +1922,7 @@ fn convert_ir_instr_to_wasm(
             // load src as i64
             match src {
                 Src::Var(var_id) => {
-                    load_var_address(&var_id, &mut temp_instrs, function_context);
+                    load_var_address(&var_id, &mut temp_instrs, function_context, prog_metadata);
                     // load i32 into an i64
                     temp_instrs.push(WasmInstruction::I64Load32S {
                         mem_arg: MemArg::zero(),
@@ -1947,7 +1948,7 @@ fn convert_ir_instr_to_wasm(
             // load src as i64
             match src {
                 Src::Var(var_id) => {
-                    load_var_address(&var_id, &mut temp_instrs, function_context);
+                    load_var_address(&var_id, &mut temp_instrs, function_context, prog_metadata);
                     // load u32 into an i64
                     temp_instrs.push(WasmInstruction::I64Load32U {
                         mem_arg: MemArg::zero(),

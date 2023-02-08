@@ -8,7 +8,7 @@ pub type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
 
 pub fn live_variable_analysis(flowgraph: &Flowgraph) -> LiveVariableMap {
     // for every instr, which vars are live at that point
-    let mut live: LiveVariableMap = HashMap::new();
+    let mut live: LiveVariableMap = LiveVariableMap::new();
 
     let mut changes = true;
     while changes {

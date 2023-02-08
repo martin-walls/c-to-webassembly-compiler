@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
-use log::trace;
+use log::{debug, trace};
 
 use crate::backend::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
 use crate::middle_end::ids::{
@@ -129,6 +129,7 @@ pub struct ProgramMetadata {
     pub structs: HashMap<StructId, StructType>,
     pub unions: HashMap<UnionId, UnionType>,
     pub enum_member_values: HashMap<String, u64>,
+    pub null_dest_var: Option<Dest>,
 }
 
 impl ProgramMetadata {
@@ -150,6 +151,7 @@ impl ProgramMetadata {
             structs: HashMap::new(),
             unions: HashMap::new(),
             enum_member_values: HashMap::new(),
+            null_dest_var: None,
         }
     }
 
@@ -255,6 +257,33 @@ impl ProgramMetadata {
             None => return Err(MiddleEndError::NoMainFunctionDefined),
             Some(fun_id) => Ok(fun_id.to_owned()),
         }
+    }
+
+    pub fn init_null_dest_var(&mut self) -> Dest {
+        match &self.null_dest_var {
+            Some(dest) => {
+                debug!("null var already initialised: {}", dest);
+                dest.to_owned()
+            }
+            None => {
+                let null_var = self.new_var(ValueType::None);
+                self.null_dest_var = Some(null_var.to_owned());
+                debug!("new null var: {}", null_var);
+                null_var
+            }
+        }
+    }
+
+    pub fn is_var_the_null_dest(&self, dest: &Dest) -> bool {
+        if let Some(null) = &self.null_dest_var {
+            return null == dest;
+        }
+        // if there's no null dest var set, then false
+        false
+    }
+
+    pub fn new_instr_id(&mut self) -> InstructionId {
+        self.instr_id_generator.new_id()
     }
 }
 

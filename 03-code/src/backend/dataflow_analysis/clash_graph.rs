@@ -1,18 +1,26 @@
-use crate::backend::dataflow_analysis::live_variable_analysis::LiveVariableMap;
-use crate::middle_end::ids::VarId;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;
 
+use crate::backend::dataflow_analysis::flowgraph::{generate_flowgraph, Flowgraph};
+use crate::backend::dataflow_analysis::live_variable_analysis::{
+    live_variable_analysis, LiveVariableMap,
+};
+use crate::middle_end::ids::VarId;
+use crate::middle_end::instructions::Instruction;
+use crate::relooper::blocks::Block;
+
 #[derive(Clone)]
 pub struct ClashGraph {
     pub clashes: HashMap<VarId, HashSet<VarId>>,
+    universal_clashes: HashSet<VarId>,
 }
 
 impl ClashGraph {
     fn new() -> Self {
         ClashGraph {
             clashes: HashMap::new(),
+            universal_clashes: HashSet::new(),
         }
     }
 
@@ -24,6 +32,7 @@ impl ClashGraph {
 
     pub fn remove_var(&mut self, var: &VarId) {
         self.clashes.remove(var);
+        self.universal_clashes.remove(var);
         for (var, clashes) in &mut self.clashes {
             clashes.remove(var);
         }
@@ -37,13 +46,34 @@ impl ClashGraph {
         self.clashes.get_mut(&var2).unwrap().insert(var1);
     }
 
+    fn add_universal_clash(&mut self, var: VarId) {
+        self.universal_clashes.insert(var);
+    }
+
     pub fn count_clashes(&self, var: &VarId) -> usize {
+        if self.universal_clashes.contains(var) {
+            return usize::MAX;
+        }
         match self.clashes.get(var) {
             Some(clashes) => clashes.len(),
             None => {
                 // if var isn't in clash graph, it has no clashes to other vars
                 0 as usize
             }
+        }
+    }
+
+    pub fn do_vars_clash(&self, var1: &VarId, var2: &VarId) -> bool {
+        if self.universal_clashes.contains(var1) || self.universal_clashes.contains(var2) {
+            return true;
+        }
+        // the clash graph is symmetric, so we only need to check in one direction
+        match self.clashes.get(var1) {
+            None => {
+                // if var isn't in clash graph, it has no clashes to other vars
+                true
+            }
+            Some(clashes) => clashes.contains(var2),
         }
     }
 }
@@ -62,7 +92,10 @@ impl fmt::Display for ClashGraph {
     }
 }
 
-pub fn generate_clash_graph(live_vars: &LiveVariableMap) -> ClashGraph {
+pub fn generate_clash_graph(block: &Box<Block>) -> ClashGraph {
+    let flowgraph = generate_flowgraph(block);
+    let live_vars = live_variable_analysis(&flowgraph);
+
     let mut clash_graph = ClashGraph::new();
 
     for (_instr, simultaneously_live_vars) in live_vars {
@@ -85,5 +118,20 @@ pub fn generate_clash_graph(live_vars: &LiveVariableMap) -> ClashGraph {
         }
     }
 
+    // any var that we take address of should clash with everything else,
+    // to ensure safety of analysis
+    insert_universal_clashes_for_address_taken_vars(&mut clash_graph, &flowgraph);
+
     clash_graph
+}
+
+fn insert_universal_clashes_for_address_taken_vars(
+    clash_graph: &mut ClashGraph,
+    flowgraph: &Flowgraph,
+) {
+    for (_id, instr) in &flowgraph.instrs {
+        if let Instruction::AddressOf(_, _, src) = instr {
+            clash_graph.add_universal_clash(src.unwrap_var().unwrap());
+        }
+    }
 }

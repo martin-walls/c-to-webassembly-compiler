@@ -1,4 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::process::exit;
+
+use log::debug;
 
 use crate::middle_end::ids::{Id, IdGenerator, InstructionId};
 use crate::middle_end::instructions::Instruction;
@@ -25,7 +28,8 @@ impl Flowgraph {
         }
     }
 
-    fn add_instr(&mut self, instr_id: InstructionId, instr: Instruction) {
+    fn add_instr(&mut self, instr: Instruction) {
+        let instr_id = instr.get_instr_id();
         self.instrs.insert(instr_id.to_owned(), instr);
         // init adjacency lists
         self.successors.insert(instr_id.to_owned(), HashSet::new());
@@ -44,21 +48,51 @@ impl Flowgraph {
             .unwrap()
             .insert(instr_id);
     }
+
+    pub fn remove_instr(&mut self, instr_id: &InstructionId) {
+        // if instr not in flowgraph, nothing to do
+        if !self.instrs.contains_key(instr_id) {
+            return;
+        }
+        let mut successors = self.successors.remove(instr_id).unwrap();
+        let mut predecessors = self.predecessors.remove(instr_id).unwrap();
+        // just in case
+        successors.remove(instr_id);
+        predecessors.remove(instr_id);
+
+        self.instrs.remove(instr_id);
+        self.successors.remove(instr_id);
+        self.predecessors.remove(instr_id);
+
+        for (successor_id, _) in &self.successors {
+            self.predecessors
+                .insert(successor_id.to_owned(), predecessors.to_owned());
+        }
+        for (predecessor_id, _) in &self.predecessors {
+            self.successors
+                .insert(predecessor_id.to_owned(), successors.to_owned());
+        }
+
+        if self.entries.contains(instr_id) {
+            self.entries.remove(instr_id);
+            self.entries.extend(successors);
+        }
+        if self.exits.contains(instr_id) {
+            self.exits.remove(instr_id);
+            self.exits.extend(predecessors);
+        }
+    }
 }
 
 pub fn generate_flowgraph(relooper_block: &Box<Block>) -> Flowgraph {
-    let mut instr_id_generator = IdGenerator::<InstructionId>::new();
-
     let mut flowgraph = Flowgraph::new();
 
-    let (flowgraph_entries, flowgraph_exits) = add_block_to_flowgraph_and_get_entries_and_exits(
-        relooper_block,
-        &mut flowgraph,
-        &mut instr_id_generator,
-    );
+    let (flowgraph_entries, flowgraph_exits, flowgraph_jump_exits) =
+        add_block_to_flowgraph_and_get_entries_and_exits(relooper_block, &mut flowgraph);
 
     flowgraph.entries = flowgraph_entries;
     flowgraph.exits = flowgraph_exits;
+    flowgraph.exits.extend(flowgraph_jump_exits);
 
     flowgraph
 }
@@ -66,38 +100,36 @@ pub fn generate_flowgraph(relooper_block: &Box<Block>) -> Flowgraph {
 fn add_block_to_flowgraph_and_get_entries_and_exits(
     block: &Box<Block>,
     flowgraph: &mut Flowgraph,
-    instr_id_generator: &mut IdGenerator<InstructionId>,
-) -> (HashSet<InstructionId>, HashSet<InstructionId>) {
+) -> (
+    HashSet<InstructionId>,
+    HashSet<InstructionId>,
+    HashSet<InstructionId>,
+) {
     match &**block {
         Block::Simple { internal, next } => {
             if internal.instrs.is_empty() {
                 // shouldn't really ever be the case
                 if let Some(next) = next {
                     // just skip this block if it happens to have no instructions
-                    return add_block_to_flowgraph_and_get_entries_and_exits(
-                        next,
-                        flowgraph,
-                        instr_id_generator,
-                    );
+                    return add_block_to_flowgraph_and_get_entries_and_exits(next, flowgraph);
                 }
-                return (HashSet::new(), HashSet::new());
+                return (HashSet::new(), HashSet::new(), HashSet::new());
             }
 
-            let (block_entry_instr, mut block_exit_instrs, jump_exit_instrs) =
-                add_instrs_to_flowgraph(&internal.instrs, flowgraph, instr_id_generator);
+            let (block_entry_instr, mut block_exit_instrs, mut jump_exit_instrs) =
+                add_instrs_to_flowgraph(&internal.instrs, flowgraph);
 
-            block_exit_instrs.extend(jump_exit_instrs);
+            block_exit_instrs.extend(jump_exit_instrs.to_owned());
 
             let mut block_entry_instrs = HashSet::new();
-            block_entry_instrs.insert(block_entry_instr);
+            // we've checked that instrs is non-empty, so we can unwrap safely
+            block_entry_instrs.insert(block_entry_instr.unwrap());
 
             if let Some(next) = next {
-                let (successors, next_exit_instrs) =
-                    add_block_to_flowgraph_and_get_entries_and_exits(
-                        next,
-                        flowgraph,
-                        instr_id_generator,
-                    );
+                let (successors, next_exit_instrs, next_jump_exit_instrs) =
+                    add_block_to_flowgraph_and_get_entries_and_exits(next, flowgraph);
+
+                jump_exit_instrs.extend(next_jump_exit_instrs);
 
                 for successor in successors {
                     for end_of_block_instr in &block_exit_instrs {
@@ -106,18 +138,14 @@ fn add_block_to_flowgraph_and_get_entries_and_exits(
                     }
                 }
 
-                (block_entry_instrs, next_exit_instrs)
+                (block_entry_instrs, next_exit_instrs, jump_exit_instrs)
             } else {
-                (block_entry_instrs, block_exit_instrs)
+                (block_entry_instrs, block_exit_instrs, jump_exit_instrs)
             }
         }
         Block::Loop { id: _, inner, next } => {
-            let (inner_entry_instrs, inner_exit_instrs) =
-                add_block_to_flowgraph_and_get_entries_and_exits(
-                    inner,
-                    flowgraph,
-                    instr_id_generator,
-                );
+            let (inner_entry_instrs, inner_exit_instrs, mut inner_jump_exit_instrs) =
+                add_block_to_flowgraph_and_get_entries_and_exits(inner, flowgraph);
 
             // make start of loop successor of end of loop
             for start_of_loop_instr in &inner_entry_instrs {
@@ -127,69 +155,118 @@ fn add_block_to_flowgraph_and_get_entries_and_exits(
                         start_of_loop_instr.to_owned(),
                     );
                 }
+
+                // might be a `continue` jumping back to the start of the loop
+                for jump_exit_instr in &inner_jump_exit_instrs {
+                    flowgraph
+                        .add_successor(jump_exit_instr.to_owned(), start_of_loop_instr.to_owned());
+                }
             }
 
             if let Some(next) = next {
-                let (next_entry_instrs, next_exit_instrs) =
-                    add_block_to_flowgraph_and_get_entries_and_exits(
-                        next,
-                        flowgraph,
-                        instr_id_generator,
-                    );
+                let (next_entry_instrs, next_exit_instrs, next_jump_exit_instrs) =
+                    add_block_to_flowgraph_and_get_entries_and_exits(next, flowgraph);
 
                 for successor in next_entry_instrs {
                     for end_of_loop_instr in &inner_exit_instrs {
                         flowgraph.add_successor(end_of_loop_instr.to_owned(), successor.to_owned());
                     }
+
+                    // could be a `break` jump
+                    for jump_exit_instr in &inner_jump_exit_instrs {
+                        flowgraph.add_successor(jump_exit_instr.to_owned(), successor.to_owned());
+                    }
                 }
 
-                (inner_entry_instrs, next_exit_instrs)
+                inner_jump_exit_instrs.extend(next_jump_exit_instrs);
+
+                (inner_entry_instrs, next_exit_instrs, inner_jump_exit_instrs)
             } else {
-                (inner_entry_instrs, inner_exit_instrs)
+                (
+                    inner_entry_instrs,
+                    inner_exit_instrs,
+                    inner_jump_exit_instrs,
+                )
             }
         }
         Block::Multiple {
             id: _,
+            pre_handled_blocks_instrs,
             handled_blocks,
             next,
         } => {
             // combine entries and exits from all handled blocks
             let mut entry_instrs = HashSet::new();
             let mut all_handled_exit_instrs = HashSet::new();
+            let mut all_handled_jump_exit_instrs = HashSet::new();
+
+            let (pre_handled_entry, pre_handled_exits, _jump_exits) =
+                add_instrs_to_flowgraph(pre_handled_blocks_instrs, flowgraph);
+
+            if let Some(entry) = pre_handled_entry {
+                entry_instrs.insert(entry);
+            }
+
+            // let entry_instrs = pre_handled_blocks_instrs
+            //     .iter()
+            //     .map(|i| i.get_instr_id())
+            //     .collect::<HashSet<InstructionId>>();
 
             for handled_block in handled_blocks {
-                let (handled_entry_instrs, handled_exit_instrs) =
-                    add_block_to_flowgraph_and_get_entries_and_exits(
-                        handled_block,
-                        flowgraph,
-                        instr_id_generator,
-                    );
+                let (handled_entry_instrs, handled_exit_instrs, handled_jump_exit_instrs) =
+                    add_block_to_flowgraph_and_get_entries_and_exits(handled_block, flowgraph);
 
-                entry_instrs.extend(handled_entry_instrs);
+                if pre_handled_exits.is_empty() {
+                    entry_instrs.extend(handled_entry_instrs);
+                } else {
+                    for pre_handled in &pre_handled_exits {
+                        for handled_entry in &handled_entry_instrs {
+                            flowgraph
+                                .add_successor(pre_handled.to_owned(), handled_entry.to_owned());
+                        }
+                    }
+                }
+
                 all_handled_exit_instrs.extend(handled_exit_instrs);
+                all_handled_jump_exit_instrs.extend(handled_jump_exit_instrs);
             }
 
             if let Some(next) = next {
-                let (next_entry_instrs, next_exit_instrs) =
-                    add_block_to_flowgraph_and_get_entries_and_exits(
-                        next,
-                        flowgraph,
-                        instr_id_generator,
-                    );
+                let (next_entry_instrs, next_exit_instrs, next_jump_exit_instrs) =
+                    add_block_to_flowgraph_and_get_entries_and_exits(next, flowgraph);
 
                 // could skip handled blocks and go straight to next block
-                entry_instrs.extend(next_entry_instrs.to_owned());
+                if pre_handled_exits.is_empty() {
+                    entry_instrs.extend(next_entry_instrs.to_owned());
+                } else {
+                    for pre_handled in &pre_handled_exits {
+                        for next_entry in &next_entry_instrs {
+                            flowgraph.add_successor(pre_handled.to_owned(), next_entry.to_owned());
+                        }
+                    }
+                }
 
                 for successor in next_entry_instrs {
                     for end_of_handled_instr in &all_handled_exit_instrs {
                         flowgraph
                             .add_successor(end_of_handled_instr.to_owned(), successor.to_owned());
                     }
+
+                    // could be an `endHandled` jump
+                    for jump_exit_instr in &all_handled_jump_exit_instrs {
+                        flowgraph.add_successor(jump_exit_instr.to_owned(), successor.to_owned())
+                    }
                 }
 
-                (entry_instrs, next_exit_instrs)
+                all_handled_jump_exit_instrs.extend(next_jump_exit_instrs);
+
+                (entry_instrs, next_exit_instrs, all_handled_jump_exit_instrs)
             } else {
-                (entry_instrs, all_handled_exit_instrs)
+                (
+                    entry_instrs,
+                    all_handled_exit_instrs,
+                    all_handled_jump_exit_instrs,
+                )
             }
         }
     }
@@ -198,22 +275,20 @@ fn add_block_to_flowgraph_and_get_entries_and_exits(
 fn add_instrs_to_flowgraph(
     instrs: &Vec<Instruction>,
     flowgraph: &mut Flowgraph,
-    instr_id_generator: &mut IdGenerator<InstructionId>,
 ) -> (
-    InstructionId,
+    Option<InstructionId>, // can be None eg. if this is an empty else block
     HashSet<InstructionId>,
     HashSet<InstructionId>,
 ) {
-    // dummy value that'll get overwritten
-    let mut entry_instr = InstructionId(0);
+    let mut entry_instr = None;
     let mut exit_instrs = HashSet::new();
-    let mut block_exit_instrs = HashSet::new();
+    let mut jump_exit_instrs = HashSet::new();
 
     let mut prev_instrs: HashSet<InstructionId> = HashSet::new();
     for i in 0..instrs.len() {
-        let instr_id = instr_id_generator.new_id();
         let instr = instrs.get(i).unwrap();
-        flowgraph.add_instr(instr_id.to_owned(), instr.to_owned());
+        let instr_id = instr.get_instr_id();
+        flowgraph.add_instr(instr.to_owned());
 
         match instr {
             Instruction::Break(..)
@@ -226,13 +301,13 @@ fn add_instrs_to_flowgraph(
                     flowgraph.add_successor(prev_instr_id.to_owned(), instr_id.to_owned());
                 }
                 // these instrs jump out of this block
-                block_exit_instrs.insert(instr_id.to_owned());
+                jump_exit_instrs.insert(instr_id.to_owned());
 
                 // next instr isn't a successor
                 prev_instrs.clear();
 
                 if i == 0 {
-                    entry_instr = instr_id.to_owned();
+                    entry_instr = Some(instr_id.to_owned());
                 }
                 if i == instrs.len() - 1 {
                     exit_instrs.insert(instr_id.to_owned());
@@ -248,23 +323,27 @@ fn add_instrs_to_flowgraph(
                     flowgraph.add_successor(prev_instr_id.to_owned(), instr_id.to_owned());
                 }
 
-                let (instrs1_entry, instrs1_exits, instrs1_block_exits) =
-                    add_instrs_to_flowgraph(&instrs1, flowgraph, instr_id_generator);
-                let (instrs2_entry, instrs2_exits, instrs2_block_exits) =
-                    add_instrs_to_flowgraph(&instrs2, flowgraph, instr_id_generator);
+                let (instrs1_entry, instrs1_exits, instrs1_jump_exits) =
+                    add_instrs_to_flowgraph(&instrs1, flowgraph);
+                let (instrs2_entry, instrs2_exits, instrs2_jump_exits) =
+                    add_instrs_to_flowgraph(&instrs2, flowgraph);
 
-                flowgraph.add_successor(instr_id.to_owned(), instrs1_entry);
-                flowgraph.add_successor(instr_id.to_owned(), instrs2_entry);
+                if let Some(entry) = instrs1_entry {
+                    flowgraph.add_successor(instr_id.to_owned(), entry);
+                }
+                if let Some(entry) = instrs2_entry {
+                    flowgraph.add_successor(instr_id.to_owned(), entry);
+                }
 
                 prev_instrs.clear();
                 prev_instrs.extend(instrs1_exits.to_owned());
                 prev_instrs.extend(instrs2_exits.to_owned());
 
-                block_exit_instrs.extend(instrs1_block_exits);
-                block_exit_instrs.extend(instrs2_block_exits);
+                jump_exit_instrs.extend(instrs1_jump_exits);
+                jump_exit_instrs.extend(instrs2_jump_exits);
 
                 if i == 0 {
-                    entry_instr = instr_id.to_owned();
+                    entry_instr = Some(instr_id.to_owned());
                 }
                 if i == instrs.len() - 1 {
                     exit_instrs.extend(instrs1_exits);
@@ -280,7 +359,7 @@ fn add_instrs_to_flowgraph(
                 prev_instrs.insert(instr_id.to_owned());
 
                 if i == 0 {
-                    entry_instr = instr_id.to_owned();
+                    entry_instr = Some(instr_id.to_owned());
                 }
                 if i == instrs.len() - 1 {
                     exit_instrs.insert(instr_id.to_owned());
@@ -289,5 +368,5 @@ fn add_instrs_to_flowgraph(
         }
     }
 
-    (entry_instr, exit_instrs, block_exit_instrs)
+    (entry_instr, exit_instrs, jump_exit_instrs)
 }

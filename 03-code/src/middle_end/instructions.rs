@@ -151,6 +151,9 @@ pub enum Instruction {
     DeclareVariable(InstructionId, Dest),
     AllocateVariable(InstructionId, Dest, Src),
 
+    // A temp instr for the IR, to make a var live
+    ReferenceVariable(InstructionId, VarId),
+
     // Unary operations
     // t = <op> a
     AddressOf(InstructionId, Dest, Src),
@@ -276,6 +279,7 @@ impl Instruction {
             | Instruction::StoreToAddress(id, _, _)
             | Instruction::DeclareVariable(id, _)
             | Instruction::AllocateVariable(id, _, _)
+            | Instruction::ReferenceVariable(id, ..)
             | Instruction::AddressOf(id, _, _)
             | Instruction::BitwiseNot(id, _, _)
             | Instruction::LogicalNot(id, _, _)
@@ -551,4 +555,59 @@ impl fmt::Display for Instruction {
             }
         }
     }
+}
+
+/// Returns true if the instruction was successfully found and removed
+pub fn remove_instr_from_instr_list(
+    instr_id: &InstructionId,
+    instrs: &mut Vec<Instruction>,
+) -> bool {
+    for i in 0..instrs.len() {
+        let instr = instrs.get_mut(i).unwrap();
+        if &instr.get_instr_id() == instr_id {
+            instrs.remove(i);
+            return true;
+        }
+        match instr {
+            Instruction::IfEqElse(_, _, _, instrs1, instrs2)
+            | Instruction::IfNotEqElse(_, _, _, instrs1, instrs2) => {
+                if remove_instr_from_instr_list(instr_id, instrs1)
+                    || remove_instr_from_instr_list(instr_id, instrs2)
+                {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Returns true if the instruction was successfully found and replaced with
+/// the new instruction
+pub fn replace_instr_from_instr_list(
+    instr_id: &InstructionId,
+    new_instr: Instruction,
+    instrs: &mut Vec<Instruction>,
+) -> bool {
+    for i in 0..instrs.len() {
+        let instr = instrs.get_mut(i).unwrap();
+        if &instr.get_instr_id() == instr_id {
+            instrs.remove(i);
+            instrs.insert(i, new_instr);
+            return true;
+        }
+        match instr {
+            Instruction::IfEqElse(_, _, _, instrs1, instrs2)
+            | Instruction::IfNotEqElse(_, _, _, instrs1, instrs2) => {
+                if replace_instr_from_instr_list(instr_id, new_instr.to_owned(), instrs1)
+                    || replace_instr_from_instr_list(instr_id, new_instr.to_owned(), instrs2)
+                {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }

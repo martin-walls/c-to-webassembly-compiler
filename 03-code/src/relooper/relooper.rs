@@ -805,8 +805,14 @@ fn try_create_multiple_block(
         let next_block =
             create_block_from_labels(next_labels, next_entries, context, prog_metadata);
 
+        let pre_handled_blocks_instrs = vec![Instruction::ReferenceVariable(
+            prog_metadata.new_instr_id(),
+            context.label_variable.to_owned(),
+        )];
+
         return Some(Box::new(Block::Multiple {
             id: multiple_block_id,
+            pre_handled_blocks_instrs,
             handled_blocks,
             next: next_block,
         }));

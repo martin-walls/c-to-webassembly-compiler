@@ -17,7 +17,7 @@ use crate::relooper::blocks::Block;
 pub type VariableAllocationMap = HashMap<VarId, u32>;
 
 pub fn allocate_local_vars(
-    block: &Box<Block>,
+    block: &mut Box<Block>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     fun_type: Box<IrType>,
     fun_param_var_mappings: Vec<VarId>,
@@ -56,27 +56,20 @@ pub fn allocate_local_vars(
         offset += param_byte_size as u32;
     }
 
-    // get all vars used in this block -- all the variables to allocate
-    let mut local_vars = get_vars_from_block(block, prog_metadata);
-    // remove param vars, cos we don't need to allocate them again
-    for param_var in &fun_param_var_mappings {
-        local_vars.remove(param_var);
-    }
-
     if enabled_optimisations.is_stack_allocation_optimisation_enabled() {
         optimised_allocate_local_vars(
-            local_vars,
             block,
+            &fun_param_var_mappings,
             offset,
             var_offsets,
             wasm_instrs,
-            fun_param_var_mappings,
             module_context,
             prog_metadata,
         )
     } else {
         naive_allocate_local_vars(
-            local_vars,
+            block,
+            &fun_param_var_mappings,
             offset,
             var_offsets,
             wasm_instrs,

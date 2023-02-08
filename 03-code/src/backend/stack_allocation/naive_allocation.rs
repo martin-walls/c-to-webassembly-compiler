@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
@@ -7,16 +9,23 @@ use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::relooper::blocks::Block;
-use std::collections::HashMap;
 
 pub fn naive_allocate_local_vars(
-    vars: HashMap<VarId, Box<IrType>>,
+    block: &Box<Block>,
+    param_vars_not_to_allocate_again: &Vec<VarId>,
     start_offset: u32,
     mut var_offsets: VariableAllocationMap,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> VariableAllocationMap {
+    // get all vars used in this block -- all the variables to allocate
+    let mut vars = get_vars_from_block(block, prog_metadata);
+    // remove param vars, cos we don't need to allocate them again
+    for param_var in param_vars_not_to_allocate_again {
+        vars.remove(param_var);
+    }
+
     let mut offset = 0;
 
     // calculate offset of each local variable
