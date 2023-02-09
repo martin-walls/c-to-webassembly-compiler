@@ -998,7 +998,7 @@ impl Fsm {
                 '"' => match self.token {
                     Some(Token::StringLiteral(s)) => Some(Fsm {
                         state: State::String4,
-                        token: Some(Token::StringLiteral(s.to_owned())),
+                        token: Some(Token::StringLiteral(s)),
                     }),
                     _ => None,
                 },
@@ -1065,7 +1065,7 @@ impl Fsm {
                 '\'' => match self.token {
                     Some(Token::CharConstant(s)) => Some(Fsm {
                         state: State::Char10,
-                        token: Some(Token::CharConstant(s.to_owned())),
+                        token: Some(Token::CharConstant(s)),
                     }),
                     _ => None,
                 },
@@ -1098,7 +1098,7 @@ impl Fsm {
                 '\'' => match self.token {
                     Some(Token::CharConstant(s)) => Some(Fsm {
                         state: State::Char10,
-                        token: Some(Token::CharConstant(s.to_owned())),
+                        token: Some(Token::CharConstant(s)),
                     }),
                     _ => None,
                 },
@@ -1118,7 +1118,7 @@ impl Fsm {
                 '\'' => match self.token {
                     Some(Token::CharConstant(s)) => Some(Fsm {
                         state: State::Char10,
-                        token: Some(Token::CharConstant(s.to_owned())),
+                        token: Some(Token::CharConstant(s)),
                     }),
                     _ => None,
                 },
@@ -1138,7 +1138,7 @@ impl Fsm {
                 '\'' => match self.token {
                     Some(Token::CharConstant(s)) => Some(Fsm {
                         state: State::Char10,
-                        token: Some(Token::CharConstant(s.to_owned())),
+                        token: Some(Token::CharConstant(s)),
                     }),
                     _ => None,
                 },
@@ -1153,7 +1153,7 @@ fn is_identifier_char(c: &char) -> bool {
     c.is_ascii_alphabetic() || c.is_ascii_digit() || c == &'_'
 }
 
-fn lex_identifier(name: String, typedef_names: &Vec<String>) -> Fsm {
+fn lex_identifier(name: String, typedef_names: &[String]) -> Fsm {
     // check if identifier name matches a keyword
     if let Some(keyword) = parse_keyword(&name) {
         return Fsm {
@@ -1175,8 +1175,8 @@ fn lex_identifier(name: String, typedef_names: &Vec<String>) -> Fsm {
     }
 }
 
-fn parse_keyword(name: &String) -> Option<Token> {
-    match name.as_str() {
+fn parse_keyword(name: &str) -> Option<Token> {
+    match name {
         "auto" => Some(Token::Auto),
         "break" => Some(Token::Break),
         "case" => Some(Token::Case),

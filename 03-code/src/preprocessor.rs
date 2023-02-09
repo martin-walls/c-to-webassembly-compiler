@@ -12,7 +12,7 @@ use regex::Regex;
 pub fn preprocess(filepath: &Path) -> Result<String, PreprocessorError> {
     info!("Running preprocessor");
 
-    let (mut file_contents, includes) = remove_include_directives(&filepath)?;
+    let (mut file_contents, includes) = remove_include_directives(filepath)?;
 
     info!("Includes: {:?}", includes);
 
@@ -35,7 +35,7 @@ fn remove_include_directives(filepath: &Path) -> Result<(String, Vec<String>), P
     let mut includes: Vec<String> = Vec::new();
     let mut output = String::new();
 
-    match read_lines(&filepath) {
+    match read_lines(filepath) {
         Ok(lines) => {
             for line in lines {
                 if let Ok(l) = line {
@@ -66,7 +66,7 @@ fn check_for_include(line: &String) -> Option<String> {
         static ref INCLUDE_RE: Regex = Regex::new(r#"^#include\s[<"](.*)[>"]"#).unwrap();
     }
 
-    if let Some(captures) = INCLUDE_RE.captures(&line) {
+    if let Some(captures) = INCLUDE_RE.captures(line) {
         // store what the include was that we're removing
         if let Some(captured_include) = captures.get(1) {
             return Some(captured_include.as_str().to_owned());
@@ -92,32 +92,32 @@ fn include_headers(
             break;
         }
         let include_name = includes.pop().unwrap();
-        let header;
-        if include_name == format!("{}.h", filepath.file_stem().unwrap().to_str().unwrap()) {
-            header = match load_program_header(&filepath, &include_name) {
-                Err(e) => {
-                    return match e {
-                        PreprocessorError::FileNotFound(f) => {
-                            Err(PreprocessorError::UnsupportedHeaderInclude(f))
+        let header =
+            if include_name == format!("{}.h", filepath.file_stem().unwrap().to_str().unwrap()) {
+                match load_program_header(filepath, &include_name) {
+                    Err(e) => {
+                        return match e {
+                            PreprocessorError::FileNotFound(f) => {
+                                Err(PreprocessorError::UnsupportedHeaderInclude(f))
+                            }
+                            _ => Err(e),
                         }
-                        _ => Err(e),
                     }
+                    Ok(s) => s,
                 }
-                Ok(s) => s,
-            }
-        } else {
-            header = match load_header_file(&include_name) {
-                Err(e) => {
-                    return match e {
-                        PreprocessorError::FileNotFound(f) => {
-                            Err(PreprocessorError::UnsupportedHeaderInclude(f))
+            } else {
+                match load_header_file(&include_name) {
+                    Err(e) => {
+                        return match e {
+                            PreprocessorError::FileNotFound(f) => {
+                                Err(PreprocessorError::UnsupportedHeaderInclude(f))
+                            }
+                            _ => Err(e),
                         }
-                        _ => Err(e),
                     }
+                    Ok(s) => s,
                 }
-                Ok(s) => s,
-            }
-        }
+            };
         let (header_source, mut new_includes) = header;
         info!("New includes: {:?}", new_includes);
         includes.append(&mut new_includes);
@@ -134,7 +134,7 @@ fn load_program_header(
     let path = match source_filepath.parent() {
         Some(p) => {
             let mut path = PathBuf::from(p);
-            path.push(&header_name);
+            path.push(header_name);
             path
         }
         None => PathBuf::from(&header_name),
@@ -166,7 +166,7 @@ fn run_c_preprocessor(source: String) -> Result<String, Box<dyn Error>> {
         .stdin
         .as_mut()
         .ok_or("Child process stdin hasn't been captured")?
-        .write_all(&source.as_bytes())?;
+        .write_all(source.as_bytes())?;
 
     // capture the output from cpp
     let output = cpp_child.wait_with_output()?;

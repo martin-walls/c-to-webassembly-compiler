@@ -164,25 +164,23 @@ fn assert_no_branch_instrs_left(block: &Box<Block>) {
     match &**block {
         Block::Simple { internal, next } => {
             for instr in &internal.instrs {
-                let is_branch_instr = match instr {
-                    Instruction::Br(..) | Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..) => {
-                        true
-                    }
-                    _ => false,
-                };
+                let is_branch_instr = matches!(
+                    instr,
+                    Instruction::Br(..) | Instruction::BrIfEq(..) | Instruction::BrIfNotEq(..)
+                );
                 assert!(
                     !is_branch_instr,
                     "No branch instructions should be left in output of relooper"
                 )
             }
             if let Some(next) = next {
-                assert_no_branch_instrs_left(&next);
+                assert_no_branch_instrs_left(next);
             }
         }
         Block::Loop { inner, next, .. } => {
-            assert_no_branch_instrs_left(&inner);
+            assert_no_branch_instrs_left(inner);
             if let Some(next) = next {
-                assert_no_branch_instrs_left(&next);
+                assert_no_branch_instrs_left(next);
             }
         }
         Block::Multiple {
@@ -194,7 +192,7 @@ fn assert_no_branch_instrs_left(block: &Box<Block>) {
                 assert_no_branch_instrs_left(handled_block);
             }
             if let Some(next) = next {
-                assert_no_branch_instrs_left(&next);
+                assert_no_branch_instrs_left(next);
             }
         }
     }
@@ -316,7 +314,7 @@ fn combine_reachability_from_entries(
 
     for entry in entries {
         // add the reachability for each entry
-        for label in reachability.get(&entry).unwrap() {
+        for label in reachability.get(entry).unwrap() {
             combined_reachability.insert(label.to_owned());
         }
     }
@@ -405,7 +403,7 @@ fn replace_branch_instrs(
             // branch instruction has already been converted to a break/continue/endHandled
             let else_instrs = vec![
                 label.instrs.get(label.instrs.len() - 2).unwrap().to_owned(),
-                label.instrs.get(label.instrs.len() - 1).unwrap().to_owned(),
+                label.instrs.last().unwrap().to_owned(),
             ];
             let new_instr = match conditional_branch_instr {
                 Instruction::BrIfEq(_, src1, src2, label_id) => Instruction::IfEqElse(
@@ -511,7 +509,7 @@ fn create_loop_block(
 
     // find the entries for the next block
     let mut next_entries = HashSet::new();
-    for (_label_id, label) in &inner_labels {
+    for label in inner_labels.values() {
         // "the next block's entry labels are all the labels in the next block that can
         //  be reached by the inner block" (Relooper paper, p9)
         //   > does this mean direct branches or reached along some execution path?
@@ -520,7 +518,7 @@ fn create_loop_block(
         for branch_target in label.possible_branch_targets() {
             // branch targets from the inner block that are labels in the
             // next block are entry labels for the next block
-            if let Some(_) = next_labels.get(&branch_target) {
+            if next_labels.get(&branch_target).is_some() {
                 next_entries.insert(branch_target);
             }
         }
@@ -561,7 +559,7 @@ fn replace_branch_instrs_inside_loop(
     context: &RelooperContext,
     prog_metadata: &mut Box<ProgramMetadata>,
 ) {
-    for (_inner_label_id, inner_label) in inner_labels {
+    for inner_label in inner_labels.values_mut() {
         for i in 0..inner_label.instrs.len() {
             let instr = inner_label.instrs.get(i).unwrap();
             let mut new_instrs: Vec<Instruction> = Vec::new();
@@ -683,10 +681,8 @@ fn replace_branch_instrs_inside_loop(
             }
             if !new_instrs.is_empty() {
                 inner_label.instrs.remove(i);
-                let mut j = 0;
-                for instr in new_instrs {
+                for (j, instr) in new_instrs.into_iter().enumerate() {
                     inner_label.instrs.insert(i + j, instr);
-                    j += 1;
                 }
             }
         }
@@ -715,7 +711,7 @@ fn try_create_multiple_block(
                 if other_entry == entry {
                     continue;
                 }
-                if other_entry == label || reachability.get(other_entry).unwrap().contains(&label) {
+                if other_entry == label || reachability.get(other_entry).unwrap().contains(label) {
                     uniquely_reachable = false;
                     break;
                 }
@@ -730,7 +726,7 @@ fn try_create_multiple_block(
             }
         }
     }
-    if uniquely_reachable_labels.len() >= 1 {
+    if !uniquely_reachable_labels.is_empty() {
         // map of entry to labels for each handled block
         let mut handled_labels: HashMap<LabelId, Labels> = HashMap::new();
         // let mut handled_entries = HashSet::new();
@@ -739,7 +735,7 @@ fn try_create_multiple_block(
         for (label_id, label) in labels {
             let mut handled_by_entry: Option<&LabelId> = None;
             for (entry, entry_unique_labels) in &uniquely_reachable_labels {
-                if entry_unique_labels.contains(&label_id) {
+                if entry_unique_labels.contains(label_id) {
                     // handled_entries.insert(entry);
                     handled_by_entry = Some(entry);
                     break;
@@ -763,20 +759,17 @@ fn try_create_multiple_block(
 
         let mut next_entries = entries.to_owned();
         // keep all the non-handled entries
-        next_entries.retain(|e| match handled_labels.get(e) {
-            None => true,
-            Some(_) => false,
-        });
+        next_entries.retain(|e| handled_labels.get(e).is_none());
 
         let multiple_block_id = context.multiple_block_id_generator.new_id();
 
         let mut handled_blocks = Vec::new();
         for (handled_label_entry, mut handled_labels) in handled_labels {
             // add any new entries that are branched to from inside the handled blocks
-            for (_, handled_label) in &handled_labels {
+            for handled_label in handled_labels.values() {
                 for branch_target in handled_label.possible_branch_targets() {
                     // if this is a branch to the next block
-                    if let Some(_) = next_labels.get(&branch_target) {
+                    if next_labels.get(&branch_target).is_some() {
                         if !next_entries.contains(&branch_target) {
                             next_entries.push(branch_target);
                         }
@@ -827,7 +820,7 @@ fn replace_branch_instrs_inside_handled_block(
     context: &RelooperContext,
     prog_metadata: &mut Box<ProgramMetadata>,
 ) {
-    for (_handled_label_id, handled_label) in handled_labels {
+    for handled_label in handled_labels.values_mut() {
         for i in 0..handled_label.instrs.len() {
             let instr = handled_label.instrs.get(i).unwrap();
             let mut new_instrs: Vec<Instruction> = Vec::new();
@@ -894,10 +887,8 @@ fn replace_branch_instrs_inside_handled_block(
             }
             if !new_instrs.is_empty() {
                 handled_label.instrs.remove(i);
-                let mut j = 0;
-                for instr in new_instrs {
+                for (j, instr) in new_instrs.into_iter().enumerate() {
                     handled_label.instrs.insert(i + j, instr);
-                    j += 1;
                 }
             }
         }
