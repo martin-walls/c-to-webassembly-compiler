@@ -59,7 +59,7 @@ impl fmt::Display for Label {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Label: {}", self.label)?;
         for instr in &self.instrs {
-            write!(f, "\n  {}", instr)?;
+            write!(f, "\n  {instr}")?;
         }
         write!(f, "")
     }
@@ -206,7 +206,7 @@ impl FmtIndented for Block {
                 indent_level.increment();
                 for instr in &internal.instrs {
                     indent_level.write(f)?;
-                    writeln!(f, "{}", instr)?;
+                    writeln!(f, "{instr}")?;
                 }
                 indent_level.decrement();
                 match next {
@@ -228,7 +228,7 @@ impl FmtIndented for Block {
             }
             Block::Loop { id, inner, next } => {
                 indent_level.write(f)?;
-                writeln!(f, "LOOP {} {{", id)?;
+                writeln!(f, "LOOP {id} {{")?;
                 indent_level.increment_marked();
                 indent_level.write(f)?;
                 writeln!(f, "inner:")?;
@@ -259,7 +259,7 @@ impl FmtIndented for Block {
                 next,
             } => {
                 indent_level.write(f)?;
-                writeln!(f, "MULTIPLE {} {{", id)?;
+                writeln!(f, "MULTIPLE {id} {{")?;
                 indent_level.increment_marked();
                 indent_level.write(f)?;
                 writeln!(f, "handled: ")?;

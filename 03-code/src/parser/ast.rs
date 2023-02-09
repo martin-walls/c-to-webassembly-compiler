@@ -84,21 +84,21 @@ impl AstNode for Statement {
         match self {
             Statement::Block(stmts) => {
                 let mut s = String::new();
-                write!(&mut s, "{{\n").unwrap();
+                writeln!(&mut s, "{{").unwrap();
                 for stmt in stmts {
-                    write!(&mut s, "{}\n", stmt.reconstruct_source()).unwrap();
+                    writeln!(&mut s, "{}", stmt.reconstruct_source()).unwrap();
                 }
-                write!(&mut s, "}}\n").unwrap();
+                writeln!(&mut s, "}}").unwrap();
                 s
             }
             Statement::Goto(i) => {
                 format!("goto {};", i.reconstruct_source())
             }
-            Statement::Continue => format!("continue;"),
-            Statement::Break => format!("break;"),
+            Statement::Continue => "continue;".to_owned(),
+            Statement::Break => "break;".to_owned(),
             Statement::Return(e) => match e {
                 Some(e) => format!("return {};", e.reconstruct_source()),
-                None => format!("return;"),
+                None => "return;".to_owned(),
             },
             Statement::While(e, s) => {
                 format!(
@@ -222,7 +222,7 @@ impl AstNode for StatementList {
     fn reconstruct_source(&self) -> String {
         let mut s = String::new();
         for stmt in &self.0 {
-            write!(&mut s, "{}\n", stmt.reconstruct_source()).unwrap();
+            writeln!(&mut s, "{}", stmt.reconstruct_source()).unwrap();
         }
         s
     }
@@ -401,7 +401,7 @@ impl SpecifierQualifier {
             match sq {
                 SpecifierQualifierToken::TypeSpecifier(t) => type_specifiers.push(t),
                 SpecifierQualifierToken::StorageClassSpecifier(s) => {
-                    if storage_class_specifier == None {
+                    if storage_class_specifier.is_none() {
                         storage_class_specifier = Some(s);
                     } else {
                         return Err(AstError::TooManyStorageClassSpecifiers(s));
@@ -457,7 +457,7 @@ pub enum TypeSpecifier {
 
 impl TypeSpecifier {
     fn create(types: Vec<TypeSpecifierToken>) -> Result<Self, AstError> {
-        if types.len() == 0 {
+        if types.is_empty() {
             return Err(AstError::InvalidTypeDeclaration("No type specified"));
         }
         match &types[0] {
@@ -652,13 +652,13 @@ impl AstNode for StructType {
             StructType::Definition(i, ms) => {
                 let mut s = String::new();
                 match i {
-                    Some(i) => write!(&mut s, "struct {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "struct {{\n").unwrap(),
+                    Some(i) => writeln!(&mut s, "struct {} {{", i.reconstruct_source()).unwrap(),
+                    None => writeln!(&mut s, "struct {{").unwrap(),
                 }
                 for member in ms {
                     write!(&mut s, "{}", member.reconstruct_source()).unwrap();
                 }
-                write!(&mut s, "}}\n").unwrap();
+                writeln!(&mut s, "}}").unwrap();
                 s
             }
         }
@@ -673,7 +673,7 @@ impl AstNode for StructMemberDeclaration {
         let mut s = String::new();
         for declarator in &self.1 {
             write!(&mut s, "{} ", self.0.reconstruct_source()).unwrap();
-            write!(&mut s, "{};\n", declarator.reconstruct_source()).unwrap();
+            writeln!(&mut s, "{};", declarator.reconstruct_source()).unwrap();
         }
         s
     }
@@ -692,13 +692,13 @@ impl AstNode for UnionType {
             UnionType::Definition(i, ms) => {
                 let mut s = String::new();
                 match i {
-                    Some(i) => write!(&mut s, "union {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "union {{\n").unwrap(),
+                    Some(i) => writeln!(&mut s, "union {} {{", i.reconstruct_source()).unwrap(),
+                    None => writeln!(&mut s, "union {{").unwrap(),
                 }
                 for member in ms {
                     write!(&mut s, "{}", member.reconstruct_source()).unwrap();
                 }
-                write!(&mut s, "}}\n").unwrap();
+                writeln!(&mut s, "}}").unwrap();
                 s
             }
         }
@@ -718,11 +718,11 @@ impl AstNode for EnumType {
             EnumType::Definition(i, es) => {
                 let mut s = String::new();
                 match i {
-                    Some(i) => write!(&mut s, "enum {} {{\n", i.reconstruct_source()).unwrap(),
-                    None => write!(&mut s, "enum {{\n").unwrap(),
+                    Some(i) => writeln!(&mut s, "enum {} {{", i.reconstruct_source()).unwrap(),
+                    None => writeln!(&mut s, "enum {{").unwrap(),
                 }
                 for enumerator in es {
-                    write!(&mut s, "{}\n", enumerator.reconstruct_source()).unwrap();
+                    writeln!(&mut s, "{}", enumerator.reconstruct_source()).unwrap();
                 }
                 write!(&mut s, "}}").unwrap();
                 s
@@ -876,7 +876,7 @@ pub struct ParameterDeclaration(pub SpecifierQualifier, pub Option<Box<Declarato
 impl AstNode for ParameterDeclaration {
     fn reconstruct_source(&self) -> String {
         match &self.1 {
-            None => format!("{}", self.0.reconstruct_source()),
+            None => self.0.reconstruct_source(),
             Some(d) => format!("{} {}", self.0.reconstruct_source(), d.reconstruct_source()),
         }
     }
@@ -954,7 +954,7 @@ impl AstNode for TypeName {
         let mut s = String::new();
         write!(&mut s, "{} ", self.0.reconstruct_source()).unwrap();
         match &self.1 {
-            Some(d) => write!(&mut s, "{};\n", d.reconstruct_source()).unwrap(),
+            Some(d) => writeln!(&mut s, "{};", d.reconstruct_source()).unwrap(),
             None => (),
         }
         s

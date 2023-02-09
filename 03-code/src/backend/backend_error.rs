@@ -14,7 +14,7 @@ impl fmt::Display for BackendError {
             BackendError::NoMainFunctionDefined => {
                 write!(f, "Program must define a \"main\" function")
             }
-            e => write!(f, "Backend error: {:?}", e),
+            e => write!(f, "Backend error: {e:?}"),
         }
     }
 }

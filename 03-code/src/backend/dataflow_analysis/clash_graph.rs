@@ -78,13 +78,13 @@ impl ClashGraph {
 
 impl fmt::Display for ClashGraph {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Clash graph:\n")?;
+        writeln!(f, "Clash graph:")?;
         for (var, clash_vars) in &self.clashes {
             write!(f, "{}: ", var)?;
             for clash_var in clash_vars {
                 write!(f, "{}, ", clash_var)?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         write!(f, "")
     }

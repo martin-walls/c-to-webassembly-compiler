@@ -54,10 +54,10 @@ impl fmt::Display for Constant {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Constant::Int(i) => {
-                write!(f, "{}", i)
+                write!(f, "{i}")
             }
             Constant::Float(fl) => {
-                write!(f, "{}", fl)
+                write!(f, "{fl}")
             }
         }
     }
@@ -127,13 +127,13 @@ impl fmt::Display for Src {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Src::Var(var) | Src::StoreAddressVar(var) => {
-                write!(f, "{}", var)
+                write!(f, "{var}")
             }
             Src::Constant(c) => {
-                write!(f, "{}", c)
+                write!(f, "{c}")
             }
             Src::Fun(fun) => {
-                write!(f, "{}", fun)
+                write!(f, "{fun}")
             }
         }
     }
@@ -266,10 +266,7 @@ pub enum Instruction {
 
 impl Instruction {
     pub fn has_side_effect(&self) -> bool {
-        match self {
-            Instruction::Call(..) | Instruction::TailCall(..) => true,
-            _ => false,
-        }
+        matches!(self, Instruction::Call(..) | Instruction::TailCall(..))
     }
 
     pub fn get_instr_id(&self) -> InstructionId {
@@ -360,95 +357,95 @@ impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Instruction::SimpleAssignment(id, dest, src) => {
-                write!(f, "[{}] {} = {}", id, dest, src)
+                write!(f, "[{id}] {dest} = {src}")
             }
             Instruction::AddressOf(id, dest, src) => {
-                write!(f, "[{}] {} = &{}", id, dest, src)
+                write!(f, "[{id}] {dest} = &{src}")
             }
             Instruction::LoadFromAddress(id, dest, src) => {
-                write!(f, "[{}] {} = *{}", id, dest, src)
+                write!(f, "[{id}] {dest} = *{src}")
             }
             Instruction::StoreToAddress(id, dest, src) => {
-                write!(f, "[{}] *{} <- {}", id, dest, src)
+                write!(f, "[{id}] *{dest} <- {src}")
             }
             Instruction::AllocateVariable(id, dest, size) => {
-                write!(f, "[{}] allocate {} bytes for {}", id, size, dest)
+                write!(f, "[{id}] allocate {size} bytes for {dest}")
             }
             Instruction::BitwiseNot(id, dest, src) => {
-                write!(f, "[{}] {} = ~{}", id, dest, src)
+                write!(f, "[{id}] {dest} = ~{src}")
             }
             Instruction::LogicalNot(id, dest, src) => {
-                write!(f, "[{}] {} = !{}", id, dest, src)
+                write!(f, "[{id}] {dest} = !{src}")
             }
             Instruction::Mult(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} * {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} * {right}")
             }
             Instruction::Div(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} / {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} / {right}")
             }
             Instruction::Mod(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} % {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} % {right}")
             }
             Instruction::Add(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} + {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} + {right}")
             }
             Instruction::Sub(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} - {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} - {right}")
             }
             Instruction::LeftShift(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} << {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} << {right}")
             }
             Instruction::RightShift(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} >> {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} >> {right}")
             }
             Instruction::BitwiseAnd(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} & {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} & {right}")
             }
             Instruction::BitwiseOr(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} | {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} | {right}")
             }
             Instruction::BitwiseXor(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} ^ {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} ^ {right}")
             }
             Instruction::LogicalAnd(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} && {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} && {right}")
             }
             Instruction::LogicalOr(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} || {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} || {right}")
             }
             Instruction::LessThan(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} < {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} < {right}")
             }
             Instruction::GreaterThan(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} > {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} > {right}")
             }
             Instruction::LessThanEq(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} <= {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} <= {right}")
             }
             Instruction::GreaterThanEq(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} >= {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} >= {right}")
             }
             Instruction::Equal(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} == {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} == {right}")
             }
             Instruction::NotEqual(id, dest, left, right) => {
-                write!(f, "[{}] {} = {} != {}", id, dest, left, right)
+                write!(f, "[{id}] {dest} = {left} != {right}")
             }
             Instruction::Call(id, dest, fun, params) => {
                 write!(f, "[{}] {} = call {}(", id, dest, fun)?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
-                        write!(f, "{}, ", param)?;
+                        write!(f, "{param}, ")?;
                     }
                     write!(f, "{}", params[params.len() - 1])?;
                 }
                 write!(f, ")")
             }
             Instruction::TailCall(id, fun, params) => {
-                write!(f, "[{}] tail-call {}(", id, fun)?;
+                write!(f, "[{id}] tail-call {fun}(")?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
-                        write!(f, "{}, ", param)?;
+                        write!(f, "{param}, ")?;
                     }
                     write!(f, "{}", params[params.len() - 1])?;
                 }
@@ -456,102 +453,98 @@ impl fmt::Display for Instruction {
             }
             Instruction::Ret(id, src) => match src {
                 None => {
-                    write!(f, "[{}] return", id)
+                    write!(f, "[{id}] return")
                 }
                 Some(src) => {
-                    write!(f, "[{}] return {}", id, src)
+                    write!(f, "[{id}] return {src}")
                 }
             },
             Instruction::Label(id, label) => {
-                write!(f, "[{}] {}:", id, label)
+                write!(f, "[{id}] {label}:")
             }
             Instruction::Br(id, label) => {
-                write!(f, "[{}] goto {}", id, label)
+                write!(f, "[{id}] goto {label}")
             }
             Instruction::BrIfEq(id, left, right, label) => {
-                write!(f, "[{}] if {} == {} goto {}", id, left, right, label)
+                write!(f, "[{id}] if {left} == {right} goto {label}")
             }
             Instruction::BrIfNotEq(id, left, right, label) => {
-                write!(f, "[{}] if {} != {} goto {}", id, left, right, label)
+                write!(f, "[{id}] if {left} != {right} goto {label}")
             }
             Instruction::PointerToStringLiteral(id, dest, string_id) => {
-                write!(
-                    f,
-                    "[{}] {} = pointer to string literal {}",
-                    id, dest, string_id
-                )
+                write!(f, "[{id}] {dest} = pointer to string literal {string_id}")
             }
             Instruction::I8toI16(id, dest, src) | Instruction::U8toI16(id, dest, src) => {
-                write!(f, "[{}] {} = (I16) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (I16) {src}")
             }
             Instruction::I8toU16(id, dest, src) | Instruction::U8toU16(id, dest, src) => {
-                write!(f, "[{}] {} = (U16) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (U16) {src}")
             }
             Instruction::I16toI32(id, dest, src) | Instruction::U16toI32(id, dest, src) => {
-                write!(f, "[{}] {} = (I32) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (I32) {src}")
             }
             Instruction::I16toU32(id, dest, src)
             | Instruction::U16toU32(id, dest, src)
             | Instruction::I32toU32(id, dest, src) => {
-                write!(f, "[{}] {} = (U32) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (U32) {src}")
             }
             Instruction::I32toI64(id, dest, src) | Instruction::U32toI64(id, dest, src) => {
-                write!(f, "[{}] {} = (I64) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (I64) {src}")
             }
             Instruction::I32toU64(id, dest, src)
             | Instruction::U32toU64(id, dest, src)
             | Instruction::I64toU64(id, dest, src) => {
-                write!(f, "[{}] {} = (U64) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (U64) {src}")
             }
             Instruction::U32toF32(id, dest, src)
             | Instruction::I32toF32(id, dest, src)
             | Instruction::U64toF32(id, dest, src)
             | Instruction::I64toF32(id, dest, src) => {
-                write!(f, "[{}] {} = (F32) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (F32) {src}")
             }
             Instruction::U32toF64(id, dest, src)
             | Instruction::I32toF64(id, dest, src)
             | Instruction::U64toF64(id, dest, src)
             | Instruction::I64toF64(id, dest, src)
             | Instruction::F32toF64(id, dest, src) => {
-                write!(f, "[{}] {} = (F64) {}", id, dest, src)
+                write!(f, "[{id}] {dest} = (F64) {src}")
             }
             Instruction::Nop(id) => {
-                write!(f, "[{}] Nop", id)
+                write!(f, "[{id}] Nop")
             }
             Instruction::Break(id, loop_block_id) => {
-                write!(f, "[{}] break {}", id, loop_block_id)
+                write!(f, "[{id}] break {loop_block_id}")
             }
             Instruction::Continue(id, loop_block_id) => {
-                write!(f, "[{}] continue {}", id, loop_block_id)
+                write!(f, "[{id}] continue {loop_block_id}")
             }
             Instruction::EndHandledBlock(id, multiple_block_id) => {
-                write!(f, "[{}] endHandled {}", id, multiple_block_id)
+                write!(f, "[{id}] endHandled {multiple_block_id}")
             }
             Instruction::IfEqElse(id, src1, src2, if_block, else_block) => {
-                write!(f, "[{}] if {} == {} {{ ", id, src1, src2)?;
+                write!(f, "[{id}] if {src1} == {src2} {{ ")?;
                 for instr in if_block {
-                    write!(f, "{}; ", instr)?;
+                    write!(f, "{instr}; ")?;
                 }
                 write!(f, "}} else {{ ")?;
                 for instr in else_block {
-                    write!(f, "{}; ", instr)?;
+                    write!(f, "{instr}; ")?;
                 }
                 write!(f, "}}")
             }
             Instruction::IfNotEqElse(id, src1, src2, if_block, else_block) => {
-                write!(f, "[{}] if {} != {} {{ ", id, src1, src2)?;
+                write!(f, "[{id}] if {src1} != {src2} {{ ")?;
                 for instr in if_block {
-                    write!(f, "{}; ", instr)?;
+                    write!(f, "{instr}; ")?;
                 }
                 write!(f, "}} else {{ ")?;
                 for instr in else_block {
-                    write!(f, "{}; ", instr)?;
+                    write!(f, "{instr}; ")?;
                 }
                 write!(f, "}}")
             }
             _ => {
-                write!(f, "{:?}", self)
+                write!(f, "{self:?}")
             }
         }
     }
