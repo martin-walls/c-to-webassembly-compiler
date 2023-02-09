@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::backend::import_export_names::{MEMORY_IMPORT_FIELD_NAME, MEMORY_IMPORT_MODULE_NAME};
 use crate::backend::memory_constants::{PTR_SIZE, STACK_PTR_ADDR};
 use crate::backend::target_code_generation_context::ModuleContext;
@@ -7,7 +9,6 @@ use crate::backend::wasm_module::imports_section::{ImportDescriptor, WasmImport}
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_types::{Limits, MemoryType};
 use crate::middle_end::ir::ProgramMetadata;
-use log::info;
 
 pub fn initialise_memory(
     wasm_module: &mut WasmModule,
@@ -17,15 +18,8 @@ pub fn initialise_memory(
     // ----------------------------------------------------------
     // | FP | temp FP | SP | String literals | ...stack frames...
     // ----------------------------------------------------------
-    let mut data: Vec<u8> = Vec::new();
-    // temp placeholder values for frame ptr and stack ptr
-    for _ in 0..3 {
-        // for each ptr
-        for _ in 0..PTR_SIZE {
-            // allocate PTR_SIZE bytes
-            data.push(0x00);
-        }
-    }
+    // initialise with placeholder values for frame ptr and stack ptr
+    let mut data: Vec<u8> = vec![0x00; (3 * PTR_SIZE) as usize];
 
     // store string literals in memory
     for (string_literal_id, string) in &prog_metadata.string_literals {

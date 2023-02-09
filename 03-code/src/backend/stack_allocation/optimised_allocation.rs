@@ -96,7 +96,7 @@ fn pop_smallest_least_clashed_var(
             .get_compile_time_value()
             .unwrap();
 
-        if min_var == None
+        if min_var.is_none()
             || clash_count < min_var_clash_count
             || (clash_count == min_var_clash_count && byte_size < min_var_byte_size)
         {
@@ -111,10 +111,7 @@ fn pop_smallest_least_clashed_var(
         clash_graph.remove_var(min_var);
     }
 
-    match min_var {
-        None => None,
-        Some(min_var) => Some((min_var, min_var_byte_size)),
-    }
+    min_var.map(|min_var| (min_var, min_var_byte_size))
 }
 
 fn allocate_vars_from_stack(

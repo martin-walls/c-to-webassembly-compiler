@@ -157,17 +157,11 @@ impl IrType {
     }
 
     pub fn is_signed_integral(&self) -> bool {
-        match self {
-            IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 => true,
-            _ => false,
-        }
+        matches!(self, IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64)
     }
 
     pub fn is_unsigned_integral(&self) -> bool {
-        match self {
-            IrType::U8 | IrType::U16 | IrType::U32 | IrType::U64 => true,
-            _ => false,
-        }
+        matches!(self, IrType::U8 | IrType::U16 | IrType::U32 | IrType::U64)
     }
 
     pub fn smallest_signed_equivalent(&self) -> Result<Box<Self>, MiddleEndError> {
@@ -188,17 +182,17 @@ impl IrType {
     }
 
     pub fn is_integral_type(&self) -> bool {
-        match self {
+        matches!(
+            self,
             IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64 => true,
-            _ => false,
-        }
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::I64
+                | IrType::U64
+        )
     }
 
     /// Returns an error if self isn't an integral type
@@ -212,19 +206,19 @@ impl IrType {
     }
 
     pub fn is_arithmetic_type(&self) -> bool {
-        match self {
+        matches!(
+            self,
             IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64 => true,
-            _ => false,
-        }
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::I64
+                | IrType::U64
+                | IrType::F32
+                | IrType::F64
+        )
     }
 
     /// Returns an error if self isn't an arithmetic type
@@ -238,20 +232,20 @@ impl IrType {
     }
 
     pub fn is_scalar_type(&self) -> bool {
-        match self {
+        matches!(
+            self,
             IrType::I8
-            | IrType::U8
-            | IrType::I16
-            | IrType::U16
-            | IrType::I32
-            | IrType::U32
-            | IrType::I64
-            | IrType::U64
-            | IrType::F32
-            | IrType::F64
-            | IrType::PointerTo(_) => true,
-            _ => false,
-        }
+                | IrType::U8
+                | IrType::I16
+                | IrType::U16
+                | IrType::I32
+                | IrType::U32
+                | IrType::I64
+                | IrType::U64
+                | IrType::F32
+                | IrType::F64
+                | IrType::PointerTo(_)
+        )
     }
 
     /// Returns an error if self isn't a scalar type
@@ -265,27 +259,18 @@ impl IrType {
     }
 
     pub fn is_array_type(&self) -> bool {
-        match self {
-            IrType::ArrayOf(_, _) => true,
-            _ => false,
-        }
+        matches!(self, IrType::ArrayOf(..))
     }
 
     pub fn is_object_pointer_type(&self) -> bool {
         match self {
-            IrType::PointerTo(t) => match **t {
-                IrType::Function(_, _, _) | IrType::Void => false,
-                _ => true,
-            },
+            IrType::PointerTo(t) => !matches!(**t, IrType::Function(_, _, _) | IrType::Void),
             _ => false,
         }
     }
 
     pub fn is_pointer_type(&self) -> bool {
-        match self {
-            IrType::PointerTo(_) => true,
-            _ => false,
-        }
+        matches!(self, IrType::PointerTo(_))
     }
 
     /// Returns an error if self isn't a pointer type
@@ -299,10 +284,7 @@ impl IrType {
     }
 
     pub fn is_struct_or_union_type(&self) -> bool {
-        match self {
-            IrType::Struct(_) | IrType::Union(_) => true,
-            _ => false,
-        }
+        matches!(self, IrType::Struct(_) | IrType::Union(_))
     }
 
     /// Returns an error if self isn't a struct or union type
@@ -316,10 +298,7 @@ impl IrType {
     }
 
     pub fn is_aggregate_type(&self) -> bool {
-        match self {
-            IrType::Struct(_) | IrType::ArrayOf(_, _) => true,
-            _ => false,
-        }
+        matches!(self, IrType::Struct(_) | IrType::ArrayOf(_, _))
     }
 
     /// ISO C standard unary type conversions
@@ -371,14 +350,14 @@ impl IrType {
     ) -> Result<Box<Self>, MiddleEndError> {
         match (self.to_owned(), *initialiser.to_owned()) {
             (IrType::ArrayOf(t, mut size), Initialiser::List(initialisers)) => {
-                if size == None {
+                if size.is_none() {
                     size = Some(TypeSize::CompileTime(initialisers.len() as u64));
                 }
                 let resolved_member_type =
                     t.resolve_array_size_from_initialiser(initialisers.first().unwrap())?;
                 Ok(Box::new(IrType::ArrayOf(resolved_member_type, size)))
             }
-            (t, _) => Ok(Box::new(t.to_owned())),
+            (t, _) => Ok(Box::new(t)),
         }
     }
 }

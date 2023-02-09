@@ -17,17 +17,17 @@ pub fn get_vars_from_block(
             match next {
                 None => vars,
                 Some(next) => {
-                    vars.extend(get_vars_from_block(&next, prog_metadata));
+                    vars.extend(get_vars_from_block(next, prog_metadata));
                     vars
                 }
             }
         }
         Block::Loop { inner, next, .. } => {
-            let mut inner_block_vars = get_vars_from_block(&inner, prog_metadata);
+            let mut inner_block_vars = get_vars_from_block(inner, prog_metadata);
             match next {
                 None => inner_block_vars,
                 Some(next) => {
-                    inner_block_vars.extend(get_vars_from_block(&next, prog_metadata));
+                    inner_block_vars.extend(get_vars_from_block(next, prog_metadata));
                     inner_block_vars
                 }
             }
@@ -40,13 +40,13 @@ pub fn get_vars_from_block(
             let mut vars = HashMap::new();
 
             for handled in handled_blocks {
-                vars.extend(get_vars_from_block(&handled, prog_metadata));
+                vars.extend(get_vars_from_block(handled, prog_metadata));
             }
 
             match next {
                 None => vars,
                 Some(next) => {
-                    vars.extend(get_vars_from_block(&next, prog_metadata));
+                    vars.extend(get_vars_from_block(next, prog_metadata));
                     vars
                 }
             }

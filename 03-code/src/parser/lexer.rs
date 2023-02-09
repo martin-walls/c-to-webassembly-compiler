@@ -256,7 +256,7 @@ impl<'input> Iterator for Lexer<'input> {
                 }
             };
 
-            if start == None {
+            if start.is_none() {
                 if c.is_whitespace() {
                     self.chars.next();
                     continue;
@@ -293,9 +293,8 @@ impl<'input> Iterator for Lexer<'input> {
                                     end.unwrap(),
                                 )));
                                 if t == Token::Semicolon && self.typedef_stmt_nesting_depth == 0 {
-                                    match self.parse_typedef_name() {
-                                        Err(e) => return Some(Err(e)),
-                                        Ok(_) => (),
+                                    if let Err(e) = self.parse_typedef_name() {
+                                        return Some(Err(e));
                                     }
                                     // reset from typedef statement
                                     self.inside_typedef_stmt = false;
@@ -322,7 +321,7 @@ impl Lexer<'_> {
         if let Ok(stmt) = result {
             if let ast::Statement::Declaration(_, ds) = *stmt {
                 if ds.len() == 1 {
-                    if let Some(name) = ds[0].get_identifier_name().to_owned() {
+                    if let Some(name) = ds[0].get_identifier_name() {
                         trace!("Found typedef identifier: {:?}", name);
                         self.typedef_names.push(name);
                         trace!("Typedef names so far: {:?}", self.typedef_names);

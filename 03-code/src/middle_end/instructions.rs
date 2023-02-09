@@ -432,7 +432,7 @@ impl fmt::Display for Instruction {
                 write!(f, "[{id}] {dest} = {left} != {right}")
             }
             Instruction::Call(id, dest, fun, params) => {
-                write!(f, "[{}] {} = call {}(", id, dest, fun)?;
+                write!(f, "[{id}] {dest} = call {fun}(")?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
                         write!(f, "{param}, ")?;
