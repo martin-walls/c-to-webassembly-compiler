@@ -4,9 +4,7 @@ use log::debug;
 
 use crate::backend::dataflow_analysis::flowgraph::{generate_flowgraph, Flowgraph};
 use crate::backend::dataflow_analysis::instruction_def_ref::def_set;
-use crate::backend::dataflow_analysis::live_variable_analysis::{
-    live_variable_analysis, LiveVariableMap,
-};
+use crate::backend::dataflow_analysis::live_variable_analysis::live_variable_analysis;
 use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::relooper::blocks::Block;
@@ -64,7 +62,7 @@ pub fn remove_dead_vars(
             } else {
                 // do the instr, but don't assign to dest
                 match instr {
-                    Instruction::Call(id, dest, fun_id, params) => {
+                    Instruction::Call(id, _dest, fun_id, params) => {
                         let new_instr = Instruction::Call(
                             id.to_owned(),
                             prog_metadata.init_null_dest_var(),

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::backend::memory_constants::PTR_SIZE;
-use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_allocation::naive_allocation::{
     naive_allocate_global_vars, naive_allocate_local_vars,
 };

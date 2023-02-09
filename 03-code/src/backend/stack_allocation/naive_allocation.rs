@@ -7,7 +7,7 @@ use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
 use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
-use crate::middle_end::ir_types::{IrType, TypeSize};
+use crate::middle_end::ir_types::TypeSize;
 use crate::relooper::blocks::Block;
 
 pub fn naive_allocate_local_vars(

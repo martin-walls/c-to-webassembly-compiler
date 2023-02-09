@@ -6,8 +6,6 @@ use log::debug;
 
 use crate::backend::dataflow_analysis::clash_graph::{generate_clash_graph, ClashGraph};
 use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
-use crate::backend::dataflow_analysis::flowgraph::generate_flowgraph;
-use crate::backend::dataflow_analysis::live_variable_analysis::live_variable_analysis;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
@@ -25,7 +23,7 @@ pub fn optimised_allocate_local_vars(
     block: &mut Box<Block>,
     param_vars_not_to_allocate_again: &Vec<VarId>,
     start_offset: u32,
-    mut var_offsets: VariableAllocationMap,
+    var_offsets: VariableAllocationMap,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
     prog_metadata: &mut Box<ProgramMetadata>,

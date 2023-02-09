@@ -1,9 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use std::process::exit;
 
-use log::debug;
-
-use crate::middle_end::ids::{Id, IdGenerator, InstructionId};
+use crate::middle_end::ids::InstructionId;
 use crate::middle_end::instructions::Instruction;
 use crate::relooper::blocks::Block;
 

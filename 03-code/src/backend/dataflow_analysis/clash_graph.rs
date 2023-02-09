@@ -3,9 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use crate::backend::dataflow_analysis::flowgraph::{generate_flowgraph, Flowgraph};
-use crate::backend::dataflow_analysis::live_variable_analysis::{
-    live_variable_analysis, LiveVariableMap,
-};
+use crate::backend::dataflow_analysis::live_variable_analysis::live_variable_analysis;
 use crate::middle_end::ids::VarId;
 use crate::middle_end::instructions::Instruction;
 use crate::relooper::blocks::Block;
