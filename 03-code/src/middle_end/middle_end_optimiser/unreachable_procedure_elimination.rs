@@ -14,7 +14,7 @@ pub fn remove_unused_functions(prog: &mut Box<Program>) -> Result<(), MiddleEndE
 
     // do call graph analysis to find which functions are never called
     let mut unused_fun_ids = HashSet::new();
-    for (fun_id, _) in &prog.program_instructions.functions {
+    for fun_id in prog.program_instructions.functions.keys() {
         unused_fun_ids.insert(fun_id.to_owned());
     }
 
@@ -111,7 +111,7 @@ fn walk_graph<T: Eq + Hash + Display, F>(
         // pop top node from stack
         let node = to_explore.pop().unwrap();
         // get children of node, and add those we haven't yet seen to to_explore
-        let children = adjacency_list.get(&node).unwrap();
+        let children = adjacency_list.get(node).unwrap();
         for child in children {
             if !seen.contains(&child) {
                 to_explore.push(child);

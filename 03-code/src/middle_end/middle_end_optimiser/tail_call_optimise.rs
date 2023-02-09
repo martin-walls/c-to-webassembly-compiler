@@ -5,7 +5,7 @@ use crate::middle_end::ir::ProgramMetadata;
 pub fn tail_call_optimise(
     fun_instrs: &mut Vec<Instruction>,
     this_fun_id: &FunId,
-    param_var_mappings: &Vec<VarId>,
+    param_var_mappings: &[VarId],
     prog_metadata: &mut Box<ProgramMetadata>,
 ) {
     // find any call instructions that are the last instruction of a function

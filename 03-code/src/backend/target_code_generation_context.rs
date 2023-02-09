@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+
 use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
 use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::ids::Id;
 use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
-use std::collections::HashMap;
 
 pub struct ModuleContext<'a> {
     pub fun_id_to_func_idx_map: HashMap<FunId, FuncIdx>,
@@ -32,7 +33,7 @@ impl<'a> ModuleContext<'a> {
     pub fn new_defined_func_idx(&mut self) -> FuncIdx {
         let new_func_idx = self.defined_func_idx_range.1.to_owned();
         let new_max_func_idx = new_func_idx.next_idx();
-        self.defined_func_idx_range.1 = new_max_func_idx.to_owned();
+        self.defined_func_idx_range.1 = new_max_func_idx;
         new_func_idx
     }
 
@@ -57,7 +58,7 @@ impl<'a> ModuleContext<'a> {
                 .insert(defined_fun_id.to_owned(), func_idx.to_owned());
             func_idx = func_idx.next_idx();
         }
-        self.defined_func_idx_range = (defined_funcs_start_idx, func_idx.to_owned());
+        self.defined_func_idx_range = (defined_funcs_start_idx, func_idx);
     }
 }
 

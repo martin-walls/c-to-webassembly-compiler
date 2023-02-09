@@ -518,16 +518,11 @@ fn convert_ir_instr_to_wasm(
             let inner_dest_type = dest_type.dereference_pointer_type().unwrap();
 
             // load the value of dest - the address operand
-            load_var(
-                dest.to_owned(),
-                wasm_instrs,
-                function_context,
-                prog_metadata,
-            );
+            load_var(dest, wasm_instrs, function_context, prog_metadata);
 
             // load the value to store
             load_src(
-                src.to_owned(),
+                src,
                 inner_dest_type.to_owned(),
                 wasm_instrs,
                 function_context,

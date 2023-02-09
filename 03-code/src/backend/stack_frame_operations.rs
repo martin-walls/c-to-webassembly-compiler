@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use log::info;
+
 use crate::backend::memory_constants::{
     FRAME_PTR_ADDR, PTR_SIZE, STACK_PTR_ADDR, TEMP_FRAME_PTR_ADDR,
 };
@@ -8,8 +12,6 @@ use crate::backend::wasm_instructions::{MemArg, WasmInstruction};
 use crate::middle_end::instructions::{Dest, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
-use log::info;
-use std::collections::HashMap;
 
 pub fn load_frame_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
     // address operand
@@ -250,8 +252,7 @@ pub fn set_up_new_stack_frame(
     increment_stack_ptr_by_known_offset(return_type_byte_size as u32, wasm_instrs, module_context);
 
     // store function parameters in callee's stack frame
-    let mut param_index = 0;
-    for param in params {
+    for (param_index, param) in params.into_iter().enumerate() {
         match param {
             Src::Var(var_id) => {
                 // address operand for where to store param
@@ -259,7 +260,7 @@ pub fn set_up_new_stack_frame(
 
                 let var_type = prog_metadata.get_var_type(&var_id).unwrap();
                 let var_byte_size = var_type
-                    .get_byte_size(&prog_metadata)
+                    .get_byte_size(prog_metadata)
                     .get_compile_time_value()
                     .unwrap();
 
@@ -313,7 +314,6 @@ pub fn set_up_new_stack_frame(
                 unreachable!()
             }
         }
-        param_index += 1;
     }
 
     // set the frame pointer to point at the new stack frame
@@ -400,9 +400,9 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
             });
             wasm_instrs.push(WasmInstruction::I32Add);
 
-            let var_type = prog_metadata.get_var_type(&var_id).unwrap();
+            let var_type = prog_metadata.get_var_type(var_id).unwrap();
             let var_byte_size = var_type
-                .get_byte_size(&prog_metadata)
+                .get_byte_size(prog_metadata)
                 .get_compile_time_value()
                 .unwrap();
 
@@ -444,9 +444,9 @@ pub fn overwrite_current_stack_frame_with_new_stack_frame(
                 // address operand for where to store param
                 load_stack_ptr(wasm_instrs);
 
-                let var_type = prog_metadata.get_var_type(&var_id).unwrap();
+                let var_type = prog_metadata.get_var_type(var_id).unwrap();
                 let var_byte_size = var_type
-                    .get_byte_size(&prog_metadata)
+                    .get_byte_size(prog_metadata)
                     .get_compile_time_value()
                     .unwrap();
 

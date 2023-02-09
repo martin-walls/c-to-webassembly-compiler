@@ -220,7 +220,7 @@ fn instructions_to_soup_of_labels(instrs: Vec<Instruction>) -> (HashMap<LabelId,
     for instr in instrs {
         match instr {
             Instruction::Label(_, label_id) => {
-                if let None = current_label_id {
+                if current_label_id.is_none() {
                     // no previous block => this new block is the entry
                     entry = Some(label_id.to_owned());
                 }

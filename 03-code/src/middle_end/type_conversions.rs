@@ -13,7 +13,7 @@ pub fn unary_convert(
     let unary_converted_type = src_type.unary_convert();
     if src_type != unary_converted_type {
         let (instrs, converted_var) =
-            get_type_conversion_instrs(src, src_type, unary_converted_type.to_owned(), prog)?;
+            get_type_conversion_instrs(src, src_type, unary_converted_type, prog)?;
         return Ok((instrs, converted_var));
     }
     Ok((Vec::new(), src))
@@ -778,12 +778,10 @@ pub fn get_type_conversion_instrs(
             ));
             Ok((instrs, Src::Var(dest)))
         }
-        (s, d) => {
-            return Err(MiddleEndError::TypeConversionError(
-                "Cannot convert type",
-                Box::new(s),
-                Some(Box::new(d)),
-            ))
-        } // todo rest of types
+        (s, d) => Err(MiddleEndError::TypeConversionError(
+            "Cannot convert type",
+            Box::new(s),
+            Some(Box::new(d)),
+        )), // todo rest of types
     }
 }
