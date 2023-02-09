@@ -686,7 +686,7 @@ fn convert_statement_to_ir(
             let instrs = convert_statement_to_ir(body, prog, context)?;
             // update function in program with full body
             let fun = Function::new(instrs, type_info, param_var_mappings);
-            prog.new_fun_body(name.to_owned(), fun)?;
+            prog.new_fun_body(name, fun)?;
             context.pop_scope()
         }
         Statement::Empty => {}
@@ -816,7 +816,7 @@ pub fn convert_expression_to_ir(
 
             // array variable is a pointer to the start of the array
             let ptr = prog.new_var(ValueType::LValue);
-            prog.add_var_type(ptr.to_owned(), arr_var_type.to_owned())?;
+            prog.add_var_type(ptr.to_owned(), arr_var_type)?;
             instrs.push(Instruction::Add(
                 prog.new_instr_id(),
                 ptr.to_owned(),
@@ -1028,7 +1028,7 @@ pub fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     // the returned value is the variable before incrementing
-                    prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
                     instrs.push(Instruction::SimpleAssignment(
                         prog.new_instr_id(),
                         dest.to_owned(),
@@ -1106,7 +1106,7 @@ pub fn convert_expression_to_ir(
             match expr_var {
                 Src::Var(var) => {
                     // the returned value is the variable before decrementing
-                    prog.add_var_type(dest.to_owned(), expr_var_type.to_owned())?;
+                    prog.add_var_type(dest.to_owned(), expr_var_type)?;
                     instrs.push(Instruction::SimpleAssignment(
                         prog.new_instr_id(),
                         dest.to_owned(),
@@ -1356,10 +1356,10 @@ pub fn convert_expression_to_ir(
                         // prog.add_var_type(dest.to_owned(), expr_var_type)?;
                         match expr_var {
                             Src::Var(expr_var) => Ok((instrs, Src::StoreAddressVar(expr_var))),
-                            _ => return Err(MiddleEndError::AttemptToStoreToNonVariable),
+                            _ => Err(MiddleEndError::AttemptToStoreToNonVariable),
                         }
                     }
-                    _ => return Err(MiddleEndError::DereferenceNonPointerType(expr_var_type)),
+                    _ => Err(MiddleEndError::DereferenceNonPointerType(expr_var_type)),
                 }
             } else {
                 // dereference load from memory address
@@ -1637,12 +1637,8 @@ pub fn convert_expression_to_ir(
                     // if adding int and pointer, make sure left_var is always the
                     // pointer and right_var is the int
                     if right_var_type.is_object_pointer_type() {
-                        let temp = right_var;
-                        right_var = left_var;
-                        left_var = temp;
-                        let temp_type = right_var_type;
-                        right_var_type = left_var_type;
-                        left_var_type = temp_type;
+                        std::mem::swap(&mut right_var, &mut left_var);
+                        std::mem::swap(&mut right_var_type, &mut left_var_type);
                     }
 
                     if left_var_type.is_arithmetic_type() {

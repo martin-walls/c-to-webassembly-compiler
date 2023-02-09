@@ -15,7 +15,7 @@ pub enum AstError {
 impl fmt::Display for AstError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            AstError::InvalidTypeDeclaration(msg) => write!(f, "{}", msg),
+            AstError::InvalidTypeDeclaration(msg) => write!(f, "{msg}"),
             AstError::TooManyStorageClassSpecifiers(_) => {
                 write!(f, "Too many storage class specifiers")
             }

@@ -61,11 +61,11 @@ impl Flowgraph {
         self.successors.remove(instr_id);
         self.predecessors.remove(instr_id);
 
-        for (successor_id, _) in &self.successors {
+        for successor_id in self.successors.keys() {
             self.predecessors
                 .insert(successor_id.to_owned(), predecessors.to_owned());
         }
-        for (predecessor_id, _) in &self.predecessors {
+        for predecessor_id in self.predecessors.keys() {
             self.successors
                 .insert(predecessor_id.to_owned(), successors.to_owned());
         }
@@ -321,9 +321,9 @@ fn add_instrs_to_flowgraph(
                 }
 
                 let (instrs1_entry, instrs1_exits, instrs1_jump_exits) =
-                    add_instrs_to_flowgraph(&instrs1, flowgraph);
+                    add_instrs_to_flowgraph(instrs1, flowgraph);
                 let (instrs2_entry, instrs2_exits, instrs2_jump_exits) =
-                    add_instrs_to_flowgraph(&instrs2, flowgraph);
+                    add_instrs_to_flowgraph(instrs2, flowgraph);
 
                 if let Some(entry) = instrs1_entry {
                     flowgraph.add_successor(instr_id.to_owned(), entry);

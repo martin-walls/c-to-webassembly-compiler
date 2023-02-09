@@ -45,7 +45,7 @@ pub fn get_type_info(
         TypeSpecifier::Struct(struct_type) => match struct_type {
             AstStructType::Declaration(Identifier(struct_name)) => {
                 // check if this is referencing a previous struct declaration
-                match context.resolve_struct_tag_to_struct_id(&struct_name) {
+                match context.resolve_struct_tag_to_struct_id(struct_name) {
                     Ok(struct_id) => Box::new(IrType::Struct(struct_id)),
                     Err(MiddleEndError::UndeclaredStructTag(_)) => {
                         let struct_type_id =
@@ -94,7 +94,7 @@ pub fn get_type_info(
         TypeSpecifier::Union(union_type) => match union_type {
             AstUnionType::Declaration(Identifier(union_name)) => {
                 // check if this is referencing a previous union declaration
-                match context.resolve_union_tag_to_union_id(&union_name) {
+                match context.resolve_union_tag_to_union_id(union_name) {
                     Ok(union_id) => Box::new(IrType::Union(union_id)),
                     Err(MiddleEndError::UndeclaredUnionTag(_)) => {
                         let union_type_id =
@@ -142,7 +142,7 @@ pub fn get_type_info(
         TypeSpecifier::Enum(enum_type) => {
             match enum_type {
                 EnumType::Declaration(Identifier(enum_name)) => {
-                    context.resolve_identifier_to_enum_tag(&enum_name)?;
+                    context.resolve_identifier_to_enum_tag(enum_name)?;
                     // enums are just integers
                     Box::new(IrType::I32)
                 }
@@ -150,7 +150,7 @@ pub fn get_type_info(
                     let mut skip_constant_definition = false;
                     if let Some(Identifier(enum_name)) = enum_name {
                         if is_duplicate_specifier {
-                            context.resolve_identifier_to_enum_tag(&enum_name)?;
+                            context.resolve_identifier_to_enum_tag(enum_name)?;
                             skip_constant_definition = true;
                         } else {
                             context.add_enum_tag(enum_name.to_owned())?;
@@ -166,11 +166,9 @@ pub fn get_type_info(
                                     next_constant_value += 1;
                                 }
                                 Enumerator::WithValue(Identifier(name), value_expr) => {
-                                    let value = eval_integral_constant_expression(
-                                        value_expr.to_owned(),
-                                        prog,
-                                    )?
-                                        as EnumConstant;
+                                    let value =
+                                        eval_integral_constant_expression(value_expr.to_owned())?
+                                            as EnumConstant;
                                     context.add_enum_constant(name.to_owned(), value)?;
                                     // value of next constant without explicit value is one more than
                                     // the last constant
@@ -183,7 +181,7 @@ pub fn get_type_info(
                 }
             }
         }
-        TypeSpecifier::CustomType(Identifier(name)) => context.resolve_typedef(&name)?,
+        TypeSpecifier::CustomType(Identifier(name)) => context.resolve_typedef(name)?,
     };
 
     let mut is_typedef = false;
@@ -252,12 +250,10 @@ fn add_type_info_from_declarator(
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
                 None => None,
-                Some(size_expr) => {
-                    match eval_integral_constant_expression(size_expr.to_owned(), prog) {
-                        Ok(size) => Some(TypeSize::CompileTime(size as u64)),
-                        Err(_) => Some(TypeSize::Runtime(size_expr)),
-                    }
-                }
+                Some(size_expr) => match eval_integral_constant_expression(size_expr.to_owned()) {
+                    Ok(size) => Some(TypeSize::CompileTime(size as u64)),
+                    Err(_) => Some(TypeSize::Runtime(size_expr)),
+                },
             };
             add_type_info_from_declarator(d, type_info.wrap_with_array(size), prog, context)
         }

@@ -56,7 +56,7 @@ impl ClashGraph {
             Some(clashes) => clashes.len(),
             None => {
                 // if var isn't in clash graph, it has no clashes to other vars
-                0 as usize
+                0_usize
             }
         }
     }
@@ -80,9 +80,9 @@ impl fmt::Display for ClashGraph {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Clash graph:")?;
         for (var, clash_vars) in &self.clashes {
-            write!(f, "{}: ", var)?;
+            write!(f, "{var}: ")?;
             for clash_var in clash_vars {
-                write!(f, "{}, ", clash_var)?;
+                write!(f, "{clash_var}, ")?;
             }
             writeln!(f)?;
         }
@@ -127,7 +127,7 @@ fn insert_universal_clashes_for_address_taken_vars(
     clash_graph: &mut ClashGraph,
     flowgraph: &Flowgraph,
 ) {
-    for (_id, instr) in &flowgraph.instrs {
+    for instr in flowgraph.instrs.values() {
         if let Instruction::AddressOf(_, _, src) = instr {
             clash_graph.add_universal_clash(src.unwrap_var().unwrap());
         }

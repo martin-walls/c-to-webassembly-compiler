@@ -345,10 +345,11 @@ impl Context {
         loop {
             match self.scope_stack.get(i) {
                 None => return Err(MiddleEndError::ScopeError),
-                Some(scope) => match scope.resolve_struct_tag_to_struct_id(identifier_name) {
-                    Ok(id) => return Ok(id),
-                    Err(_) => {}
-                },
+                Some(scope) => {
+                    if let Ok(id) = scope.resolve_struct_tag_to_struct_id(identifier_name) {
+                        return Ok(id);
+                    }
+                }
             }
             if i == 0 {
                 return Err(MiddleEndError::UndeclaredStructTag(
@@ -377,10 +378,11 @@ impl Context {
         loop {
             match self.scope_stack.get(i) {
                 None => return Err(MiddleEndError::ScopeError),
-                Some(scope) => match scope.resolve_union_tag_to_union_id(identifier_name) {
-                    Ok(id) => return Ok(id),
-                    Err(_) => {}
-                },
+                Some(scope) => {
+                    if let Ok(id) = scope.resolve_union_tag_to_union_id(identifier_name) {
+                        return Ok(id);
+                    }
+                }
             }
             if i == 0 {
                 return Err(MiddleEndError::UndeclaredUnionTag(
@@ -397,15 +399,12 @@ impl Context {
         fun_id: FunId,
     ) -> Result<(), MiddleEndError> {
         // check for duplicate declarations
-        match self.resolve_identifier_to_fun(&name) {
-            Ok(existing_fun_id) => {
-                // if mapping already exists, don't do anything
-                if existing_fun_id == fun_id {
-                    return Ok(());
-                }
-                return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
+        if let Ok(existing_fun_id) = self.resolve_identifier_to_fun(&name) {
+            // if mapping already exists, don't do anything
+            if existing_fun_id == fun_id {
+                return Ok(());
             }
-            Err(_) => {}
+            return Err(MiddleEndError::DuplicateFunctionDeclaration(name));
         }
         self.function_names.insert(name, fun_id);
         Ok(())
@@ -429,13 +428,10 @@ impl Context {
         type_info: Box<IrType>,
     ) -> Result<(), MiddleEndError> {
         // it's an error to redeclare the same typedef name with a different type
-        match self.resolve_typedef(&typedef_name) {
-            Ok(t) => {
-                if t != type_info {
-                    return Err(MiddleEndError::DuplicateTypeDeclaration(typedef_name));
-                }
+        if let Ok(t) = self.resolve_typedef(&typedef_name) {
+            if t != type_info {
+                return Err(MiddleEndError::DuplicateTypeDeclaration(typedef_name));
             }
-            Err(_) => {}
         }
         match self.scope_stack.last_mut() {
             None => Err(MiddleEndError::ScopeError),
@@ -507,10 +503,9 @@ impl Scope {
     }
 
     fn resolve_identifier_to_var(&self, identifier_name: &str) -> Option<VarId> {
-        match self.variable_names.get(identifier_name) {
-            None => None,
-            Some(var) => Some(var.to_owned()),
-        }
+        self.variable_names
+            .get(identifier_name)
+            .map(|var| var.to_owned())
     }
 
     fn add_typedef(
@@ -523,10 +518,7 @@ impl Scope {
     }
 
     fn resolve_identifier_to_type(&self, typedef_name: &str) -> Option<Box<IrType>> {
-        match self.typedef_types.get(typedef_name) {
-            None => None,
-            Some(t) => Some(t.to_owned()),
-        }
+        self.typedef_types.get(typedef_name).map(|t| t.to_owned())
     }
 
     fn add_enum_constant(
@@ -551,10 +543,9 @@ impl Scope {
     }
 
     fn resolve_identifier_to_enum_constant(&self, identifier_name: &str) -> Option<EnumConstant> {
-        match self.enum_constants.get(identifier_name) {
-            None => None,
-            Some(c) => Some(c.to_owned()),
-        }
+        self.enum_constants
+            .get(identifier_name)
+            .map(|c| c.to_owned())
     }
 
     fn resolve_identifier_to_enum_tag(&self, identifier_name: &str) -> bool {

@@ -1,3 +1,11 @@
+use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::Path;
+
+use log::info;
+
 use crate::backend::integer_encoding::encode_unsigned_int;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::to_bytes::ToBytes;
@@ -14,12 +22,6 @@ use crate::backend::wasm_module::memory_section::MemorySection;
 use crate::backend::wasm_module::start_section::StartSection;
 use crate::backend::wasm_module::tables_section::TablesSection;
 use crate::backend::wasm_module::types_section::{TypesSection, WasmFunctionType};
-use log::info;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io;
-use std::io::Write;
-use std::path::Path;
 
 const STDLIB_IMPORTS_MODULE_NAME: &str = "stdlib";
 
@@ -164,7 +166,7 @@ pub fn encode_section(section_code: u8, mut body: Vec<u8>) -> Vec<u8> {
     let mut bytes = Vec::new();
 
     // don't need to output anything for empty section
-    if body.len() == 0 {
+    if body.is_empty() {
         return bytes;
     }
 
