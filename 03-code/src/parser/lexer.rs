@@ -1,9 +1,12 @@
-use super::ast;
-use crate::parser::lexer::LexError::InvalidTypedefDeclaration;
-use log::trace;
 use std::error::Error;
 use std::fmt::Formatter;
 use std::{fmt, iter::Peekable, str::CharIndices};
+
+use log::trace;
+
+use crate::parser::lexer::LexError::InvalidTypedefDeclaration;
+
+use super::ast;
 
 lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
 
@@ -160,15 +163,15 @@ impl fmt::Display for Token {
             Token::SingleQuote => write!(f, "Token [']"),
             Token::DoubleQuote => write!(f, "Token [\"]"),
             Token::Ellipsis => write!(f, "Token [...]"),
-            Token::DecimalConstant(d) => write!(f, "Token [Decimal: {}]", d),
-            Token::BinaryConstant(b) => write!(f, "Token [Binary: {}]", b),
-            Token::OctalConstant(o) => write!(f, "Token [Octal: {}]", o),
-            Token::HexConstant(h) => write!(f, "Token [Hex: {}]", h),
-            Token::FloatingConstant(fc) => write!(f, "Token [Float: {}]", fc),
-            Token::StringLiteral(s) => write!(f, "Token [String: {}]", s),
-            Token::CharConstant(c) => write!(f, "Token [Char: {}]", c),
-            Token::Identifier(i) => write!(f, "Token [Identifier: {}]", i),
-            Token::TypedefName(n) => write!(f, "Token [Typedef name: {}]", n),
+            Token::DecimalConstant(d) => write!(f, "Token [Decimal: {d}]"),
+            Token::BinaryConstant(b) => write!(f, "Token [Binary: {b}]"),
+            Token::OctalConstant(o) => write!(f, "Token [Octal: {o}]"),
+            Token::HexConstant(h) => write!(f, "Token [Hex: {h}]"),
+            Token::FloatingConstant(fc) => write!(f, "Token [Float: {fc}]"),
+            Token::StringLiteral(s) => write!(f, "Token [String: {s}]"),
+            Token::CharConstant(c) => write!(f, "Token [Char: {c}]"),
+            Token::Identifier(i) => write!(f, "Token [Identifier: {i}]"),
+            Token::TypedefName(n) => write!(f, "Token [Typedef name: {n}]"),
             Token::Auto => write!(f, "Token [auto]"),
             Token::Break => write!(f, "Token [break]"),
             Token::Case => write!(f, "Token [case]"),
@@ -345,11 +348,7 @@ impl fmt::Display for LexError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             LexError::InvalidToken(start, end) => {
-                write!(
-                    f,
-                    "Lex error: invalid token at position [{}, {}]",
-                    start, end
-                )
+                write!(f, "Lex error: invalid token at position [{start}, {end}]")
             }
             LexError::InvalidEOF => write!(f, "Invalid end of file"),
             InvalidTypedefDeclaration => write!(f, "Invalid typedef declaration"),
@@ -801,7 +800,7 @@ impl Fsm {
             },
             State::Dot1 => match input {
                 c if c.is_ascii_digit() => {
-                    let s = format!(".{}", c);
+                    let s = format!(".{c}");
                     Some(Fsm {
                         state: State::Float1,
                         token: Some(Token::FloatingConstant(s)),
@@ -898,7 +897,7 @@ impl Fsm {
                     token: Some(Token::HexConstant("0x".to_owned())),
                 }),
                 c if c.is_digit(8) => {
-                    let s = format!("0{}", c);
+                    let s = format!("0{c}");
                     Some(Fsm {
                         state: State::Oct2,
                         token: Some(Token::OctalConstant(s)),
@@ -993,7 +992,7 @@ impl Fsm {
                 '\\' => match self.token {
                     Some(Token::StringLiteral(s)) => Some(Fsm {
                         state: State::String2,
-                        token: Some(Token::StringLiteral(format!("{}\\", s))),
+                        token: Some(Token::StringLiteral(format!("{s}\\"))),
                     }),
                     _ => None,
                 },

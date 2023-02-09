@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
+
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::parser::ast::{BinaryOperator, Constant, Expression, Initialiser};
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Formatter;
 
 const POINTER_SIZE: u64 = 4; // bytes
 
@@ -416,26 +417,26 @@ impl fmt::Display for IrType {
                 write!(f, "F64")
             }
             IrType::Struct(struct_id) => {
-                write!(f, "struct {}", struct_id)
+                write!(f, "struct {struct_id}")
             }
             IrType::Union(union_id) => {
-                write!(f, "union {}", union_id)
+                write!(f, "union {union_id}")
             }
             IrType::Void => {
                 write!(f, "void")
             }
             IrType::PointerTo(t) => {
-                write!(f, "*({})", t)
+                write!(f, "*({t})")
             }
             IrType::ArrayOf(t, size) => match size {
-                Some(TypeSize::CompileTime(size)) => write!(f, "({})[{}]", t, size),
-                _ => write!(f, "({})[runtime]", t),
+                Some(TypeSize::CompileTime(size)) => write!(f, "({t})[{size}]"),
+                _ => write!(f, "({t})[runtime]"),
             },
             IrType::Function(ret, params, is_variadic) => {
-                write!(f, "({})(", ret)?;
+                write!(f, "({ret})(")?;
                 if !params.is_empty() {
                     for param in &params[..params.len() - 1] {
-                        write!(f, "{}, ", param)?;
+                        write!(f, "{param}, ")?;
                     }
                     write!(f, "{}", params[params.len() - 1])?;
                 }
@@ -561,15 +562,14 @@ impl fmt::Display for StructType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.name {
             None => write!(f, "unnamed struct")?,
-            Some(name) => write!(f, "struct \"{}\"", name)?,
+            Some(name) => write!(f, "struct \"{name}\"")?,
         }
         write!(f, "\nMembers:")?;
         for (member_name, member_type) in &self.member_types {
             let byte_offset = self.member_byte_offsets.get(member_name).unwrap();
             write!(
                 f,
-                "\n\"{}\" at byte {}: {}",
-                member_name, byte_offset, member_type
+                "\n\"{member_name}\" at byte {byte_offset}: {member_type}"
             )?;
         }
         write!(f, "\nTotal byte size: {}", self.total_byte_size)
@@ -643,11 +643,11 @@ impl fmt::Display for UnionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.name {
             None => write!(f, "unnamed union")?,
-            Some(name) => write!(f, "union \"{}\"", name)?,
+            Some(name) => write!(f, "union \"{name}\"")?,
         }
         write!(f, "\nMembers:")?;
         for (member_name, member_type) in &self.member_types {
-            write!(f, "\n\"{}\": {}", member_name, member_type)?;
+            write!(f, "\n\"{member_name}\": {member_type}")?;
         }
         write!(f, "\nTotal byte size: {}", self.total_byte_size)
     }

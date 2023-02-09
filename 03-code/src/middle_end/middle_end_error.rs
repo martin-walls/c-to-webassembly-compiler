@@ -1,8 +1,9 @@
-use crate::middle_end::ids::{FunId, VarId};
-use crate::middle_end::ir_types::IrType;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
+
+use crate::middle_end::ids::{FunId, VarId};
+use crate::middle_end::ir_types::IrType;
 
 #[derive(Debug)]
 pub enum MiddleEndError {
@@ -91,10 +92,10 @@ impl fmt::Display for MiddleEndError {
                 write!(f, "Loop nesting error when converting to IR")
             }
             MiddleEndError::UndeclaredIdentifier(name) => {
-                write!(f, "Use of undeclared identifier: \"{}\"", name)
+                write!(f, "Use of undeclared identifier: \"{name}\"")
             }
             MiddleEndError::UndeclaredType(name) => {
-                write!(f, "Use of undeclared type: \"{}\"", name)
+                write!(f, "Use of undeclared type: \"{name}\"")
             }
             MiddleEndError::InvalidLValue => {
                 write!(f, "Invalid LValue used")
@@ -115,13 +116,13 @@ impl fmt::Display for MiddleEndError {
                 write!(f, "Invalid initialiser expression")
             }
             MiddleEndError::DuplicateTypeDeclaration(t) => {
-                write!(f, "Duplicate typedef declaration: \"{}\"", t)
+                write!(f, "Duplicate typedef declaration: \"{t}\"")
             }
             MiddleEndError::InvalidTypedefDeclaration => {
                 write!(f, "Invalid typedef declaration")
             }
             MiddleEndError::DuplicateFunctionDeclaration(name) => {
-                write!(f, "Duplicate function declaration: \"{}\"", name)
+                write!(f, "Duplicate function declaration: \"{name}\"")
             }
             MiddleEndError::InvalidDeclaration => {
                 write!(f, "Invalid declaration")
@@ -133,13 +134,13 @@ impl fmt::Display for MiddleEndError {
                 write!(f, "Duplicate struct member")
             }
             MiddleEndError::RedeclaredVarType(var) => {
-                write!(f, "Type for {} was declared twice in IR", var)
+                write!(f, "Type for {var} was declared twice in IR")
             }
             MiddleEndError::TypeNotFound => {
                 write!(f, "Type was not found in IR")
             }
             e => {
-                write!(f, "Middle end error: {:?}", e)
+                write!(f, "Middle end error: {e:?}")
             }
         }
     }

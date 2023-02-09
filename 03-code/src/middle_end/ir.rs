@@ -64,7 +64,7 @@ impl fmt::Display for Function {
         }
         write!(f, "\n  Body instructions:")?;
         for instr in &self.instrs {
-            write!(f, "\n    {}", instr)?;
+            write!(f, "\n    {instr}")?;
         }
         write!(f, "\n}}")
     }
@@ -101,11 +101,11 @@ impl fmt::Display for ProgramInstructions {
         write!(f, "{{")?;
         write!(f, "\nGlobal instructions:")?;
         for instr in &self.global_instrs {
-            write!(f, "\n  {}", instr)?;
+            write!(f, "\n  {instr}")?;
         }
         write!(f, "\nFunction bodies:")?;
         for (fun_id, fun) in &self.functions {
-            write!(f, "\nFunction {}:\n{}", fun_id, fun)?;
+            write!(f, "\nFunction {fun_id}:\n{fun}")?;
         }
         write!(f, "\n}}")
     }
@@ -293,7 +293,7 @@ impl fmt::Display for ProgramMetadata {
         write!(f, "\nFunction names:")?;
         for fun_name in self.function_ids.keys() {
             let fun_id = self.function_ids.get(fun_name).unwrap();
-            write!(f, "\nFunction {} => {}", fun_name, fun_id)?;
+            write!(f, "\nFunction {fun_name} => {fun_id}")?;
         }
         write!(f, "\nVar types:")?;
         for (var, type_info) in &self.var_types {
@@ -301,19 +301,19 @@ impl fmt::Display for ProgramMetadata {
         }
         write!(f, "\nLabel identifiers:")?;
         for (name, label) in &self.label_ids {
-            write!(f, "\n  \"{}\": {}", name, label)?;
+            write!(f, "\n  \"{name}\": {label}")?;
         }
         write!(f, "\nString literals:")?;
         for (id, string) in &self.string_literals {
-            write!(f, "\n  {}: \"{}\"", id, string)?;
+            write!(f, "\n  {id}: \"{string}\"")?;
         }
         write!(f, "\nStruct types:")?;
         for (id, type_info) in &self.structs {
-            write!(f, "\n  {}: {}", id, type_info)?;
+            write!(f, "\n  {id}: {type_info}")?;
         }
         write!(f, "\nUnion types:")?;
         for (id, type_info) in &self.unions {
-            write!(f, "\n  {}: {}", id, type_info)?;
+            write!(f, "\n  {id}: {type_info}")?;
         }
         write!(f, "\n}}")
     }

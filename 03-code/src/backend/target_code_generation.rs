@@ -1713,7 +1713,7 @@ fn convert_ir_instr_to_wasm(
                     temp_instrs.push(WasmInstruction::F64Eq);
                 }
                 t => {
-                    println!("{:?}", t);
+                    println!("{t:?}");
                     unreachable!()
                 }
             }
@@ -1768,7 +1768,7 @@ fn convert_ir_instr_to_wasm(
                     temp_instrs.push(WasmInstruction::F64Ne);
                 }
                 t => {
-                    println!("{:?}", t);
+                    println!("{t:?}");
                     unreachable!()
                 }
             }
@@ -2249,7 +2249,7 @@ fn convert_ir_instr_to_wasm(
                     wasm_instrs.push(WasmInstruction::F64Eq);
                 }
                 t => {
-                    println!("{:?}", t);
+                    println!("{t:?}");
                     unreachable!()
                 }
             }
@@ -2328,7 +2328,7 @@ fn convert_ir_instr_to_wasm(
                     wasm_instrs.push(WasmInstruction::F64Ne);
                 }
                 t => {
-                    println!("{:?}", t);
+                    println!("{t:?}");
                     unreachable!()
                 }
             }

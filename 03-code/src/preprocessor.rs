@@ -1,12 +1,13 @@
-use lazy_static::lazy_static;
-use log::info;
-use regex::Regex;
 use std::error::Error;
 use std::io;
 use std::io::{BufRead, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{fmt, fs};
+
+use lazy_static::lazy_static;
+use log::info;
+use regex::Regex;
 
 pub fn preprocess(filepath: &Path) -> Result<String, PreprocessorError> {
     info!("Running preprocessor");
@@ -175,7 +176,7 @@ fn run_c_preprocessor(source: String) -> Result<String, Box<dyn Error>> {
     } else {
         // terminate the program if the preprocessor can't parse the file
         let err = String::from_utf8(output.stderr)?;
-        panic!("C preprocessor failed:\n{}", err);
+        panic!("C preprocessor failed:\n{err}");
     }
 }
 
@@ -191,16 +192,16 @@ impl fmt::Display for PreprocessorError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PreprocessorError::UnsupportedHeaderInclude(h) => {
-                write!(f, "Header \"{}\" not supported", h)
+                write!(f, "Header \"{h}\" not supported")
             }
             PreprocessorError::IoError(e) => {
-                write!(f, "IO Error occurred during preprocessor: {}", e)
+                write!(f, "IO Error occurred during preprocessor: {e}")
             }
             PreprocessorError::CppError(e) => {
-                write!(f, "Error occurred running C preprocessor: {}", e)
+                write!(f, "Error occurred running C preprocessor: {e}")
             }
             PreprocessorError::FileNotFound(n) => {
-                write!(f, "File not found: {}", n)
+                write!(f, "File not found: {n}")
             }
         }
     }
