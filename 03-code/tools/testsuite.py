@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-import subprocess
-import os
-import sys
 import argparse
+import os
+import subprocess
+import sys
 from pathlib import Path
-import yaml
 from typing import Generator
+
+import yaml
 
 TEST_PROGRAMS_DIR = Path(__file__).parent.parent.parent.resolve() / "02-test-programs"
 TESTS_DIR = Path(__file__).parent.parent.resolve() / "tests"
@@ -17,6 +18,9 @@ COMPILE_OUTPUT_DIR = TESTS_DIR / "build"
 os.makedirs(COMPILE_OUTPUT_DIR, exist_ok=True)
 
 NODE_RUNTIME_PATH = Path(__file__).parent.parent.resolve() / "runtime" / "run.mjs"
+
+EXIT_SUCCESS = 0
+EXIT_TESTS_FAILED = 1
 
 
 class TestSpec:
@@ -191,7 +195,7 @@ def run_test(test_spec: TestSpec, wasm_compiler_args: list[str]):
         raise TestFailedException("GCC and wasm outputs didn't match.")
 
 
-def run_all_tests(test_name_filter: str or None, wasm_compiler_args: list[str]):
+def run_all_tests(test_name_filter: str or None, wasm_compiler_args: list[str]) -> bool:
     # compile rust project
     build_exit_code = build_project()
     if build_exit_code != 0:
@@ -215,6 +219,7 @@ def run_all_tests(test_name_filter: str or None, wasm_compiler_args: list[str]):
     print()
     if len(failed_tests) == 0:
         print("All tests passed")
+        return True
     else:
         print("Passed tests:")
         for test in passed_tests:
@@ -223,6 +228,8 @@ def run_all_tests(test_name_filter: str or None, wasm_compiler_args: list[str]):
         print("Failed tests:")
         for test in failed_tests:
             print(f"\t{test.name}")
+
+        return False
 
 
 def run_program(test_name_filter: str or None, program_args: list[str], wasm_compiler_args: list[str]):
@@ -275,4 +282,5 @@ if __name__ == "__main__":
     if args.run:
         run_program(args.filter, args.args if args.args else [], wasm_compiler_args)
     else:
-        run_all_tests(args.filter, wasm_compiler_args)
+        all_passed = run_all_tests(args.filter, wasm_compiler_args)
+        sys.exit(EXIT_SUCCESS if all_passed else EXIT_TESTS_FAILED)
