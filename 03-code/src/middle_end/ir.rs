@@ -254,7 +254,7 @@ impl ProgramMetadata {
 
     pub fn get_main_fun_id(&self) -> Result<FunId, MiddleEndError> {
         match self.function_ids.get(MAIN_FUNCTION_SOURCE_NAME) {
-            None => return Err(MiddleEndError::NoMainFunctionDefined),
+            None => Err(MiddleEndError::NoMainFunctionDefined),
             Some(fun_id) => Ok(fun_id.to_owned()),
         }
     }

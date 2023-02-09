@@ -15,7 +15,7 @@ impl IndentLevel {
     }
 
     pub fn increment(&mut self) {
-        self.0 = self.0 + 1;
+        self.0 += 1;
     }
 
     pub fn increment_marked(&mut self) {

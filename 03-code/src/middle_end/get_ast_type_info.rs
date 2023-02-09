@@ -1,3 +1,5 @@
+use log::trace;
+
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::Context;
 use crate::middle_end::ir::Program;
@@ -8,7 +10,6 @@ use crate::parser::ast::{
     SpecifierQualifier, StorageClassSpecifier, StructType as AstStructType, TypeSpecifier,
     UnionType as AstUnionType,
 };
-use log::trace;
 
 pub type FunctionParameterBindings = Vec<(String, Box<IrType>)>;
 
@@ -73,7 +74,7 @@ pub fn get_type_info(
                             None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                             Some(x) => x,
                         };
-                        if member_name == None {
+                        if member_name.is_none() {
                             return Err(MiddleEndError::UnnamedStructMember);
                         }
                         struct_type.push_member(
@@ -121,7 +122,7 @@ pub fn get_type_info(
                             None => return Err(MiddleEndError::InvalidTypedefDeclaration),
                             Some(x) => x,
                         };
-                        if member_name == None {
+                        if member_name.is_none() {
                             return Err(MiddleEndError::UnnamedUnionMember);
                         }
                         union_type.push_member(

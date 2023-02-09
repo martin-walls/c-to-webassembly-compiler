@@ -188,16 +188,12 @@ pub fn ref_set(instr: &Instruction) -> HashSet<VarId> {
                 }
             }
         }
-        Instruction::Ret(_, src) => {
-            if let Some(src) = src {
-                match src {
-                    Src::Var(var) | Src::StoreAddressVar(var) => {
-                        referenced_vars.insert(var.to_owned());
-                    }
-                    _ => {}
-                }
+        Instruction::Ret(_, Some(src)) => match src {
+            Src::Var(var) | Src::StoreAddressVar(var) => {
+                referenced_vars.insert(var.to_owned());
             }
-        }
+            _ => {}
+        },
         _ => {}
     }
 
