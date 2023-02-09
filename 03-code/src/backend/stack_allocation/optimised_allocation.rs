@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::fmt::Formatter;
 
 use log::debug;
 
@@ -8,6 +6,9 @@ use crate::backend::dataflow_analysis::clash_graph::{generate_clash_graph, Clash
 use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
+use crate::backend::stack_allocation::var_locations::{
+    NaiveVarLocations, VarLocation, VarLocations,
+};
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
@@ -116,47 +117,13 @@ fn pop_smallest_least_clashed_var(
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
-struct VarLocation {
-    var: VarId,
-    start: u32,
-    byte_size: u32,
-}
-
-impl VarLocation {
-    /// End of the interval (exclusive)
-    fn end(&self) -> u32 {
-        self.start + self.byte_size
-    }
-
-    fn overlaps(&self, other: &VarLocation) -> bool {
-        // no overlap if one interval ends before another starts
-        // end() is exclusive, so use <=
-        let no_overlap = self.end() <= other.start || other.end() <= self.start;
-
-        !no_overlap
-    }
-
-    /// Returns true if this interval is strictly after the other interval
-    fn is_strictly_after(&self, other: &VarLocation) -> bool {
-        // end() is exclusive, so use >=
-        self.start >= other.end()
-    }
-}
-
-impl fmt::Display for VarLocation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: [{}, {})", self.var, self.start, self.end())
-    }
-}
-
 fn allocate_vars_from_stack(
     mut var_allocation_stack: VarAllocationStack,
     clash_graph: &ClashGraph,
     prog_metadata: &Box<ProgramMetadata>,
 ) -> HashSet<VarLocation> {
     // naive data structure: todo use an interval tree or similar
-    let mut var_locations: HashSet<VarLocation> = HashSet::new();
+    let mut var_locations = NaiveVarLocations::new();
 
     // allocate vars in order of the stack
     while let Some((var, byte_size)) = var_allocation_stack.pop() {
@@ -179,10 +146,9 @@ fn allocate_vars_from_stack(
         while !is_valid_allocation {
             is_valid_allocation = true;
             // check against all existing allocations for clashes
-            for existing_location in &var_locations {
-                if !existing_location.overlaps(&lowest_possible_location) {
-                    continue;
-                }
+            for existing_location in
+                var_locations.get_locations_overlapping_with(&lowest_possible_location)
+            {
                 // if overlaps with existing location, check if the vars clash
                 let do_vars_clash = clash_graph.do_vars_clash(&var, &existing_location.var);
                 if do_vars_clash {
@@ -200,11 +166,7 @@ fn allocate_vars_from_stack(
         var_locations.insert(lowest_possible_location);
     }
 
-    for var_location in &var_locations {
-        debug!("allocate {}", var_location);
-    }
-
-    var_locations
+    var_locations.into_hashset()
 }
 
 fn calculate_var_offsets(
