@@ -33,7 +33,7 @@ pub fn remove_unused_labels(instrs: &mut Vec<Instruction>) -> Result<(), MiddleE
 
     // remove all instructions for which the closure returns false
     instrs.retain(|instr| {
-        match instr {
+        match &instr {
             Instruction::Label(_, label_id) => {
                 // if label is unused, remove the instruction
                 return labels.get(label_id).unwrap().to_owned();

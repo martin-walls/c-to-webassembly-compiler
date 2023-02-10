@@ -11,13 +11,13 @@ use crate::middle_end::ir_types::TypeSize;
 use crate::relooper::blocks::Block;
 
 pub fn naive_allocate_local_vars(
-    block: &Box<Block>,
+    block: &Block,
     param_vars_not_to_allocate_again: &Vec<VarId>,
     start_offset: u32,
     mut var_offsets: VariableAllocationMap,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> VariableAllocationMap {
     // get all vars used in this block -- all the variables to allocate
     let mut vars = get_vars_from_block(block, prog_metadata);
@@ -50,11 +50,11 @@ pub fn naive_allocate_local_vars(
 }
 
 pub fn naive_allocate_global_vars(
-    block: &Box<Block>,
+    block: &Block,
     initial_top_of_stack_addr: u32,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> VariableAllocationMap {
     let global_vars = get_vars_from_block(block, prog_metadata);
 

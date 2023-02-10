@@ -16,18 +16,18 @@ use crate::relooper::blocks::Block;
 pub type VariableAllocationMap = HashMap<VarId, u32>;
 
 pub fn allocate_local_vars(
-    block: &mut Box<Block>,
+    block: &mut Block,
     wasm_instrs: &mut Vec<WasmInstruction>,
-    fun_type: Box<IrType>,
+    fun_type: IrType,
     fun_param_var_mappings: Vec<VarId>,
     module_context: &ModuleContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
     enabled_optimisations: &EnabledOptimisations,
 ) -> VariableAllocationMap {
     let mut var_offsets: VariableAllocationMap = HashMap::new();
     let mut offset = PTR_SIZE;
 
-    let (return_type, param_types) = match *fun_type {
+    let (return_type, param_types) = match fun_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
         _ => unreachable!(),
     };
@@ -79,11 +79,11 @@ pub fn allocate_local_vars(
 }
 
 pub fn allocate_global_vars(
-    block: &Box<Block>,
+    block: &Block,
     initial_top_of_stack_addr: u32,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> VariableAllocationMap {
     naive_allocate_global_vars(
         block,

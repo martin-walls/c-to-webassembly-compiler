@@ -9,7 +9,7 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::Program;
 use crate::middle_end::middle_end_error::MiddleEndError;
 
-pub fn remove_unused_functions(prog: &mut Box<Program>) -> Result<(), MiddleEndError> {
+pub fn remove_unused_functions(prog: &mut Program) -> Result<(), MiddleEndError> {
     let call_graph = generate_call_graph(prog)?;
 
     // do call graph analysis to find which functions are never called
@@ -57,7 +57,7 @@ impl CallGraph {
     }
 }
 
-fn generate_call_graph(prog: &Box<Program>) -> Result<CallGraph, MiddleEndError> {
+fn generate_call_graph(prog: &Program) -> Result<CallGraph, MiddleEndError> {
     let mut call_graph = CallGraph::new();
 
     for (fun_id, function) in &prog.program_instructions.functions {

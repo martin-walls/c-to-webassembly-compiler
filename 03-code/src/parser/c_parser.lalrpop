@@ -169,43 +169,43 @@ CharConstant: char = "CharConstant" => interpret_string(&<>).unwrap().chars().nt
 
 pub Program: ast::StatementList = <Statement+> => ast::StatementList(<>);
 
-pub Statement: Box<ast::Statement> = {
+pub Statement: ast::Statement = {
   OpenStatement,
   ClosedStatement,
 };
 
-OpenStatement: Box<ast::Statement> = {
-  "if" "(" <Expression> ")" <Statement> => Box::new(ast::Statement::If(<>)),
-  "if" "(" <Expression> ")" <ClosedStatement> "else" <OpenStatement> => Box::new(ast::Statement::IfElse(<>)),
-  "while" "(" <Expression> ")" <OpenStatement> => Box::new(ast::Statement::While(<>)),
-  "for" "(" <ExpressionOrDeclaration?> ";" <Expression?> ";" <Expression?> ")" <OpenStatement> => Box::new(ast::Statement::For(<>)),
-  "switch" "(" <Expression> ")" <OpenStatement> => Box::new(ast::Statement::Switch(<>)),
-  "case" <ConditionalExpression> ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case(<>))),
-  "default" ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default(<>))),
-  <Identifier> ":" <OpenStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
+OpenStatement: ast::Statement = {
+  "if" "(" <e:Expression> ")" <s:Statement> => ast::Statement::If(e, Box::new(s)),
+  "if" "(" <e:Expression> ")" <t:ClosedStatement> "else" <f:OpenStatement> => ast::Statement::IfElse(e, Box::new(t), Box::new(f)),
+  "while" "(" <e:Expression> ")" <s:OpenStatement> => ast::Statement::While(e, Box::new(s)),
+  "for" "(" <e1:ExpressionOrDeclaration?> ";" <e2:Expression?> ";" <e3:Expression?> ")" <s:OpenStatement> => ast::Statement::For(e1, e2, e3, Box::new(s)),
+  "switch" "(" <e:Expression> ")" <s:OpenStatement> => ast::Statement::Switch(e, Box::new(s)),
+  "case" <e:ConditionalExpression> ":" <s:OpenStatement> => ast::Statement::Labelled(ast::LabelledStatement::Case(e, Box::new(s))),
+  "default" ":" <OpenStatement> => ast::Statement::Labelled(ast::LabelledStatement::Default(Box::new(<>))),
+  <i:Identifier> ":" <s:OpenStatement> => ast::Statement::Labelled(ast::LabelledStatement::Named(i, Box::new(s))),
 };
 
-ClosedStatement: Box<ast::Statement> = {
-  "if" "(" <Expression> ")" <ClosedStatement> "else" <ClosedStatement> => Box::new(ast::Statement::IfElse(<>)),
-  "goto" <Identifier> ";" => Box::new(ast::Statement::Goto(<>)),
-  "continue" ";" => Box::new(ast::Statement::Continue),
-  "break" ";" => Box::new(ast::Statement::Break),
-  "return" <Expression?> ";" => Box::new(ast::Statement::Return(<>)),
-  "while" "(" <Expression> ")" <ClosedStatement> => Box::new(ast::Statement::While(<>)),
-  "do" <Statement> "while" "(" <Expression> ")" ";" => Box::new(ast::Statement::DoWhile(<>)),
-  "for" "(" <ExpressionOrDeclaration?> ";" <Expression?> ";" <Expression?> ")" <ClosedStatement> => Box::new(ast::Statement::For(<>)),
-  "switch" "(" <Expression> ")" <ClosedStatement> => Box::new(ast::Statement::Switch(<>)),
+ClosedStatement: ast::Statement = {
+  "if" "(" <e:Expression> ")" <s1:ClosedStatement> "else" <s2:ClosedStatement> => ast::Statement::IfElse(e, Box::new(s1), Box::new(s2)),
+  "goto" <Identifier> ";" => ast::Statement::Goto(<>),
+  "continue" ";" => ast::Statement::Continue,
+  "break" ";" => ast::Statement::Break,
+  "return" <Expression?> ";" => ast::Statement::Return(<>),
+  "while" "(" <e:Expression> ")" <s:ClosedStatement> => ast::Statement::While(e, Box::new(s)),
+  "do" <s:Statement> "while" "(" <e:Expression> ")" ";" => ast::Statement::DoWhile(Box::new(s), e),
+  "for" "(" <e1:ExpressionOrDeclaration?> ";" <e2:Expression?> ";" <e3:Expression?> ")" <s:ClosedStatement> => ast::Statement::For(e1, e2, e3, Box::new(s)),
+  "switch" "(" <e:Expression> ")" <s:ClosedStatement> => ast::Statement::Switch(e, Box::new(s)),
   Block,
-  <Expression> ";" => Box::new(ast::Statement::Expr(<>)),
+  <Expression> ";" => ast::Statement::Expr(<>),
   <Declaration>,
-  "case" <ConditionalExpression> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Case(<>))),
-  "default" ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Default(<>))),
-  <Identifier> ":" <ClosedStatement> => Box::new(ast::Statement::Labelled(ast::LabelledStatement::Named(<>))),
-  ";" => Box::new(ast::Statement::Empty),
+  "case" <e:ConditionalExpression> ":" <s:ClosedStatement> => ast::Statement::Labelled(ast::LabelledStatement::Case(e, Box::new(s))),
+  "default" ":" <ClosedStatement> => ast::Statement::Labelled(ast::LabelledStatement::Default(Box::new(<>))),
+  <i:Identifier> ":" <s:ClosedStatement> => ast::Statement::Labelled(ast::LabelledStatement::Named(i, Box::new(s))),
+  ";" => ast::Statement::Empty,
 };
 
-Block: Box<ast::Statement> = {
-  "{" <Statement*> "}" => Box::new(ast::Statement::Block(<>)),
+Block: ast::Statement = {
+  "{" <Statement*> "}" => ast::Statement::Block(<>),
 };
 
 // for for statements, where the first expression can be either an expression
@@ -218,11 +218,11 @@ ExpressionOrDeclaration: ast::ExpressionOrDeclaration = {
 
 // DECLARATIONS -----------------------------
 
-pub Declaration: Box<ast::Statement> = {
-  <sqs:SpecifierQualifier+> <d:DeclaratorInitialiserList> ";" => Box::new(ast::Statement::Declaration(ast::SpecifierQualifier::create(sqs).unwrap(), d)),
-  <sqs:SpecifierQualifier+> <d:Declarator> <b:Block> => Box::new(ast::Statement::FunctionDeclaration(ast::SpecifierQualifier::create(sqs).unwrap(), d, b)),
+pub Declaration: ast::Statement = {
+  <sqs:SpecifierQualifier+> <d:DeclaratorInitialiserList> ";" => ast::Statement::Declaration(ast::SpecifierQualifier::create(sqs).unwrap(), d),
+  <sqs:SpecifierQualifier+> <d:Declarator> <b:Block> => ast::Statement::FunctionDeclaration(ast::SpecifierQualifier::create(sqs).unwrap(), d, Box::new(b)),
   // for structs, unions, enums
-  <SpecifierQualifier+> ";" => Box::new(ast::Statement::EmptyDeclaration(ast::SpecifierQualifier::create(<>).unwrap())),
+  <SpecifierQualifier+> ";" => ast::Statement::EmptyDeclaration(ast::SpecifierQualifier::create(<>).unwrap()),
 };
 
 pub SpecifierQualifier: ast::SpecifierQualifierToken = {
@@ -298,25 +298,25 @@ Enumerator: ast::Enumerator = {
 
 DeclaratorList = CommaSepList<Declarator>;
 
-Declarator: Box<ast::Declarator> = {
+Declarator: ast::Declarator = {
   <PtrDeclarator>,
   <NoPtrDeclarator>,
 };
 
-PtrDeclarator: Box<ast::Declarator> = {
+PtrDeclarator: ast::Declarator = {
   "*" <Declarator?> => match <> {
-    None => Box::new(ast::Declarator::AbstractPointerDeclarator),
-    Some(d) => Box::new(ast::Declarator::PointerDeclarator(d)),
+    None => ast::Declarator::AbstractPointerDeclarator,
+    Some(d) => ast::Declarator::PointerDeclarator(Box::new(d)),
   }
 };
 
-NoPtrDeclarator: Box<ast::Declarator> = {
-  <Identifier> => Box::new(ast::Declarator::Identifier(<>)),
+NoPtrDeclarator: ast::Declarator = {
+  <Identifier> => ast::Declarator::Identifier(<>),
   "(" <Declarator> ")",
   // Array declarator
-  <NoPtrDeclarator> "[" <AssignmentExpression?> "]" => Box::new(ast::Declarator::ArrayDeclarator(<>)),
+  <d:NoPtrDeclarator> "[" <e:AssignmentExpression?> "]" => ast::Declarator::ArrayDeclarator(Box::new(d), e.map(|e| Box::new(e))),
   // Function declarator
-  <NoPtrDeclarator> "(" <ParameterTypeList?> ")" => Box::new(ast::Declarator::FunctionDeclarator(<>)),
+  <d:NoPtrDeclarator> "(" <ps:ParameterTypeList?> ")" => ast::Declarator::FunctionDeclarator(Box::new(d), ps),
 };
 
 ParameterTypeList: ast::ParameterTypeList = {
@@ -341,9 +341,9 @@ DeclaratorInitialiser: ast::DeclaratorInitialiser = {
 //  <Declarator> "=" "{" <CommaSepListAllowTrailing<ConstantExpression>> "}" => ast::DeclaratorInitialiser::StructOrUnion(<>),
 };
 
-Initialiser: Box<ast::Initialiser> = {
-    <AssignmentExpression> => Box::new(ast::Initialiser::Expr(<>)),
-    "{" <CommaSepListAllowTrailing<Initialiser>> "}" => Box::new(ast::Initialiser::List(<>)),
+Initialiser: ast::Initialiser = {
+    <AssignmentExpression> => ast::Initialiser::Expr(<>),
+    "{" <CommaSepListAllowTrailing<Initialiser>> "}" => ast::Initialiser::List(<>),
 };
 
 
@@ -360,131 +360,131 @@ Initialiser: Box<ast::Initialiser> = {
 
 ConstantExpression = ConditionalExpression;
 
-pub Expression: Box<ast::Expression> = {
+pub Expression: ast::Expression = {
   AssignmentExpression,
-  <Expression> "," <AssignmentExpression> => Box::new(ast::Expression::ExpressionList(<>))
+  <e1:Expression> "," <e2:AssignmentExpression> => ast::Expression::ExpressionList(Box::new(e1), Box::new(e2))
 };
 
-AssignmentExpression: Box<ast::Expression> = {
+AssignmentExpression: ast::Expression = {
   ConditionalExpression,
   <dest:ConditionalExpression> "=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest, src)),
+    => ast::Expression::Assignment(Box::new(dest), Box::new(src)),
   <dest:ConditionalExpression> "*=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mult, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mult, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "/=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Div, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Div, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "%=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mod, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mod, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "+=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Add, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Add, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "-=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Sub, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Sub, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "<<=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LeftShift, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LeftShift, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> ">>=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::RightShift, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::RightShift, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "&=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseAnd, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseAnd, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "^=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseXor, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseXor, Box::new(dest), Box::new(src)))),
   <dest:ConditionalExpression> "|=" <src:AssignmentExpression>
-    => Box::new(ast::Expression::Assignment(dest.to_owned(), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseOr, dest, src)))),
+    => ast::Expression::Assignment(Box::new(dest.to_owned()), Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseOr, Box::new(dest), Box::new(src)))),
 }
 
-ConditionalExpression: Box<ast::Expression> = {
+ConditionalExpression: ast::Expression = {
   <LogicalOrExpression>,
-  <LogicalOrExpression> "?" <Expression> ":" <ConditionalExpression>
-    => Box::new(ast::Expression::Ternary(<>)),
+  <e:LogicalOrExpression> "?" <t:Expression> ":" <f:ConditionalExpression>
+    => ast::Expression::Ternary(Box::new(e), Box::new(t), Box::new(f)),
 };
 
-LogicalOrExpression: Box<ast::Expression> = {
+LogicalOrExpression: ast::Expression = {
   LogicalAndExpression,
-  <LogicalOrExpression> "||" <LogicalAndExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LogicalOr, <>)),
+  <e1:LogicalOrExpression> "||" <e2:LogicalAndExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::LogicalOr, Box::new(e1), Box::new(e2)),
 };
 
-LogicalAndExpression: Box<ast::Expression> = {
+LogicalAndExpression: ast::Expression = {
   InclusiveOrExpression,
-  <LogicalAndExpression> "&&" <InclusiveOrExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LogicalAnd, <>)),
+  <e1:LogicalAndExpression> "&&" <e2:InclusiveOrExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::LogicalAnd, Box::new(e1), Box::new(e2)),
 };
 
-InclusiveOrExpression: Box<ast::Expression> = {
+InclusiveOrExpression: ast::Expression = {
   ExclusiveOrExpression,
-  <InclusiveOrExpression> "|" <ExclusiveOrExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseOr, <>)),
+  <e1:InclusiveOrExpression> "|" <e2:ExclusiveOrExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseOr, Box::new(e1), Box::new(e2)),
 };
 
-ExclusiveOrExpression: Box<ast::Expression> = {
+ExclusiveOrExpression: ast::Expression = {
   AndExpression,
-  <ExclusiveOrExpression> "^" <AndExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseXor, <>)),
+  <e1:ExclusiveOrExpression> "^" <e2:AndExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseXor, Box::new(e1), Box::new(e2)),
 };
 
-AndExpression: Box<ast::Expression> = {
+AndExpression: ast::Expression = {
   EqualityExpression,
-  <AndExpression> "&" <EqualityExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseAnd, <>)),
+  <e1:AndExpression> "&" <e2:EqualityExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::BitwiseAnd, Box::new(e1), Box::new(e2)),
 };
 
-EqualityExpression: Box<ast::Expression> = {
+EqualityExpression: ast::Expression = {
   RelationalExpression,
-  <EqualityExpression> "==" <RelationalExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Equal, <>)),
-  <EqualityExpression> "!=" <RelationalExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::NotEqual, <>)),
+  <e1:EqualityExpression> "==" <e2:RelationalExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Equal, Box::new(e1), Box::new(e2)),
+  <e1:EqualityExpression> "!=" <e2:RelationalExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::NotEqual, Box::new(e1), Box::new(e2)),
 };
 
-RelationalExpression: Box<ast::Expression> = {
+RelationalExpression: ast::Expression = {
   ShiftExpression,
-  <RelationalExpression> "<" <ShiftExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LessThan, <>)),
-  <RelationalExpression> ">" <ShiftExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::GreaterThan, <>)),
-  <RelationalExpression> "<=" <ShiftExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LessThanEq, <>)),
-  <RelationalExpression> ">=" <ShiftExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::GreaterThanEq, <>)),
+  <e1:RelationalExpression> "<" <e2:ShiftExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::LessThan, Box::new(e1), Box::new(e2)),
+  <e1:RelationalExpression> ">" <e2:ShiftExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::GreaterThan, Box::new(e1), Box::new(e2)),
+  <e1:RelationalExpression> "<=" <e2:ShiftExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::LessThanEq, Box::new(e1), Box::new(e2)),
+  <e1:RelationalExpression> ">=" <e2:ShiftExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::GreaterThanEq, Box::new(e1), Box::new(e2)),
 };
 
-ShiftExpression: Box<ast::Expression> = {
+ShiftExpression: ast::Expression = {
   AdditiveExpression,
-  <ShiftExpression> "<<" <AdditiveExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::LeftShift, <>)),
-  <ShiftExpression> ">>" <AdditiveExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::RightShift, <>)),
+  <e1:ShiftExpression> "<<" <e2:AdditiveExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::LeftShift, Box::new(e1), Box::new(e2)),
+  <e1:ShiftExpression> ">>" <e2:AdditiveExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::RightShift, Box::new(e1), Box::new(e2)),
 };
 
-AdditiveExpression: Box<ast::Expression> = {
+AdditiveExpression: ast::Expression = {
   MultiplicativeExpression,
-  <AdditiveExpression> "+" <MultiplicativeExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Add, <>)),
-  <AdditiveExpression> "-" <MultiplicativeExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Sub, <>)),
+  <e1:AdditiveExpression> "+" <e2:MultiplicativeExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Add, Box::new(e1), Box::new(e2)),
+  <e1:AdditiveExpression> "-" <e2:MultiplicativeExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Sub, Box::new(e1), Box::new(e2)),
 };
 
-MultiplicativeExpression: Box<ast::Expression> = {
+MultiplicativeExpression: ast::Expression = {
   CastExpression,
-  <MultiplicativeExpression> "*" <CastExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mult, <>)),
-  <MultiplicativeExpression> "/" <CastExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Div, <>)),
-  <MultiplicativeExpression> "%" <CastExpression>
-    => Box::new(ast::Expression::BinaryOp(ast::BinaryOperator::Mod, <>)),
+  <e1:MultiplicativeExpression> "*" <e2:CastExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Mult, Box::new(e1), Box::new(e2)),
+  <e1:MultiplicativeExpression> "/" <e2:CastExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Div, Box::new(e1), Box::new(e2)),
+  <e1:MultiplicativeExpression> "%" <e2:CastExpression>
+    => ast::Expression::BinaryOp(ast::BinaryOperator::Mod, Box::new(e1), Box::new(e2)),
 };
 
-CastExpression: Box<ast::Expression> = {
+CastExpression: ast::Expression = {
   UnaryExpression,
-  "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => Box::new(ast::Expression::Cast(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d), e)),
+  "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" <e:CastExpression> => ast::Expression::Cast(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d), Box::new(e)),
 };
 
-UnaryExpression = {
+UnaryExpression: ast::Expression = {
   PostfixExpression,
-  "++" <UnaryExpression> => Box::new(ast::Expression::PrefixIncrement(<>)),
-  "--" <UnaryExpression> => Box::new(ast::Expression::PrefixDecrement(<>)),
-  <UnaryOperator> <CastExpression> => Box::new(ast::Expression::UnaryOp(<>)),
-  "sizeof" <UnaryExpression> => Box::new(ast::Expression::SizeOfExpr(<>)),
-   "sizeof" "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" => Box::new(ast::Expression::SizeOfType(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d))),
+  "++" <UnaryExpression> => ast::Expression::PrefixIncrement(Box::new(<>)),
+  "--" <UnaryExpression> => ast::Expression::PrefixDecrement(Box::new(<>)),
+  <op:UnaryOperator> <e:CastExpression> => ast::Expression::UnaryOp(op, Box::new(e)),
+  "sizeof" <UnaryExpression> => ast::Expression::SizeOfExpr(Box::new(<>)),
+   "sizeof" "(" <sqs:SpecifierQualifier+> <d:Declarator?> ")" => ast::Expression::SizeOfType(ast::TypeName(ast::SpecifierQualifier::create(sqs).unwrap(), d)),
 };
 
 UnaryOperator: ast::UnaryOperator = {
@@ -496,26 +496,26 @@ UnaryOperator: ast::UnaryOperator = {
   "!" => ast::UnaryOperator::LogicalNot,
 };
 
-PostfixExpression: Box<ast::Expression> = {
-  <PrimaryExpression>,
-  <PostfixExpression> "[" <Expression> "]" => Box::new(ast::Expression::Index(<>)),
+PostfixExpression: ast::Expression = {
+  PrimaryExpression,
+  <e:PostfixExpression> "[" <ind:Expression> "]" => ast::Expression::Index(Box::new(e), Box::new(ind)),
   <e:PostfixExpression> "(" <args:ArgumentExpressionList?> ")" => {
     match args {
-        Some(args) => Box::new(ast::Expression::FunctionCall(e, args)),
-        None => Box::new(ast::Expression::FunctionCall(e, vec![])),
+        Some(args) => ast::Expression::FunctionCall(Box::new(e), args),
+        None => ast::Expression::FunctionCall(Box::new(e), vec![]),
     }
   },
-  <PostfixExpression> "." <Identifier> => Box::new(ast::Expression::DirectMemberSelection(<>)),
-  <PostfixExpression> "->" <Identifier> => Box::new(ast::Expression::IndirectMemberSelection(<>)),
-  <PostfixExpression> "++" => Box::new(ast::Expression::PostfixIncrement(<>)),
-  <PostfixExpression> "--" => Box::new(ast::Expression::PostfixDecrement(<>)),
+  <e:PostfixExpression> "." <i:Identifier> => ast::Expression::DirectMemberSelection(Box::new(e), i),
+  <e:PostfixExpression> "->" <i:Identifier> => ast::Expression::IndirectMemberSelection(Box::new(e), i),
+  <PostfixExpression> "++" => ast::Expression::PostfixIncrement(Box::new(<>)),
+  <PostfixExpression> "--" => ast::Expression::PostfixDecrement(Box::new(<>)),
 };
 
 ArgumentExpressionList = CommaSepList<AssignmentExpression>;
 
-PrimaryExpression: Box<ast::Expression> = {
-  <Identifier> => Box::new(ast::Expression::Identifier(<>)),
-  <Constant> => Box::new(ast::Expression::Constant(<>)),
-  <StringLiteral> => Box::new(ast::Expression::StringLiteral(<>)),
+PrimaryExpression: ast::Expression = {
+  <Identifier> => ast::Expression::Identifier(<>),
+  <Constant> => ast::Expression::Constant(<>),
+  <StringLiteral> => ast::Expression::StringLiteral(<>),
   "(" <Expression> ")",
 };

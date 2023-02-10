@@ -11,7 +11,7 @@ use crate::relooper::relooper::Labels;
 /// Given a list of instructions, generate a 'soup of labelled blocks'
 pub fn soupify(
     mut instrs: Vec<Instruction>,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) -> (Labels, LabelId) {
     assert!(
         !instrs.is_empty(),
@@ -31,7 +31,7 @@ pub fn soupify(
 /// Add a new label at the start of the instructions, to be our entry-point
 fn insert_entry_label_if_necessary(
     instrs: &mut Vec<Instruction>,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) {
     match instrs.get(0) {
         Some(Instruction::Label(..)) => {}
@@ -111,7 +111,7 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
     // remove all labels we've remapped
     // (remove all instructions for which the closure returns false)
     instrs.retain(|instr| {
-        if let Instruction::Label(_, label_id) = instr {
+        if let Instruction::Label(_, label_id) = &instr {
             // if the label has been remapped, contains_key is true, so
             // return the negation
             return !label_remappings.contains_key(label_id);
@@ -124,10 +124,7 @@ fn remove_consecutive_labels(instrs: &mut Vec<Instruction>) {
 /// branch instructions where fall-through exists. This adds a lot of redundant
 /// branch instructions, but this will allow us to split the instructions into a soup of blocks.
 /// We'll optimise out the redundant branches afterwards.
-fn remove_label_fallthrough(
-    instrs: &mut Vec<Instruction>,
-    prog_metadata: &mut Box<ProgramMetadata>,
-) {
+fn remove_label_fallthrough(instrs: &mut Vec<Instruction>, prog_metadata: &mut ProgramMetadata) {
     let mut prev_instr_was_branch = false;
 
     let mut i = 0;
@@ -174,7 +171,7 @@ fn remove_label_fallthrough(
 /// branches to directly after, so that a block always ends with a branch
 fn add_block_gap_labels_after_conditionals(
     instrs: &mut Vec<Instruction>,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) {
     let mut i = 0;
     loop {

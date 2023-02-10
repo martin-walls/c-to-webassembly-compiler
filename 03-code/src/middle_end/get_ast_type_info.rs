@@ -11,17 +11,17 @@ use crate::parser::ast::{
     UnionType as AstUnionType,
 };
 
-pub type FunctionParameterBindings = Vec<(String, Box<IrType>)>;
+pub type FunctionParameterBindings = Vec<(String, IrType)>;
 
 pub fn get_type_info(
     specifier: &SpecifierQualifier,
-    declarator: Option<Box<Declarator>>,
+    declarator: Option<Declarator>,
     is_duplicate_specifier: bool,
-    prog: &mut Box<Program>,
-    context: &mut Box<Context>,
+    prog: &mut Program,
+    context: &mut Context,
 ) -> Result<
     Option<(
-        Box<IrType>,
+        IrType,
         Option<String>,
         // parameter bindings, if this is a function definition
         Option<FunctionParameterBindings>,
@@ -30,29 +30,29 @@ pub fn get_type_info(
 > {
     let ir_type = match &specifier.type_specifier {
         TypeSpecifier::ArithmeticType(t) => match t {
-            ArithmeticType::I8 => Box::new(IrType::I8),
-            ArithmeticType::U8 => Box::new(IrType::U8),
-            ArithmeticType::I16 => Box::new(IrType::I16),
-            ArithmeticType::U16 => Box::new(IrType::U16),
-            ArithmeticType::I32 => Box::new(IrType::I32),
-            ArithmeticType::U32 => Box::new(IrType::U32),
-            ArithmeticType::I64 => Box::new(IrType::I64),
-            ArithmeticType::U64 => Box::new(IrType::U64),
-            ArithmeticType::F32 => Box::new(IrType::F32),
-            ArithmeticType::F64 => Box::new(IrType::F64),
+            ArithmeticType::I8 => IrType::I8,
+            ArithmeticType::U8 => IrType::U8,
+            ArithmeticType::I16 => IrType::I16,
+            ArithmeticType::U16 => IrType::U16,
+            ArithmeticType::I32 => IrType::I32,
+            ArithmeticType::U32 => IrType::U32,
+            ArithmeticType::I64 => IrType::I64,
+            ArithmeticType::U64 => IrType::U64,
+            ArithmeticType::F32 => IrType::F32,
+            ArithmeticType::F64 => IrType::F64,
         },
-        TypeSpecifier::Void => Box::new(IrType::Void),
+        TypeSpecifier::Void => IrType::Void,
         TypeSpecifier::Struct(struct_type) => match struct_type {
             AstStructType::Declaration(Identifier(struct_name)) => {
                 // check if this is referencing a previous struct declaration
                 match context.resolve_struct_tag_to_struct_id(struct_name) {
-                    Ok(struct_id) => Box::new(IrType::Struct(struct_id)),
+                    Ok(struct_id) => IrType::Struct(struct_id),
                     Err(MiddleEndError::UndeclaredStructTag(_)) => {
                         let struct_type_id =
                             prog.add_struct_type(StructType::named(struct_name.to_owned()))?;
                         context
                             .add_struct_tag(struct_name.to_owned(), struct_type_id.to_owned())?;
-                        Box::new(IrType::Struct(struct_type_id))
+                        IrType::Struct(struct_type_id)
                     }
                     Err(e) => return Err(e),
                 }
@@ -66,7 +66,7 @@ pub fn get_type_info(
                     for decl in &member.1 {
                         let (member_type_info, member_name, _params) = match get_type_info(
                             &member.0,
-                            Some(Box::new(*decl.to_owned())),
+                            Some(decl.to_owned()),
                             false,
                             prog,
                             context,
@@ -88,19 +88,19 @@ pub fn get_type_info(
                 if let Some(Identifier(name)) = struct_name {
                     context.add_struct_tag(name.to_owned(), struct_type_id.to_owned())?;
                 }
-                Box::new(IrType::Struct(struct_type_id))
+                IrType::Struct(struct_type_id)
             }
         },
         TypeSpecifier::Union(union_type) => match union_type {
             AstUnionType::Declaration(Identifier(union_name)) => {
                 // check if this is referencing a previous union declaration
                 match context.resolve_union_tag_to_union_id(union_name) {
-                    Ok(union_id) => Box::new(IrType::Union(union_id)),
+                    Ok(union_id) => IrType::Union(union_id),
                     Err(MiddleEndError::UndeclaredUnionTag(_)) => {
                         let union_type_id =
                             prog.add_union_type(UnionType::named(union_name.to_owned()))?;
                         context.add_union_tag(union_name.to_owned(), union_type_id.to_owned())?;
-                        Box::new(IrType::Union(union_type_id))
+                        IrType::Union(union_type_id)
                     }
                     Err(e) => return Err(e),
                 }
@@ -114,7 +114,7 @@ pub fn get_type_info(
                     for decl in &member.1 {
                         let (member_type_info, member_name, _params) = match get_type_info(
                             &member.0,
-                            Some(Box::new(*decl.to_owned())),
+                            Some(decl.to_owned()),
                             false,
                             prog,
                             context,
@@ -136,7 +136,7 @@ pub fn get_type_info(
                 if let Some(Identifier(name)) = union_name {
                     context.add_union_tag(name.to_owned(), union_type_id.to_owned())?;
                 }
-                Box::new(IrType::Union(union_type_id))
+                IrType::Union(union_type_id)
             }
         },
         TypeSpecifier::Enum(enum_type) => {
@@ -144,7 +144,7 @@ pub fn get_type_info(
                 EnumType::Declaration(Identifier(enum_name)) => {
                     context.resolve_identifier_to_enum_tag(enum_name)?;
                     // enums are just integers
-                    Box::new(IrType::I32)
+                    IrType::I32
                 }
                 EnumType::Definition(enum_name, enum_constants) => {
                     let mut skip_constant_definition = false;
@@ -177,7 +177,7 @@ pub fn get_type_info(
                             }
                         }
                     }
-                    Box::new(IrType::I32)
+                    IrType::I32
                 }
             }
         }
@@ -225,22 +225,15 @@ pub fn get_type_info(
 /// Modifies the TypeInfo struct it's given, and returns the identifier name,
 /// and the types of any parameters
 fn add_type_info_from_declarator(
-    decl: Box<Declarator>,
-    type_info: Box<IrType>,
-    prog: &mut Box<Program>,
-    context: &mut Box<Context>,
-) -> Result<
-    (
-        Box<IrType>,
-        Option<String>,
-        Option<FunctionParameterBindings>,
-    ),
-    MiddleEndError,
-> {
-    match *decl {
+    decl: Declarator,
+    type_info: IrType,
+    prog: &mut Program,
+    context: &mut Context,
+) -> Result<(IrType, Option<String>, Option<FunctionParameterBindings>), MiddleEndError> {
+    match decl {
         Declarator::Identifier(Identifier(name)) => Ok((type_info, Some(name), None)),
         Declarator::PointerDeclarator(d) => {
-            add_type_info_from_declarator(d, type_info.wrap_with_pointer(), prog, context)
+            add_type_info_from_declarator(*d, type_info.wrap_with_pointer(), prog, context)
         }
         Declarator::AbstractPointerDeclarator => {
             // Err(MiddleEndError::InvalidAbstractDeclarator)
@@ -250,12 +243,12 @@ fn add_type_info_from_declarator(
         Declarator::ArrayDeclarator(d, size_expr) => {
             let size = match size_expr {
                 None => None,
-                Some(size_expr) => match eval_integral_constant_expression(size_expr.to_owned()) {
+                Some(size_expr) => match eval_integral_constant_expression(*size_expr.to_owned()) {
                     Ok(size) => Some(TypeSize::CompileTime(size as u64)),
-                    Err(_) => Some(TypeSize::Runtime(size_expr)),
+                    Err(_) => Some(TypeSize::Runtime(*size_expr)),
                 },
             };
-            add_type_info_from_declarator(d, type_info.wrap_with_array(size), prog, context)
+            add_type_info_from_declarator(*d, type_info.wrap_with_array(size), prog, context)
         }
         Declarator::FunctionDeclarator(d, params) => {
             let mut is_variadic = false;
@@ -270,7 +263,7 @@ fn add_type_info_from_declarator(
                 },
             };
 
-            let mut param_types: Vec<Box<IrType>> = Vec::new();
+            let mut param_types: Vec<IrType> = Vec::new();
             let mut param_bindings: FunctionParameterBindings = Vec::new();
             for p in param_decls {
                 let (param_type, param_name, _sub_param_bindings) =
@@ -285,7 +278,7 @@ fn add_type_info_from_declarator(
             }
 
             let (type_info, name, _) = add_type_info_from_declarator(
-                d,
+                *d,
                 type_info.wrap_with_fun(param_types, is_variadic),
                 prog,
                 context,

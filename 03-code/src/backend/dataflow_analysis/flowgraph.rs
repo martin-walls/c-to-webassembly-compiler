@@ -81,7 +81,7 @@ impl Flowgraph {
     }
 }
 
-pub fn generate_flowgraph(relooper_block: &Box<Block>) -> Flowgraph {
+pub fn generate_flowgraph(relooper_block: &Block) -> Flowgraph {
     let mut flowgraph = Flowgraph::new();
 
     let (flowgraph_entries, flowgraph_exits, flowgraph_jump_exits) =
@@ -95,14 +95,14 @@ pub fn generate_flowgraph(relooper_block: &Box<Block>) -> Flowgraph {
 }
 
 fn add_block_to_flowgraph_and_get_entries_and_exits(
-    block: &Box<Block>,
+    block: &Block,
     flowgraph: &mut Flowgraph,
 ) -> (
     HashSet<InstructionId>,
     HashSet<InstructionId>,
     HashSet<InstructionId>,
 ) {
-    match &**block {
+    match block {
         Block::Simple { internal, next } => {
             if internal.instrs.is_empty() {
                 // shouldn't really ever be the case

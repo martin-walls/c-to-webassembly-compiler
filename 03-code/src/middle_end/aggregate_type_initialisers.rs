@@ -10,10 +10,10 @@ use crate::parser::ast::{Constant as AstConstant, Expression, Initialiser};
 
 pub fn array_initialiser(
     dest: VarId,
-    dest_type_info: Box<IrType>,
-    initialiser_list: Vec<Box<Initialiser>>,
-    prog: &mut Box<Program>,
-    context: &mut Box<Context>,
+    dest_type_info: IrType,
+    initialiser_list: Vec<Initialiser>,
+    prog: &mut Program,
+    context: &mut Context,
 ) -> Result<Vec<Instruction>, MiddleEndError> {
     let mut instrs = Vec::new();
 
@@ -28,7 +28,7 @@ pub fn array_initialiser(
     let member_ptr_var = prog.new_var(ValueType::LValue);
     prog.add_var_type(
         member_ptr_var.to_owned(),
-        Box::new(IrType::PointerTo(array_member_type.to_owned())),
+        IrType::PointerTo(Box::new(array_member_type.to_owned())),
     )?;
     instrs.push(Instruction::SimpleAssignment(
         prog.new_instr_id(),
@@ -48,7 +48,7 @@ pub fn array_initialiser(
     }
 
     for array_member_initialiser in initialiser_list {
-        match *array_member_initialiser {
+        match array_member_initialiser {
             Initialiser::Expr(e) => {
                 if array_member_type.is_aggregate_type() {
                     return Err(MiddleEndError::AssignNonAggregateValueToAggregateType);
@@ -88,12 +88,12 @@ pub fn array_initialiser(
                     expr_var,
                 ));
             }
-            Initialiser::List(sub_member_initialisers) => match *array_member_type.to_owned() {
+            Initialiser::List(sub_member_initialisers) => match array_member_type.to_owned() {
                 IrType::ArrayOf(sub_member_type, size) => {
                     // initialise nested array
                     let mut init_instrs = array_initialiser(
                         member_ptr_var.to_owned(),
-                        Box::new(IrType::ArrayOf(sub_member_type, size)),
+                        IrType::ArrayOf(sub_member_type, size),
                         sub_member_initialisers,
                         prog,
                         context,
@@ -104,7 +104,7 @@ pub fn array_initialiser(
                     // initialise nested struct
                     let mut init_instrs = struct_initialiser(
                         member_ptr_var.to_owned(),
-                        Box::new(IrType::Struct(struct_id)),
+                        IrType::Struct(struct_id),
                         sub_member_initialisers,
                         prog,
                         context,
@@ -128,10 +128,10 @@ pub fn array_initialiser(
 
 pub fn struct_initialiser(
     dest: VarId,
-    dest_type_info: Box<IrType>,
-    initialiser_list: Vec<Box<Initialiser>>,
-    prog: &mut Box<Program>,
-    context: &mut Box<Context>,
+    dest_type_info: IrType,
+    initialiser_list: Vec<Initialiser>,
+    prog: &mut Program,
+    context: &mut Context,
 ) -> Result<Vec<Instruction>, MiddleEndError> {
     let mut instrs = Vec::new();
 
@@ -151,7 +151,7 @@ pub fn struct_initialiser(
         let member_ptr_var = prog.new_var(ValueType::LValue);
         prog.add_var_type(
             member_ptr_var.to_owned(),
-            Box::new(IrType::PointerTo(member_type.to_owned())),
+            IrType::PointerTo(Box::new(member_type.to_owned())),
         )?;
         // member_ptr_var = &dest + byte_offset
         instrs.push(Instruction::AddressOf(
@@ -167,18 +167,18 @@ pub fn struct_initialiser(
         ));
 
         // check for case of initialising a char array with a string literal
-        if let IrType::ArrayOf(_, _) = *member_type {
-            match *member_initialiser.to_owned() {
+        if member_type.is_array_type() {
+            match member_initialiser.to_owned() {
                 Initialiser::Expr(e) => {
-                    if let Expression::StringLiteral(s) = *e.to_owned() {
+                    if let Expression::StringLiteral(s) = e.to_owned() {
                         // convert string literal to array of chars
                         member_initialiser = convert_string_literal_to_init_list_of_chars_ast(s);
                     }
                 }
                 Initialiser::List(inits) => {
                     if inits.len() == 1 {
-                        if let Initialiser::Expr(e) = &**inits.first().unwrap() {
-                            if let Expression::StringLiteral(s) = *e.to_owned() {
+                        if let Initialiser::Expr(e) = inits.first().unwrap() {
+                            if let Expression::StringLiteral(s) = e.to_owned() {
                                 // convert string literal in braces to array of chars
                                 member_initialiser =
                                     convert_string_literal_to_init_list_of_chars_ast(s);
@@ -189,7 +189,7 @@ pub fn struct_initialiser(
             }
         }
 
-        match *member_initialiser {
+        match member_initialiser {
             Initialiser::Expr(e) => {
                 if member_type.is_aggregate_type() {
                     return Err(MiddleEndError::AssignNonAggregateValueToAggregateType);
@@ -230,12 +230,12 @@ pub fn struct_initialiser(
                     expr_var,
                 ));
             }
-            Initialiser::List(sub_member_initialisers) => match *member_type.to_owned() {
+            Initialiser::List(sub_member_initialisers) => match member_type.to_owned() {
                 IrType::ArrayOf(sub_member_type, size) => {
                     // initialise nested array
                     let mut init_instrs = array_initialiser(
                         member_ptr_var,
-                        Box::new(IrType::ArrayOf(sub_member_type, size)),
+                        IrType::ArrayOf(sub_member_type, size),
                         sub_member_initialisers,
                         prog,
                         context,
@@ -246,7 +246,7 @@ pub fn struct_initialiser(
                     // initialise nested struct
                     let mut init_instrs = struct_initialiser(
                         member_ptr_var,
-                        Box::new(IrType::Struct(struct_id)),
+                        IrType::Struct(struct_id),
                         sub_member_initialisers,
                         prog,
                         context,
@@ -262,16 +262,16 @@ pub fn struct_initialiser(
 }
 
 /// convert a string literal to an array of chars, for array initialiser
-pub fn convert_string_literal_to_init_list_of_chars_ast(s: String) -> Box<Initialiser> {
+pub fn convert_string_literal_to_init_list_of_chars_ast(s: String) -> Initialiser {
     let mut char_initialisers = Vec::new();
     for c in s.chars() {
-        char_initialisers.push(Box::new(Initialiser::Expr(Box::new(Expression::Constant(
-            AstConstant::Char(c),
-        )))));
+        char_initialisers.push(Initialiser::Expr(Expression::Constant(AstConstant::Char(
+            c,
+        ))));
     }
     // string terminating char
-    char_initialisers.push(Box::new(Initialiser::Expr(Box::new(Expression::Constant(
-        AstConstant::Char('\0'),
-    )))));
-    Box::new(Initialiser::List(char_initialisers))
+    char_initialisers.push(Initialiser::Expr(Expression::Constant(AstConstant::Char(
+        '\0',
+    ))));
+    Initialiser::List(char_initialisers)
 }

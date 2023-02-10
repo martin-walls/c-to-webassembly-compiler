@@ -9,8 +9,8 @@ use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
 
 /// Insert a load instruction of the correct type
-pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
-    match *value_type {
+pub fn load(value_type: IrType, wasm_instrs: &mut Vec<WasmInstruction>) {
+    match value_type {
         IrType::I8 => wasm_instrs.push(WasmInstruction::I32Load8S {
             mem_arg: MemArg::zero(),
         }),
@@ -45,8 +45,8 @@ pub fn load(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
 }
 
 /// Insert a store instruction of the correct type
-pub fn store(value_type: Box<IrType>, wasm_instrs: &mut Vec<WasmInstruction>) {
-    match *value_type {
+pub fn store(value_type: IrType, wasm_instrs: &mut Vec<WasmInstruction>) {
+    match value_type {
         IrType::I8 | IrType::U8 => wasm_instrs.push(WasmInstruction::I32Store8 {
             mem_arg: MemArg::zero(),
         }),
@@ -82,7 +82,7 @@ pub fn load_var_address(
     var_id: &VarId,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     if prog_metadata.is_var_the_null_dest(var_id) {
         return;
@@ -119,7 +119,7 @@ pub fn load_var(
     var_id: VarId,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     if prog_metadata.is_var_the_null_dest(&var_id) {
         return;
@@ -138,7 +138,7 @@ pub fn store_var(
     mut store_value_instrs: Vec<WasmInstruction>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     // ignore stores to the null dest
     if prog_metadata.is_var_the_null_dest(&var_id) {
@@ -157,11 +157,11 @@ pub fn store_var(
 
 pub fn load_constant(
     constant: Constant,
-    constant_type: Box<IrType>,
+    constant_type: IrType,
     wasm_instrs: &mut Vec<WasmInstruction>,
 ) {
     // let constant_type = constant.get_type(None);
-    match *constant_type {
+    match constant_type {
         IrType::I8
         | IrType::U8
         | IrType::I16
@@ -202,10 +202,10 @@ pub fn load_constant(
 /// Param dest_type is optional for var loads, but required for constant loads.
 pub fn load_src(
     src: Src,
-    dest_type: Box<IrType>,
+    dest_type: IrType,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     match src {
         Src::Var(var_id) => load_var(var_id, wasm_instrs, function_context, prog_metadata),

@@ -55,27 +55,27 @@ impl AstNode for Constant {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    Block(Vec<Box<Statement>>),
+    Block(Vec<Statement>),
     Goto(Identifier),
     Continue,
     Break,
-    Return(Option<Box<Expression>>),
-    While(Box<Expression>, Box<Statement>),
-    DoWhile(Box<Statement>, Box<Expression>),
+    Return(Option<Expression>),
+    While(Expression, Box<Statement>),
+    DoWhile(Box<Statement>, Expression),
     For(
         Option<ExpressionOrDeclaration>,
-        Option<Box<Expression>>,
-        Option<Box<Expression>>,
+        Option<Expression>,
+        Option<Expression>,
         Box<Statement>,
     ),
-    If(Box<Expression>, Box<Statement>),
-    IfElse(Box<Expression>, Box<Statement>, Box<Statement>),
-    Switch(Box<Expression>, Box<Statement>),
+    If(Expression, Box<Statement>),
+    IfElse(Expression, Box<Statement>, Box<Statement>),
+    Switch(Expression, Box<Statement>),
     Labelled(LabelledStatement),
-    Expr(Box<Expression>),
+    Expr(Expression),
     Declaration(SpecifierQualifier, Vec<DeclaratorInitialiser>),
     EmptyDeclaration(SpecifierQualifier),
-    FunctionDeclaration(SpecifierQualifier, Box<Declarator>, Box<Statement>),
+    FunctionDeclaration(SpecifierQualifier, Declarator, Box<Statement>),
     Empty,
 }
 
@@ -175,11 +175,11 @@ impl AstNode for Statement {
     }
 }
 
-// for 'for' statements, where the first expression can be either an expression
+// for 'for' statements, where the first expression canc be either an expression
 // or a declaration
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionOrDeclaration {
-    Expression(Box<Expression>),
+    Expression(Expression),
     Declaration(Box<Statement>), // the Statement should be of value statement::Declarator
 }
 
@@ -194,7 +194,7 @@ impl AstNode for ExpressionOrDeclaration {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LabelledStatement {
-    Case(Box<Expression>, Box<Statement>),
+    Case(Expression, Box<Statement>),
     Default(Box<Statement>),
     Named(Identifier, Box<Statement>),
 }
@@ -216,7 +216,7 @@ impl AstNode for LabelledStatement {
 }
 
 #[derive(Debug)]
-pub struct StatementList(pub Vec<Box<Statement>>);
+pub struct StatementList(pub Vec<Statement>);
 
 impl AstNode for StatementList {
     fn reconstruct_source(&self) -> String {
@@ -234,7 +234,7 @@ pub enum Expression {
     Constant(Constant),
     StringLiteral(String),
     Index(Box<Expression>, Box<Expression>),
-    FunctionCall(Box<Expression>, Vec<Box<Expression>>),
+    FunctionCall(Box<Expression>, Vec<Expression>),
     DirectMemberSelection(Box<Expression>, Identifier),
     IndirectMemberSelection(Box<Expression>, Identifier),
     PostfixIncrement(Box<Expression>),
@@ -666,7 +666,7 @@ impl AstNode for StructType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructMemberDeclaration(pub SpecifierQualifier, pub Vec<Box<Declarator>>);
+pub struct StructMemberDeclaration(pub SpecifierQualifier, pub Vec<Declarator>);
 
 impl AstNode for StructMemberDeclaration {
     fn reconstruct_source(&self) -> String {
@@ -734,7 +734,7 @@ impl AstNode for EnumType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Enumerator {
     Simple(Identifier),
-    WithValue(Identifier, Box<Expression>),
+    WithValue(Identifier, Expression),
 }
 
 impl AstNode for Enumerator {
@@ -871,7 +871,7 @@ impl AstNode for ParameterTypeList {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ParameterDeclaration(pub SpecifierQualifier, pub Option<Box<Declarator>>);
+pub struct ParameterDeclaration(pub SpecifierQualifier, pub Option<Declarator>);
 
 impl AstNode for ParameterDeclaration {
     fn reconstruct_source(&self) -> String {
@@ -884,8 +884,8 @@ impl AstNode for ParameterDeclaration {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeclaratorInitialiser {
-    NoInit(Box<Declarator>),
-    Init(Box<Declarator>, Box<Initialiser>),
+    NoInit(Declarator),
+    Init(Declarator, Initialiser),
     // Function(Box<Declarator>, Box<Statement>),
     // StructOrUnion(Box<Declarator>, Vec<Box<Expression>>),
 }
@@ -925,8 +925,8 @@ impl AstNode for DeclaratorInitialiser {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initialiser {
-    Expr(Box<Expression>),
-    List(Vec<Box<Initialiser>>),
+    Expr(Expression),
+    List(Vec<Initialiser>),
 }
 
 impl AstNode for Initialiser {
@@ -947,7 +947,7 @@ impl AstNode for Initialiser {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TypeName(pub SpecifierQualifier, pub Option<Box<Declarator>>);
+pub struct TypeName(pub SpecifierQualifier, pub Option<Declarator>);
 
 impl AstNode for TypeName {
     fn reconstruct_source(&self) -> String {

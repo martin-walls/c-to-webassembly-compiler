@@ -6,7 +6,7 @@ use crate::middle_end::middle_end_optimiser::unreachable_procedure_elimination::
 use crate::EnabledOptimisations;
 
 pub fn optimise_ir(
-    prog: &mut Box<Program>,
+    prog: &mut Program,
     enabled_optimisations: &EnabledOptimisations,
 ) -> Result<(), MiddleEndError> {
     for (fun_id, function) in &mut prog.program_instructions.functions {

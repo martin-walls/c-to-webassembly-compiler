@@ -90,7 +90,7 @@ impl fmt::Display for ClashGraph {
     }
 }
 
-pub fn generate_clash_graph(block: &Box<Block>) -> ClashGraph {
+pub fn generate_clash_graph(block: &Block) -> ClashGraph {
     let flowgraph = generate_flowgraph(block);
     let live_vars = live_variable_analysis(&flowgraph);
 

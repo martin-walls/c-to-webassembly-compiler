@@ -316,18 +316,15 @@ impl<'input> Iterator for Lexer<'input> {
 
 impl Lexer<'_> {
     fn parse_typedef_name(&mut self) -> Result<(), LexError> {
-        let result =
-            c_parser::DeclarationParser::new().parse(self.typedef_stmt_buffer.to_vec().into_iter());
-        if let Ok(stmt) = result {
-            if let ast::Statement::Declaration(_, ds) = *stmt {
-                if ds.len() == 1 {
-                    if let Some(name) = ds[0].get_identifier_name() {
-                        trace!("Found typedef identifier: {:?}", name);
-                        self.typedef_names.push(name);
-                        trace!("Typedef names so far: {:?}", self.typedef_names);
-                        self.typedef_stmt_buffer = vec![];
-                        return Ok(());
-                    }
+        let result = c_parser::DeclarationParser::new().parse(self.typedef_stmt_buffer.to_vec());
+        if let Ok(ast::Statement::Declaration(_, ds)) = result {
+            if ds.len() == 1 {
+                if let Some(name) = ds[0].get_identifier_name() {
+                    trace!("Found typedef identifier: {:?}", name);
+                    self.typedef_names.push(name);
+                    trace!("Typedef names so far: {:?}", self.typedef_names);
+                    self.typedef_stmt_buffer = vec![];
+                    return Ok(());
                 }
             }
         }
@@ -451,7 +448,7 @@ impl Fsm {
         }
     }
 
-    fn step(self, input: char, typedef_names: &Vec<String>) -> Option<Self> {
+    fn step(self, input: char, typedef_names: &[String]) -> Option<Self> {
         match self.state {
             State::Start => match input {
                 '!' => Some(Fsm {

@@ -21,13 +21,13 @@ type VarAndByteSizePair = (VarId, u64);
 type VarAllocationStack = Vec<VarAndByteSizePair>;
 
 pub fn optimised_allocate_local_vars(
-    block: &mut Box<Block>,
+    block: &mut Block,
     param_vars_not_to_allocate_again: &Vec<VarId>,
     start_offset: u32,
     var_offsets: VariableAllocationMap,
     wasm_instrs: &mut Vec<WasmInstruction>,
     module_context: &ModuleContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) -> VariableAllocationMap {
     remove_dead_vars(block, prog_metadata);
 
@@ -81,9 +81,9 @@ pub fn optimised_allocate_local_vars(
 /// from the clash graph.
 /// If no vars are left, returns None.
 fn pop_smallest_least_clashed_var(
-    vars_left_to_allocate: &mut HashMap<VarId, Box<IrType>>,
+    vars_left_to_allocate: &mut HashMap<VarId, IrType>,
     clash_graph: &mut ClashGraph,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> Option<VarAndByteSizePair> {
     let mut min_var = None;
     let mut min_var_clash_count = 0;
@@ -117,7 +117,7 @@ fn pop_smallest_least_clashed_var(
 fn allocate_vars_from_stack(
     mut var_allocation_stack: VarAllocationStack,
     clash_graph: &ClashGraph,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> HashSet<VarLocation> {
     // naive data structure: todo use an interval tree or similar
     let mut var_locations = NaiveVarLocations::new();

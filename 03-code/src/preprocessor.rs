@@ -61,7 +61,7 @@ fn remove_include_directives(filepath: &Path) -> Result<(String, Vec<String>), P
 
 /// Checks if the given line is a #include directive.
 /// If so, returns the name of the header file included, or None otherwise
-fn check_for_include(line: &String) -> Option<String> {
+fn check_for_include(line: &str) -> Option<String> {
     lazy_static! {
         static ref INCLUDE_RE: Regex = Regex::new(r#"^#include\s[<"](.*)[>"]"#).unwrap();
     }

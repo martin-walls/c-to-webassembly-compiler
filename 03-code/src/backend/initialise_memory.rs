@@ -13,7 +13,7 @@ use crate::middle_end::ir::ProgramMetadata;
 pub fn initialise_memory(
     wasm_module: &mut WasmModule,
     module_context: &mut ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> u32 {
     // ----------------------------------------------------------
     // | FP | temp FP | SP | String literals | ...stack frames...

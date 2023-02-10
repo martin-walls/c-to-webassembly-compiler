@@ -9,10 +9,7 @@ use crate::middle_end::instructions::Instruction;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::relooper::blocks::Block;
 
-pub fn remove_dead_vars(
-    block: &mut Box<Block>,
-    prog_metadata: &mut Box<ProgramMetadata>,
-) -> Flowgraph {
+pub fn remove_dead_vars(block: &mut Block, prog_metadata: &mut ProgramMetadata) -> Flowgraph {
     let mut flowgraph = generate_flowgraph(block);
 
     let mut changes = true;

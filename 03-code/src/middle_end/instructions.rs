@@ -14,7 +14,7 @@ pub enum Constant {
 }
 
 impl Constant {
-    pub fn get_type(&self, expected: Option<Box<IrType>>) -> Box<IrType> {
+    pub fn get_type(&self, expected: Option<IrType>) -> IrType {
         match self {
             Constant::Int(i) => {
                 if let Some(t) = expected {
@@ -23,29 +23,29 @@ impl Constant {
                     }
                 }
                 match i {
-                    0..=255 => Box::new(IrType::U8),
-                    -128..=127 => Box::new(IrType::I8),
-                    0..=65_535 => Box::new(IrType::U16),
-                    -32_768..=32_767 => Box::new(IrType::I16),
-                    0..=4_294_967_296 => Box::new(IrType::U32),
-                    -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
-                    0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
-                    _ => Box::new(IrType::I64),
+                    0..=255 => IrType::U8,
+                    -128..=127 => IrType::I8,
+                    0..=65_535 => IrType::U16,
+                    -32_768..=32_767 => IrType::I16,
+                    0..=4_294_967_296 => IrType::U32,
+                    -2_147_483_648..=2_147_483_647 => IrType::I32,
+                    0..=18_446_744_073_709_551_615 => IrType::U64,
+                    _ => IrType::I64,
                 }
             }
-            Constant::Float(_) => Box::new(IrType::F64),
+            Constant::Float(_) => IrType::F64,
         }
     }
 
-    pub fn get_type_minimum_i32(&self) -> Box<IrType> {
+    pub fn get_type_minimum_i32(&self) -> IrType {
         match self {
             Constant::Int(i) => match i {
-                0..=4_294_967_296 => Box::new(IrType::U32),
-                -2_147_483_648..=2_147_483_647 => Box::new(IrType::I32),
-                0..=18_446_744_073_709_551_615 => Box::new(IrType::U64),
-                _ => Box::new(IrType::I64),
+                0..=4_294_967_296 => IrType::U32,
+                -2_147_483_648..=2_147_483_647 => IrType::I32,
+                0..=18_446_744_073_709_551_615 => IrType::U64,
+                _ => IrType::I64,
             },
-            Constant::Float(_) => Box::new(IrType::F64),
+            Constant::Float(_) => IrType::F64,
         }
     }
 }
@@ -74,10 +74,7 @@ pub enum Src {
 }
 
 impl Src {
-    pub fn get_type(
-        &self,
-        prog_metadata: &Box<ProgramMetadata>,
-    ) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_type(&self, prog_metadata: &ProgramMetadata) -> Result<IrType, MiddleEndError> {
         match self {
             Src::Var(var) | Src::StoreAddressVar(var) => prog_metadata.get_var_type(var),
             Src::Constant(c) => Ok(c.get_type(None)),
@@ -102,13 +99,10 @@ impl Src {
         }
     }
 
-    pub fn get_function_return_type(
-        &self,
-        prog: &Box<Program>,
-    ) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_function_return_type(&self, prog: &Program) -> Result<IrType, MiddleEndError> {
         match self {
-            Src::Fun(fun_id) => match *prog.get_fun_type(fun_id)? {
-                IrType::Function(ret_type, _, _) => Ok(ret_type),
+            Src::Fun(fun_id) => match prog.get_fun_type(fun_id)? {
+                IrType::Function(ret_type, _, _) => Ok(*ret_type),
                 _ => Err(MiddleEndError::UnwrapNonFunctionType),
             },
             _ => Err(MiddleEndError::UnwrapNonFunctionType),

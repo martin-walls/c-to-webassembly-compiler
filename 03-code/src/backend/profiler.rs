@@ -23,7 +23,7 @@ pub fn initialise_profiler(module_context: &mut ModuleContext, prog: &mut Reloop
             ReloopedFunction {
                 block: None,
                 label_variable: None,
-                type_info: Box::new(IrType::Function(Box::new(IrType::Void), Vec::new(), false)),
+                type_info: IrType::Function(Box::new(IrType::Void), Vec::new(), false),
                 param_var_mappings: Vec::new(),
                 body_is_defined: false,
             },

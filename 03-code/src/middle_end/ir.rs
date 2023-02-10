@@ -16,7 +16,7 @@ use crate::middle_end::middle_end_error::MiddleEndError;
 #[derive(Debug)]
 pub struct Function {
     pub instrs: Vec<Instruction>,
-    pub type_info: Box<IrType>,
+    pub type_info: IrType,
     // for each parameter, store which var it maps to
     pub param_var_mappings: Vec<VarId>,
     pub body_is_defined: bool,
@@ -25,7 +25,7 @@ pub struct Function {
 impl Function {
     pub fn new(
         instrs: Vec<Instruction>,
-        type_info: Box<IrType>,
+        type_info: IrType,
         param_var_mappings: Vec<VarId>,
     ) -> Self {
         Function {
@@ -36,7 +36,7 @@ impl Function {
         }
     }
 
-    pub fn declaration(type_info: Box<IrType>) -> Self {
+    pub fn declaration(type_info: IrType) -> Self {
         Function {
             instrs: Vec::new(),
             type_info,
@@ -88,7 +88,7 @@ impl ProgramInstructions {
         self.functions.insert(fun_id, fun);
     }
 
-    fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+    fn get_fun_type(&self, fun_id: &FunId) -> Result<IrType, MiddleEndError> {
         match self.functions.get(fun_id) {
             None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
             Some(fun) => Ok(fun.type_info.to_owned()),
@@ -122,10 +122,10 @@ pub struct ProgramMetadata {
     union_id_generator: IdGenerator<UnionId>,
     pub label_ids: HashMap<String, LabelId>,
     pub function_ids: HashMap<String, FunId>,
-    pub function_types: HashMap<FunId, Box<IrType>>,
+    pub function_types: HashMap<FunId, IrType>,
     pub function_param_var_mappings: HashMap<FunId, Vec<VarId>>,
     pub string_literals: HashMap<StringLiteralId, String>,
-    pub var_types: HashMap<VarId, Box<IrType>>,
+    pub var_types: HashMap<VarId, IrType>,
     pub structs: HashMap<StructId, StructType>,
     pub unions: HashMap<UnionId, UnionType>,
     pub enum_member_values: HashMap<String, u64>,
@@ -187,11 +187,7 @@ impl ProgramMetadata {
         new_string_id
     }
 
-    pub fn add_var_type(
-        &mut self,
-        var: VarId,
-        var_type: Box<IrType>,
-    ) -> Result<(), MiddleEndError> {
+    pub fn add_var_type(&mut self, var: VarId, var_type: IrType) -> Result<(), MiddleEndError> {
         trace!("Setting type {} = {}", var, var_type);
         if self.var_types.contains_key(&var) {
             return Err(MiddleEndError::RedeclaredVarType(var));
@@ -200,7 +196,7 @@ impl ProgramMetadata {
         Ok(())
     }
 
-    pub fn get_var_type(&self, var: &VarId) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_var_type(&self, var: &VarId) -> Result<IrType, MiddleEndError> {
         match self.var_types.get(var) {
             None => Err(MiddleEndError::TypeNotFound),
             Some(t) => Ok(t.to_owned()),
@@ -245,7 +241,7 @@ impl ProgramMetadata {
         }
     }
 
-    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<IrType, MiddleEndError> {
         match self.function_types.get(fun_id) {
             None => Err(MiddleEndError::FunctionNotFoundForId(fun_id.to_owned())),
             Some(fun_type) => Ok(fun_type.to_owned()),
@@ -320,15 +316,15 @@ impl fmt::Display for ProgramMetadata {
 }
 
 pub struct Program {
-    pub program_instructions: Box<ProgramInstructions>,
-    pub program_metadata: Box<ProgramMetadata>,
+    pub program_instructions: ProgramInstructions,
+    pub program_metadata: ProgramMetadata,
 }
 
 impl Program {
     pub fn new() -> Self {
         Program {
-            program_instructions: Box::new(ProgramInstructions::new()),
-            program_metadata: Box::new(ProgramMetadata::new()),
+            program_instructions: ProgramInstructions::new(),
+            program_metadata: ProgramMetadata::new(),
         }
     }
 
@@ -388,7 +384,7 @@ impl Program {
         }
     }
 
-    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_fun_type(&self, fun_id: &FunId) -> Result<IrType, MiddleEndError> {
         self.program_instructions.get_fun_type(fun_id)
     }
 
@@ -400,15 +396,11 @@ impl Program {
         self.program_metadata.new_string_literal(s)
     }
 
-    pub fn add_var_type(
-        &mut self,
-        var: VarId,
-        var_type: Box<IrType>,
-    ) -> Result<(), MiddleEndError> {
+    pub fn add_var_type(&mut self, var: VarId, var_type: IrType) -> Result<(), MiddleEndError> {
         self.program_metadata.add_var_type(var, var_type)
     }
 
-    pub fn get_var_type(&self, var: &VarId) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_var_type(&self, var: &VarId) -> Result<IrType, MiddleEndError> {
         self.program_metadata.get_var_type(var)
     }
 

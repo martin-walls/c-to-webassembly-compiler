@@ -197,12 +197,12 @@ pub fn set_frame_ptr_to_stack_ptr(wasm_instrs: &mut Vec<WasmInstruction>) {
 }
 
 pub fn set_up_new_stack_frame(
-    callee_function_type: &Box<IrType>,
+    callee_function_type: &IrType,
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     // create a new stack frame for the callee
     //
@@ -234,7 +234,7 @@ pub fn set_up_new_stack_frame(
     // increment stack pointer
     increment_stack_ptr_by_known_offset(PTR_SIZE, wasm_instrs, module_context);
 
-    let (return_type, param_types) = match &**callee_function_type {
+    let (return_type, param_types) = match callee_function_type {
         IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
         _ => unreachable!(),
     };
@@ -322,11 +322,11 @@ pub fn set_up_new_stack_frame(
 
 pub fn pop_stack_frame(
     result_dest: Dest,
-    callee_function_type: &Box<IrType>,
+    callee_function_type: &IrType,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     // pop the top stack frame
     // restore the stack pointer value
@@ -344,11 +344,11 @@ pub fn pop_stack_frame(
     store_value_instrs.push(WasmInstruction::I32Const { n: PTR_SIZE as i32 });
     store_value_instrs.push(WasmInstruction::I32Add);
 
-    let return_type = match &**callee_function_type {
-        IrType::Function(return_type, _, _) => return_type,
+    let return_type = match callee_function_type {
+        IrType::Function(return_type, _, _) => &**return_type,
         _ => unreachable!(),
     };
-    match &**return_type {
+    match return_type {
         IrType::Void => {
             // if function returns void, don't load return value
         }
@@ -367,17 +367,17 @@ pub fn pop_stack_frame(
 }
 
 pub fn overwrite_current_stack_frame_with_new_stack_frame(
-    callee_function_type: &Box<IrType>,
+    callee_function_type: &IrType,
     params: Vec<Src>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     // leave frame ptr where it is
 
-    let (return_type, param_types) = match &**callee_function_type {
-        IrType::Function(return_type, param_types, _is_variadic) => (return_type, param_types),
+    let (return_type, param_types) = match callee_function_type {
+        IrType::Function(return_type, param_types, _is_variadic) => (&**return_type, param_types),
         _ => unreachable!(),
     };
 

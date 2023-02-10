@@ -83,7 +83,7 @@ pub enum Block {
         /// target code generation. They won't get directly translated to real
         /// instructions.
         pre_handled_blocks_instrs: Vec<Instruction>,
-        handled_blocks: Vec<Box<Block>>,
+        handled_blocks: Vec<Block>,
         next: Option<Box<Block>>,
     },
 }

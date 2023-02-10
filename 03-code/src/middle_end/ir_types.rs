@@ -16,7 +16,7 @@ pub type EnumConstant = i32;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeSize {
     CompileTime(u64),
-    Runtime(Box<Expression>),
+    Runtime(Expression),
 }
 
 impl TypeSize {
@@ -44,9 +44,12 @@ pub enum IrType {
     // unsigned int
     I64,
     // signed long
-    U64, // unsigned long
-    F32, // float
-    F64, // double
+    U64,
+    // unsigned long
+    F32,
+    // float
+    F64,
+    // double
     Struct(StructId),
     Union(UnionId),
     Void,
@@ -54,13 +57,13 @@ pub enum IrType {
     /// array type, array size
     ArrayOf(Box<IrType>, Option<TypeSize>),
     /// return type, parameter types, is variadic
-    Function(Box<IrType>, Vec<Box<IrType>>, bool),
+    Function(Box<IrType>, Vec<IrType>, bool),
 }
 
 impl IrType {
     /// Get the size of this type in bytes, if known at compile time.
     /// For arrays, the size may not be known until runtime.
-    pub fn get_byte_size(&self, prog: &Box<ProgramMetadata>) -> TypeSize {
+    pub fn get_byte_size(&self, prog: &ProgramMetadata) -> TypeSize {
         match &self {
             IrType::I8 | IrType::U8 => TypeSize::CompileTime(1),
             IrType::I16 | IrType::U16 => TypeSize::CompileTime(2),
@@ -96,64 +99,53 @@ impl IrType {
 
     pub fn get_pointer_object_byte_size(
         &self,
-        prog: &Box<ProgramMetadata>,
+        prog: &ProgramMetadata,
     ) -> Result<TypeSize, MiddleEndError> {
         match self {
             IrType::PointerTo(inner_type) => Ok(inner_type.get_byte_size(prog)),
-            t => Err(MiddleEndError::DereferenceNonPointerType(Box::new(
-                t.to_owned(),
-            ))),
+            t => Err(MiddleEndError::DereferenceNonPointerType(t.to_owned())),
         }
     }
 
-    pub fn get_array_byte_size(
-        &self,
-        prog: &Box<ProgramMetadata>,
-    ) -> Result<TypeSize, MiddleEndError> {
+    pub fn get_array_byte_size(&self, prog: &ProgramMetadata) -> Result<TypeSize, MiddleEndError> {
         match self {
             IrType::ArrayOf(inner_type, count) => match count {
                 Some(TypeSize::CompileTime(count)) => match inner_type.get_byte_size(prog) {
                     TypeSize::CompileTime(t_size) => Ok(TypeSize::CompileTime(t_size * count)),
-                    TypeSize::Runtime(t_size_expr) => {
-                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
-                            BinaryOperator::Mult,
-                            t_size_expr,
-                            Box::new(Expression::Constant(Constant::Int(*count as u128))),
-                        ))))
-                    }
+                    TypeSize::Runtime(t_size_expr) => Ok(TypeSize::Runtime(Expression::BinaryOp(
+                        BinaryOperator::Mult,
+                        Box::new(t_size_expr),
+                        Box::new(Expression::Constant(Constant::Int(*count as u128))),
+                    ))),
                 },
                 Some(TypeSize::Runtime(count_expr)) => match inner_type.get_byte_size(prog) {
-                    TypeSize::CompileTime(t_size) => {
-                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
-                            BinaryOperator::Mult,
-                            count_expr.to_owned(),
-                            Box::new(Expression::Constant(Constant::Int(t_size as u128))),
-                        ))))
-                    }
-                    TypeSize::Runtime(t_size_expr) => {
-                        Ok(TypeSize::Runtime(Box::new(Expression::BinaryOp(
-                            BinaryOperator::Mult,
-                            t_size_expr,
-                            count_expr.to_owned(),
-                        ))))
-                    }
+                    TypeSize::CompileTime(t_size) => Ok(TypeSize::Runtime(Expression::BinaryOp(
+                        BinaryOperator::Mult,
+                        Box::new(count_expr.to_owned()),
+                        Box::new(Expression::Constant(Constant::Int(t_size as u128))),
+                    ))),
+                    TypeSize::Runtime(t_size_expr) => Ok(TypeSize::Runtime(Expression::BinaryOp(
+                        BinaryOperator::Mult,
+                        Box::new(t_size_expr),
+                        Box::new(count_expr.to_owned()),
+                    ))),
                 },
                 None => Ok(TypeSize::CompileTime(0)),
             },
-            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
+            t => Err(MiddleEndError::UnwrapNonArrayType(t.to_owned())),
         }
     }
 
-    pub fn wrap_with_pointer(self) -> Box<Self> {
-        Box::new(IrType::PointerTo(Box::new(self)))
+    pub fn wrap_with_pointer(self) -> Self {
+        IrType::PointerTo(Box::new(self))
     }
 
-    pub fn wrap_with_array(self, size: Option<TypeSize>) -> Box<Self> {
-        Box::new(IrType::ArrayOf(Box::new(self), size))
+    pub fn wrap_with_array(self, size: Option<TypeSize>) -> Self {
+        IrType::ArrayOf(Box::new(self), size)
     }
 
-    pub fn wrap_with_fun(self, params: Vec<Box<IrType>>, is_variadic: bool) -> Box<Self> {
-        Box::new(IrType::Function(Box::new(self), params, is_variadic))
+    pub fn wrap_with_fun(self, params: Vec<IrType>, is_variadic: bool) -> Self {
+        IrType::Function(Box::new(self), params, is_variadic)
     }
 
     pub fn is_signed_integral(&self) -> bool {
@@ -164,18 +156,18 @@ impl IrType {
         matches!(self, IrType::U8 | IrType::U16 | IrType::U32 | IrType::U64)
     }
 
-    pub fn smallest_signed_equivalent(&self) -> Result<Box<Self>, MiddleEndError> {
+    pub fn smallest_signed_equivalent(&self) -> Result<Self, MiddleEndError> {
         match self {
-            IrType::U8 => Ok(Box::new(IrType::I16)), // go up one size cos might be bigger than can fit
-            IrType::U16 => Ok(Box::new(IrType::I32)),
-            IrType::U32 => Ok(Box::new(IrType::I64)),
-            IrType::U64 => Ok(Box::new(IrType::I64)),
+            IrType::U8 => Ok(IrType::I16), // go up one size cos might be bigger than can fit
+            IrType::U16 => Ok(IrType::I32),
+            IrType::U32 => Ok(IrType::I64),
+            IrType::U64 => Ok(IrType::I64),
             IrType::I8 | IrType::I16 | IrType::I32 | IrType::I64 | IrType::F32 | IrType::F64 => {
-                Ok(Box::new(self.to_owned()))
+                Ok(self.to_owned())
             }
             _ => Err(MiddleEndError::TypeConversionError(
                 "Cannot convert to signed",
-                Box::new(self.to_owned()),
+                self.to_owned(),
                 None,
             )),
         }
@@ -302,62 +294,58 @@ impl IrType {
     }
 
     /// ISO C standard unary type conversions
-    pub fn unary_convert(&self) -> Box<Self> {
+    pub fn unary_convert(&self) -> Self {
         match self {
-            IrType::I8 | IrType::U8 | IrType::U16 | IrType::I16 | IrType::I32 => {
-                Box::new(IrType::I32)
-            }
-            IrType::ArrayOf(t, _) => Box::new(IrType::PointerTo(t.to_owned())),
-            _ => Box::new(self.to_owned()),
+            IrType::I8 | IrType::U8 | IrType::U16 | IrType::I16 | IrType::I32 => IrType::I32,
+            IrType::ArrayOf(t, _) => IrType::PointerTo(t.to_owned()),
+            _ => self.to_owned(),
         }
     }
 
     /// Return the type that this type points to, or an error if not a pointer type
-    pub fn dereference_pointer_type(&self) -> Result<Box<Self>, MiddleEndError> {
+    pub fn dereference_pointer_type(&self) -> Result<Self, MiddleEndError> {
         match self {
-            IrType::PointerTo(t) => Ok(t.to_owned()),
-            t => Err(MiddleEndError::DereferenceNonPointerType(Box::new(
-                t.to_owned(),
-            ))),
+            IrType::PointerTo(t) => Ok(*t.to_owned()),
+            t => Err(MiddleEndError::DereferenceNonPointerType(t.to_owned())),
         }
     }
 
-    pub fn unwrap_array_type(&self) -> Result<Box<Self>, MiddleEndError> {
+    pub fn unwrap_array_type(&self) -> Result<Self, MiddleEndError> {
         match self {
-            IrType::ArrayOf(t, _size) => Ok(t.to_owned()),
-            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
+            IrType::ArrayOf(t, _size) => Ok(*t.to_owned()),
+            t => Err(MiddleEndError::UnwrapNonArrayType(t.to_owned())),
         }
     }
 
-    pub fn unwrap_struct_type(&self, prog: &Box<Program>) -> Result<StructType, MiddleEndError> {
+    pub fn unwrap_struct_type(&self, prog: &Program) -> Result<StructType, MiddleEndError> {
         match self {
             IrType::Struct(struct_id) => Ok(prog.get_struct_type(struct_id)?),
-            t => Err(MiddleEndError::UnwrapNonStructType(Box::new(t.to_owned()))),
+            t => Err(MiddleEndError::UnwrapNonStructType(t.to_owned())),
         }
     }
 
     pub fn get_array_size(&self) -> Result<TypeSize, MiddleEndError> {
         match self {
             IrType::ArrayOf(_t, size) => Ok(size.to_owned().unwrap_or(TypeSize::CompileTime(0))),
-            t => Err(MiddleEndError::UnwrapNonArrayType(Box::new(t.to_owned()))),
+            t => Err(MiddleEndError::UnwrapNonArrayType(t.to_owned())),
         }
     }
 
     /// take the initialiser list and fill in any implicit array sizes
     pub fn resolve_array_size_from_initialiser(
         &self,
-        initialiser: &Box<Initialiser>,
-    ) -> Result<Box<Self>, MiddleEndError> {
-        match (self.to_owned(), *initialiser.to_owned()) {
+        initialiser: &Initialiser,
+    ) -> Result<Self, MiddleEndError> {
+        match (self.to_owned(), initialiser.to_owned()) {
             (IrType::ArrayOf(t, mut size), Initialiser::List(initialisers)) => {
                 if size.is_none() {
                     size = Some(TypeSize::CompileTime(initialisers.len() as u64));
                 }
                 let resolved_member_type =
                     t.resolve_array_size_from_initialiser(initialisers.first().unwrap())?;
-                Ok(Box::new(IrType::ArrayOf(resolved_member_type, size)))
+                Ok(IrType::ArrayOf(Box::new(resolved_member_type), size))
             }
-            (t, _) => Ok(Box::new(t)),
+            (t, _) => Ok(t),
         }
     }
 }
@@ -432,7 +420,7 @@ impl fmt::Display for IrType {
 pub struct StructType {
     pub name: Option<String>,
     /// store members' names and types
-    pub member_types: HashMap<String, Box<IrType>>,
+    pub member_types: HashMap<String, IrType>,
     pub member_byte_offsets: HashMap<String, u64>,
     // to store the order of members
     members: Vec<String>,
@@ -463,8 +451,8 @@ impl StructType {
     pub fn push_member(
         &mut self,
         member_name: String,
-        member_type: Box<IrType>,
-        prog: &Box<ProgramMetadata>,
+        member_type: IrType,
+        prog: &ProgramMetadata,
     ) -> Result<(), MiddleEndError> {
         // check if member with same name already exists
         if self.has_member(&member_name) {
@@ -492,7 +480,7 @@ impl StructType {
         self.member_types.contains_key(member_name)
     }
 
-    pub fn get_member_type(&self, member_name: &str) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_member_type(&self, member_name: &str) -> Result<IrType, MiddleEndError> {
         match self.member_types.get(member_name) {
             None => Err(MiddleEndError::StructMemberNotFound(format!(
                 "{}.{}",
@@ -503,7 +491,7 @@ impl StructType {
         }
     }
 
-    pub fn get_member_type_by_index(&self, index: usize) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_member_type_by_index(&self, index: usize) -> Result<IrType, MiddleEndError> {
         match self.members.get(index) {
             None => Err(MiddleEndError::StructMemberNotFound(format!(
                 "{}.[{}]",
@@ -559,7 +547,7 @@ impl fmt::Display for StructType {
 pub struct UnionType {
     pub name: Option<String>,
     /// store members' names and types
-    pub member_types: HashMap<String, Box<IrType>>,
+    pub member_types: HashMap<String, IrType>,
     pub total_byte_size: u64,
 }
 
@@ -583,8 +571,8 @@ impl UnionType {
     pub fn push_member(
         &mut self,
         member_name: String,
-        member_type: Box<IrType>,
-        prog: &Box<ProgramMetadata>,
+        member_type: IrType,
+        prog: &ProgramMetadata,
     ) -> Result<(), MiddleEndError> {
         // check if another member with same name already exists
         if self.has_member(&member_name) {
@@ -606,7 +594,7 @@ impl UnionType {
         self.member_types.contains_key(member_name)
     }
 
-    pub fn get_member_type(&self, member_name: &str) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn get_member_type(&self, member_name: &str) -> Result<IrType, MiddleEndError> {
         match self.member_types.get(member_name) {
             None => Err(MiddleEndError::UnionMemberNotFound(format!(
                 "{}.{}",
@@ -632,9 +620,9 @@ impl fmt::Display for UnionType {
     }
 }
 
-pub fn array_to_pointer_type(src_type: Box<IrType>) -> Box<IrType> {
-    match *src_type {
-        IrType::ArrayOf(member_type, _count) => Box::new(IrType::PointerTo(member_type)),
+pub fn array_to_pointer_type(src_type: IrType) -> IrType {
+    match src_type {
+        IrType::ArrayOf(member_type, _count) => IrType::PointerTo(member_type),
         _ => src_type,
     }
 }

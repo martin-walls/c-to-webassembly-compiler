@@ -35,17 +35,17 @@ impl<'a> RelooperContext<'a> {
 
 #[derive(Debug)]
 pub struct ReloopedFunction {
-    pub block: Option<Box<Block>>,
+    pub block: Option<Block>,
     pub label_variable: Option<VarId>,
     // only None if block is None
-    pub type_info: Box<IrType>,
+    pub type_info: IrType,
     pub param_var_mappings: Vec<VarId>,
     pub body_is_defined: bool,
 }
 
 pub struct ProgramBlocks {
     pub functions: HashMap<FunId, ReloopedFunction>,
-    pub global_instrs: Option<Box<Block>>,
+    pub global_instrs: Option<Block>,
 }
 
 impl ProgramBlocks {
@@ -58,11 +58,11 @@ impl ProgramBlocks {
 }
 
 pub struct ReloopedProgram {
-    pub program_blocks: Box<ProgramBlocks>,
-    pub program_metadata: Box<ProgramMetadata>,
+    pub program_blocks: ProgramBlocks,
+    pub program_metadata: ProgramMetadata,
 }
 
-pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
+pub fn reloop(mut prog: Program) -> ReloopedProgram {
     let mut program_blocks = ProgramBlocks::new();
 
     let mut loop_block_id_generator = IdGenerator::<LoopBlockId>::new();
@@ -146,7 +146,7 @@ pub fn reloop(mut prog: Box<Program>) -> ReloopedProgram {
     }
 
     ReloopedProgram {
-        program_blocks: Box::new(program_blocks),
+        program_blocks,
         program_metadata: prog.program_metadata,
     }
 }
@@ -155,13 +155,13 @@ fn init_label_variable(prog_metadata: &mut ProgramMetadata) -> VarId {
     let label_var = prog_metadata.new_var(ValueType::LValue);
     // make label variable an unsigned long
     prog_metadata
-        .add_var_type(label_var.to_owned(), Box::new(IrType::U64))
+        .add_var_type(label_var.to_owned(), IrType::U64)
         .unwrap();
     label_var
 }
 
-fn assert_no_branch_instrs_left(block: &Box<Block>) {
-    match &**block {
+fn assert_no_branch_instrs_left(block: &Block) {
+    match block {
         Block::Simple { internal, next } => {
             for instr in &internal.instrs {
                 let is_branch_instr = matches!(
@@ -202,8 +202,8 @@ fn create_block_from_labels(
     mut labels: Labels,
     entries: Entries,
     context: &mut RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
-) -> Option<Box<Block>> {
+    prog_metadata: &mut ProgramMetadata,
+) -> Option<Block> {
     let reachability = calculate_reachability(&labels);
     let reachability_from_entries = combine_reachability_from_entries(&reachability, &entries);
 
@@ -221,10 +221,10 @@ fn create_block_from_labels(
             let mut this_label = labels.remove(single_entry).unwrap();
             replace_branch_instrs(&mut this_label, context, prog_metadata);
             let next_block = create_block_from_labels(labels, next_entries, context, prog_metadata);
-            return Some(Box::new(Block::Simple {
+            return Some(Block::Simple {
                 internal: this_label,
-                next: next_block,
-            }));
+                next: next_block.map(Box::new),
+            });
         }
     }
 
@@ -325,7 +325,7 @@ fn combine_reachability_from_entries(
 fn replace_branch_instrs(
     label: &mut Label,
     context: &RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) {
     // the only branch instructions in a label are at the end.
     //  (or a return, or a break/continue/endHandled instruction that's already been converted)
@@ -487,8 +487,8 @@ fn create_loop_block(
     entries: Entries,
     reachability: ReachabilityMap,
     context: &mut RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
-) -> Box<Block> {
+    prog_metadata: &mut ProgramMetadata,
+) -> Block {
     let mut inner_labels: Labels = HashMap::new();
     let mut next_labels: Labels = HashMap::new();
     // find the labels that can return to one of the entries, and those that can't
@@ -544,11 +544,11 @@ fn create_loop_block(
         create_block_from_labels(inner_labels, entries, context, prog_metadata).unwrap();
     let next_block = create_block_from_labels(next_labels, next_entries, context, prog_metadata);
 
-    Box::new(Block::Loop {
+    Block::Loop {
         id: loop_block_id,
-        inner: inner_block,
-        next: next_block,
-    })
+        inner: Box::new(inner_block),
+        next: next_block.map(Box::new),
+    }
 }
 
 fn replace_branch_instrs_inside_loop(
@@ -557,7 +557,7 @@ fn replace_branch_instrs_inside_loop(
     next_entries: &Entries,
     loop_block_id: &LoopBlockId,
     context: &RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) {
     for inner_label in inner_labels.values_mut() {
         for i in 0..inner_label.instrs.len() {
@@ -694,8 +694,8 @@ fn try_create_multiple_block(
     entries: &Entries,
     reachability: &ReachabilityMap,
     context: &mut RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
-) -> Option<Box<Block>> {
+    prog_metadata: &mut ProgramMetadata,
+) -> Option<Block> {
     // "for each entry, find all the labels it reaches that can't be reached by any other entry"
     let mut uniquely_reachable_labels: HashMap<LabelId, Vec<LabelId>> = HashMap::new();
     for entry in entries {
@@ -769,10 +769,10 @@ fn try_create_multiple_block(
             for handled_label in handled_labels.values() {
                 for branch_target in handled_label.possible_branch_targets() {
                     // if this is a branch to the next block
-                    if next_labels.get(&branch_target).is_some() {
-                        if !next_entries.contains(&branch_target) {
-                            next_entries.push(branch_target);
-                        }
+                    if next_labels.get(&branch_target).is_some()
+                        && !next_entries.contains(&branch_target)
+                    {
+                        next_entries.push(branch_target);
                     }
                 }
             }
@@ -803,12 +803,12 @@ fn try_create_multiple_block(
             context.label_variable.to_owned(),
         )];
 
-        return Some(Box::new(Block::Multiple {
+        return Some(Block::Multiple {
             id: multiple_block_id,
             pre_handled_blocks_instrs,
             handled_blocks,
-            next: next_block,
-        }));
+            next: next_block.map(Box::new),
+        });
     }
     None
 }
@@ -818,7 +818,7 @@ fn replace_branch_instrs_inside_handled_block(
     next_entries: &Entries,
     multiple_block_id: &MultipleBlockId,
     context: &RelooperContext,
-    prog_metadata: &mut Box<ProgramMetadata>,
+    prog_metadata: &mut ProgramMetadata,
 ) {
     for handled_label in handled_labels.values_mut() {
         for i in 0..handled_label.instrs.len() {

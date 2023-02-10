@@ -322,7 +322,7 @@ pub fn generate_target_code(
 }
 
 fn separate_imported_and_defined_functions(
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
     functions: HashMap<FunId, ReloopedFunction>,
 ) -> (
     Vec<(FunId, String, ReloopedFunction)>,
@@ -361,14 +361,14 @@ fn separate_imported_and_defined_functions(
 }
 
 fn convert_block_to_wasm(
-    block: Box<Block>,
+    block: Block,
     function_context: &mut FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> Vec<WasmInstruction> {
     let mut wasm_instrs = Vec::new();
 
-    match *block {
+    match block {
         Block::Simple { internal, next } => {
             for instr in internal.instrs {
                 convert_ir_instr_to_wasm(
@@ -384,7 +384,7 @@ fn convert_block_to_wasm(
                 None => {}
                 Some(next) => {
                     wasm_instrs.append(&mut convert_block_to_wasm(
-                        next,
+                        *next,
                         function_context,
                         module_context,
                         prog_metadata,
@@ -400,7 +400,7 @@ fn convert_block_to_wasm(
                 .control_flow_stack
                 .push(ControlFlowElement::Loop(id));
             let mut loop_instrs =
-                convert_block_to_wasm(inner, function_context, module_context, prog_metadata);
+                convert_block_to_wasm(*inner, function_context, module_context, prog_metadata);
             // explicit branch back to the start of the loop
             loop_instrs.push(WasmInstruction::Br {
                 label_idx: LabelIdx { l: 0 },
@@ -420,7 +420,7 @@ fn convert_block_to_wasm(
                 None => {}
                 Some(next) => {
                     wasm_instrs.append(&mut convert_block_to_wasm(
-                        next,
+                        *next,
                         function_context,
                         module_context,
                         prog_metadata,
@@ -446,7 +446,7 @@ fn convert_block_to_wasm(
                 None => {}
                 Some(next) => {
                     wasm_instrs.append(&mut convert_block_to_wasm(
-                        next,
+                        *next,
                         function_context,
                         module_context,
                         prog_metadata,
@@ -464,7 +464,7 @@ fn convert_ir_instr_to_wasm(
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &mut FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     match instr {
         Instruction::SimpleAssignment(_, dest, src) => {
@@ -544,9 +544,7 @@ fn convert_ir_instr_to_wasm(
             load_stack_ptr(wasm_instrs);
 
             store(
-                Box::new(IrType::PointerTo(
-                    prog_metadata.get_var_type(&dest).unwrap(),
-                )),
+                IrType::PointerTo(Box::new(prog_metadata.get_var_type(&dest).unwrap())),
                 wasm_instrs,
             );
 
@@ -563,7 +561,7 @@ fn convert_ir_instr_to_wasm(
             // load the number of bytes to allocate
             load_src(
                 byte_size,
-                Box::new(IrType::I32),
+                IrType::I32,
                 &mut load_byte_size_instrs,
                 function_context,
                 prog_metadata,
@@ -609,7 +607,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // bitwise not
-            match *dest_type {
+            match dest_type {
                 IrType::I8 | IrType::U8 | IrType::I16 | IrType::U16 | IrType::I32 | IrType::U32 => {
                     temp_instrs.push(WasmInstruction::I32Const { n: -1 });
                     temp_instrs.push(WasmInstruction::I32Xor);
@@ -649,7 +647,7 @@ fn convert_ir_instr_to_wasm(
 
             // logical not
             // test if src is zero
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -710,7 +708,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // mult
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -764,7 +762,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // div
-            match *dest_type {
+            match dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32DivS)
                 }
@@ -819,7 +817,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // remainder
-            match *dest_type {
+            match dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32RemS)
                 }
@@ -868,7 +866,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // add
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -922,7 +920,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // sub
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -976,7 +974,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // shift left
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1026,7 +1024,7 @@ fn convert_ir_instr_to_wasm(
             debug!("dest type: {}", dest_type);
 
             // shift right
-            match *dest_type {
+            match dest_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32ShrS)
                 }
@@ -1075,7 +1073,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // bitwise AND
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1123,7 +1121,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // bitwise OR
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1171,7 +1169,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // bitwise XOR
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1215,7 +1213,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test it left_src is zero
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1256,7 +1254,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test it right_src is zero
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1290,7 +1288,7 @@ fn convert_ir_instr_to_wasm(
             });
 
             // bitwise AND
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1335,7 +1333,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test it left_src is zero
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1376,7 +1374,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test it right_src is zero
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1410,7 +1408,7 @@ fn convert_ir_instr_to_wasm(
             });
 
             // bitwise OR
-            match *dest_type {
+            match dest_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1458,7 +1456,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // less than
-            match *src_type {
+            match src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LtS);
                 }
@@ -1515,7 +1513,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // greater than
-            match *src_type {
+            match src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GtS);
                 }
@@ -1572,7 +1570,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // less than or equal
-            match *src_type {
+            match src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32LeS);
                 }
@@ -1629,7 +1627,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // greater than or equal
-            match *src_type {
+            match src_type {
                 IrType::I8 | IrType::I16 | IrType::I32 => {
                     temp_instrs.push(WasmInstruction::I32GeS);
                 }
@@ -1687,7 +1685,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // equal
-            match *src_type {
+            match src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1742,7 +1740,7 @@ fn convert_ir_instr_to_wasm(
             );
 
             // not equal
-            match *src_type {
+            match src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -1924,7 +1922,7 @@ fn convert_ir_instr_to_wasm(
                     });
                 }
                 Src::Constant(constant) => {
-                    load_constant(constant, Box::new(IrType::I64), &mut temp_instrs);
+                    load_constant(constant, IrType::I64, &mut temp_instrs);
                 }
                 Src::StoreAddressVar(_) | Src::Fun(_) => {
                     unreachable!()
@@ -1950,7 +1948,7 @@ fn convert_ir_instr_to_wasm(
                     });
                 }
                 Src::Constant(constant) => {
-                    load_constant(constant, Box::new(IrType::I64), &mut temp_instrs);
+                    load_constant(constant, IrType::I64, &mut temp_instrs);
                 }
                 Src::StoreAddressVar(_) | Src::Fun(_) => {
                     unreachable!()
@@ -1973,7 +1971,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::I64),
+                IrType::I64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -1992,7 +1990,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::U32),
+                IrType::U32,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2011,7 +2009,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::I32),
+                IrType::I32,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2030,7 +2028,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::U64),
+                IrType::U64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2049,7 +2047,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::I64),
+                IrType::I64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2068,7 +2066,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::U32),
+                IrType::U32,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2087,7 +2085,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::I32),
+                IrType::I32,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2106,7 +2104,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::U64),
+                IrType::U64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2125,7 +2123,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::I64),
+                IrType::I64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2144,7 +2142,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::F32),
+                IrType::F32,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2163,7 +2161,7 @@ fn convert_ir_instr_to_wasm(
             let mut temp_instrs = Vec::new();
             load_src(
                 src,
-                Box::new(IrType::F64),
+                IrType::F64,
                 &mut temp_instrs,
                 function_context,
                 prog_metadata,
@@ -2223,7 +2221,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test for equality
-            match *src_type {
+            match src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -2302,7 +2300,7 @@ fn convert_ir_instr_to_wasm(
                 prog_metadata,
             );
             // test for equality
-            match *src_type {
+            match src_type {
                 IrType::I8
                 | IrType::U8
                 | IrType::I16
@@ -2366,11 +2364,11 @@ fn convert_ir_instr_to_wasm(
 }
 
 fn convert_handled_blocks(
-    mut handled_blocks: VecDeque<Box<Block>>,
+    mut handled_blocks: VecDeque<Block>,
     multiple_block_id: MultipleBlockId,
     function_context: &mut FunctionContext,
     module_context: &ModuleContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) -> Vec<WasmInstruction> {
     if handled_blocks.is_empty() {
         return Vec::new();
@@ -2425,7 +2423,7 @@ fn test_label_equality(
     labels: Vec<LabelId>,
     wasm_instrs: &mut Vec<WasmInstruction>,
     function_context: &FunctionContext,
-    prog_metadata: &Box<ProgramMetadata>,
+    prog_metadata: &ProgramMetadata,
 ) {
     assert!(!labels.is_empty());
 
@@ -2470,8 +2468,8 @@ fn test_label_equality(
 fn get_src_type_preferably_from_var(
     left_src: &Src,
     right_src: &Src,
-    prog_metadata: &Box<ProgramMetadata>,
-) -> Box<IrType> {
+    prog_metadata: &ProgramMetadata,
+) -> IrType {
     match left_src {
         Src::Var(var_id) => prog_metadata.get_var_type(var_id).unwrap(),
         Src::Constant(_) => match right_src {

@@ -122,7 +122,7 @@ impl Context {
         &mut self,
         case_body_label: LabelId,
         mut case_condition_instrs: Vec<Instruction>,
-        prog_metadata: &mut Box<ProgramMetadata>,
+        prog_metadata: &mut ProgramMetadata,
     ) -> Result<(), MiddleEndError> {
         if self.loop_stack.is_empty() {
             return Err(MiddleEndError::CaseOutsideSwitchContext);
@@ -214,7 +214,7 @@ impl Context {
         &mut self,
         name: String,
         var: VarId,
-        type_info: Box<IrType>,
+        type_info: IrType,
     ) -> Result<(), MiddleEndError> {
         trace!("adding variable \"{}\" to scope", name);
         match self.scope_stack.last_mut() {
@@ -425,7 +425,7 @@ impl Context {
     pub fn add_typedef(
         &mut self,
         typedef_name: String,
-        type_info: Box<IrType>,
+        type_info: IrType,
     ) -> Result<(), MiddleEndError> {
         // it's an error to redeclare the same typedef name with a different type
         if let Ok(t) = self.resolve_typedef(&typedef_name) {
@@ -439,7 +439,7 @@ impl Context {
         }
     }
 
-    pub fn resolve_typedef(&self, typedef_name: &str) -> Result<Box<IrType>, MiddleEndError> {
+    pub fn resolve_typedef(&self, typedef_name: &str) -> Result<IrType, MiddleEndError> {
         if self.scope_stack.is_empty() {
             return Err(MiddleEndError::ScopeError);
         }
@@ -465,9 +465,9 @@ pub struct Scope {
     /// map identifiers to variables in the IR
     variable_names: HashMap<String, VarId>,
     /// map variables to their type information
-    variable_types: HashMap<VarId, Box<IrType>>,
+    variable_types: HashMap<VarId, IrType>,
     /// map typedef names to their types
-    typedef_types: HashMap<String, Box<IrType>>,
+    typedef_types: HashMap<String, IrType>,
     /// map enum constants to their integer values
     enum_constants: HashMap<String, EnumConstant>,
     /// List of the names of enum types that are declared
@@ -495,7 +495,7 @@ impl Scope {
         &mut self,
         identifier_name: String,
         var: VarId,
-        type_info: Box<IrType>,
+        type_info: IrType,
     ) -> Result<(), MiddleEndError> {
         self.variable_names.insert(identifier_name, var.to_owned());
         self.variable_types.insert(var, type_info);
@@ -511,13 +511,13 @@ impl Scope {
     fn add_typedef(
         &mut self,
         typedef_name: String,
-        type_info: Box<IrType>,
+        type_info: IrType,
     ) -> Result<(), MiddleEndError> {
         self.typedef_types.insert(typedef_name, type_info);
         Ok(())
     }
 
-    fn resolve_identifier_to_type(&self, typedef_name: &str) -> Option<Box<IrType>> {
+    fn resolve_identifier_to_type(&self, typedef_name: &str) -> Option<IrType> {
         self.typedef_types.get(typedef_name).map(|t| t.to_owned())
     }
 

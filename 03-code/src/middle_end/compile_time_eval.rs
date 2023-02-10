@@ -5,7 +5,7 @@ use crate::parser::ast::{Constant as AstConstant, UnaryOperator};
 
 /// constant expression used for array bounds, explicit enum values,
 /// values of case labels. Must evaluate to an integer
-pub fn eval_integral_constant_expression(expr: Box<Expression>) -> Result<i128, MiddleEndError> {
+pub fn eval_integral_constant_expression(expr: Expression) -> Result<i128, MiddleEndError> {
     match eval(expr)? {
         ConstantExpressionType::Int(i) => Ok(i),
         _ => Err(MiddleEndError::InvalidConstantExpression),
@@ -13,7 +13,7 @@ pub fn eval_integral_constant_expression(expr: Box<Expression>) -> Result<i128, 
 }
 
 pub fn eval_initialiser_constant_expression(
-    expr: Box<Expression>,
+    expr: Expression,
 ) -> Result<IrConstant, MiddleEndError> {
     match eval(expr)? {
         ConstantExpressionType::Int(i) => Ok(IrConstant::Int(i)),
@@ -26,8 +26,8 @@ enum ConstantExpressionType {
     Float(f64),
 }
 
-fn eval(expr: Box<Expression>) -> Result<ConstantExpressionType, MiddleEndError> {
-    match *expr {
+fn eval(expr: Expression) -> Result<ConstantExpressionType, MiddleEndError> {
+    match expr {
         Expression::Identifier(_) => {
             // todo
             Err(MiddleEndError::CantEvaluateAtCompileTime)
@@ -51,7 +51,7 @@ fn eval(expr: Box<Expression>) -> Result<ConstantExpressionType, MiddleEndError>
             Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::UnaryOp(op, expr) => {
-            let expr_result = eval(expr)?;
+            let expr_result = eval(*expr)?;
             match op {
                 UnaryOperator::AddressOf => {
                     // todo
@@ -93,8 +93,8 @@ fn eval(expr: Box<Expression>) -> Result<ConstantExpressionType, MiddleEndError>
             Err(MiddleEndError::CantEvaluateAtCompileTime)
         }
         Expression::BinaryOp(op, left, right) => {
-            let left_result = eval(left)?;
-            let right_result = eval(right)?;
+            let left_result = eval(*left)?;
+            let right_result = eval(*right)?;
             match op {
                 BinaryOperator::Mult => match (left_result, right_result) {
                     (ConstantExpressionType::Int(l), ConstantExpressionType::Int(r)) => {
@@ -283,15 +283,15 @@ fn eval(expr: Box<Expression>) -> Result<ConstantExpressionType, MiddleEndError>
             }
         }
         Expression::Ternary(cond, true_expr, false_expr) => {
-            let cond_result = eval(cond)?;
+            let cond_result = eval(*cond)?;
             let cond_value = match cond_result {
                 ConstantExpressionType::Int(i) => i != 0,
                 ConstantExpressionType::Float(f) => f != 0.,
             };
             if cond_value {
-                eval(true_expr)
+                eval(*true_expr)
             } else {
-                eval(false_expr)
+                eval(*false_expr)
             }
         }
         Expression::Cast(_, _) => {

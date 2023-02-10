@@ -7,10 +7,10 @@ use crate::middle_end::ir_types::IrType;
 use crate::relooper::blocks::Block;
 
 pub fn get_vars_from_block(
-    block: &Box<Block>,
-    prog_metadata: &Box<ProgramMetadata>,
-) -> HashMap<VarId, Box<IrType>> {
-    match &**block {
+    block: &Block,
+    prog_metadata: &ProgramMetadata,
+) -> HashMap<VarId, IrType> {
+    match block {
         Block::Simple { internal, next } => {
             let mut vars = get_vars_from_instrs(&internal.instrs, prog_metadata);
 
@@ -56,8 +56,8 @@ pub fn get_vars_from_block(
 
 fn get_vars_from_instrs(
     instrs: &Vec<Instruction>,
-    prog_metadata: &Box<ProgramMetadata>,
-) -> HashMap<VarId, Box<IrType>> {
+    prog_metadata: &ProgramMetadata,
+) -> HashMap<VarId, IrType> {
     let mut vars = HashMap::new();
 
     for instr in instrs {
