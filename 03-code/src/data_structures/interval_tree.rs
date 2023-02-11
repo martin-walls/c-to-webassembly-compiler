@@ -166,7 +166,10 @@ impl<T: Mergeable> IntervalTree<T> {
             // Y is now at the top of this subtree, so it's max will be X.max
             (*y).max = (*x).max;
             // X.max = MAX(X.left.max, X.right.max, X.max)
-            (*x).max = std::cmp::max((*(*x).left).max, std::cmp::max((*(*x).right).max, (*x).max));
+            (*x).max = std::cmp::max(
+                (*(*x).left).max,
+                std::cmp::max((*(*x).right).max, (*x).interval.end),
+            );
         }
         true
     }
@@ -218,7 +221,10 @@ impl<T: Mergeable> IntervalTree<T> {
             // Y is now at the top of this subtree, so it's max will be X.max
             (*y).max = (*x).max;
             // X.max = MAX(X.left.max, X.right.max, X.max)
-            (*x).max = std::cmp::max((*(*x).left).max, std::cmp::max((*(*x).right).max, (*x).max));
+            (*x).max = std::cmp::max(
+                (*(*x).left).max,
+                std::cmp::max((*(*x).right).max, (*x).interval.end),
+            );
         }
     }
 
