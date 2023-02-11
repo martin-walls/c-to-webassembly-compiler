@@ -48,6 +48,10 @@ impl ClashGraph {
         self.universal_clashes.insert(var);
     }
 
+    pub fn does_var_clash_universally(&self, var: &VarId) -> bool {
+        self.universal_clashes.contains(var)
+    }
+
     pub fn count_clashes(&self, var: &VarId) -> usize {
         if self.universal_clashes.contains(var) {
             return usize::MAX;
@@ -55,7 +59,7 @@ impl ClashGraph {
         match self.clashes.get(var) {
             Some(clashes) => clashes.len(),
             None => {
-                // if var isn't in clash graph, it has no clashes to other vars
+                // if var isn't in clash graph, it has no clashes that we know about
                 0_usize
             }
         }
@@ -68,11 +72,15 @@ impl ClashGraph {
         // the clash graph is symmetric, so we only need to check in one direction
         match self.clashes.get(var1) {
             None => {
-                // if var isn't in clash graph, it has no clashes to other vars
+                // if var isn't in clash graph, we should assume it clashes for safety
                 true
             }
             Some(clashes) => clashes.contains(var2),
         }
+    }
+
+    pub fn get_all_clashes(&self, var: &VarId) -> HashSet<VarId> {
+        self.clashes.get(var).unwrap_or(&HashSet::new()).to_owned()
     }
 }
 

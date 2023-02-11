@@ -1,16 +1,19 @@
 use std::collections::HashSet;
 
+use crate::backend::dataflow_analysis::clash_graph::ClashGraph;
 use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations};
-use crate::data_structures::interval_tree::{IntervalTree, Mergeable};
+use crate::data_structures::interval_tree::{Interval, IntervalTree, Mergeable};
 use crate::middle_end::ids::VarId;
 
 struct ClashList {
     clashes: HashSet<VarId>,
+    universal_clash: bool,
 }
 
 impl Mergeable for ClashList {
     fn merge(&mut self, other: &Self) {
-        self.clashes.extend(other.clashes.to_owned())
+        self.clashes.extend(other.clashes.to_owned());
+        self.universal_clash |= other.universal_clash;
     }
 }
 
@@ -46,5 +49,20 @@ impl VarLocations for IntervalTreeVarLocations {
         todo!()
     }
 
-    fn insert(&mut self, location: VarLocation) {}
+    fn insert(&mut self, location: VarLocation, clash_graph: &ClashGraph) {
+        // insert clashes to interval tree
+        let interval = Interval {
+            start: location.start,
+            end: location.end_inclusive(),
+        };
+
+        let clashes = ClashList {
+            clashes: clash_graph.get_all_clashes(&location.var),
+            universal_clash: clash_graph.does_var_clash_universally(&location.var),
+        };
+
+        self.interval_tree.insert_or_merge(interval, clashes);
+
+        self.locations.insert(location);
+    }
 }
