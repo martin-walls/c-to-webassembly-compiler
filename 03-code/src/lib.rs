@@ -1,7 +1,27 @@
 #![allow(dead_code)]
 #![allow(unused_parens)]
 
+#[macro_use]
+extern crate lalrpop_util;
+
+use std::error::Error;
+use std::path::Path;
+
+use clap::Parser as ClapParser;
+use log::{debug, info, trace};
+
+use middle_end::ast_to_ir::convert_to_ir;
+use parser::parser::parse;
+use preprocessor::preprocess;
+
+use crate::backend::target_code_generation::generate_target_code;
+use crate::enabled_optimisations::EnabledOptimisations;
+use crate::enabled_profiling::EnabledProfiling;
+use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
+use crate::relooper::relooper::reloop;
+
 mod backend;
+mod data_structures;
 mod enabled_optimisations;
 mod enabled_profiling;
 mod fmt_indented;
@@ -9,22 +29,6 @@ mod middle_end;
 mod parser;
 mod preprocessor;
 mod relooper;
-
-use crate::backend::target_code_generation::generate_target_code;
-use crate::enabled_optimisations::EnabledOptimisations;
-use crate::enabled_profiling::EnabledProfiling;
-use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
-use crate::relooper::relooper::reloop;
-use clap::Parser as ClapParser;
-use log::{debug, info, trace};
-use middle_end::ast_to_ir::convert_to_ir;
-use parser::parser::parse;
-use preprocessor::preprocess;
-use std::error::Error;
-use std::path::Path;
-
-#[macro_use]
-extern crate lalrpop_util;
 
 #[derive(ClapParser, Debug)]
 pub struct CliConfig {

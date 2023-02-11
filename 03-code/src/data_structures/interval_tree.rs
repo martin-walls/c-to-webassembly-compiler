@@ -11,6 +11,12 @@ pub struct ClashInterval {
     clashes: HashSet<VarId>,
 }
 
+#[derive(PartialEq, Clone)]
+pub struct Interval {
+    start: IntervalBound,
+    end: IntervalBound,
+}
+
 impl PartialEq for ClashInterval {
     /// equality comparison just based on interval bounds
     fn eq(&self, other: &Self) -> bool {
@@ -18,18 +24,19 @@ impl PartialEq for ClashInterval {
     }
 }
 
-pub struct ClashesIntervalTree {
-    root: *mut Node,
+pub struct IntervalTree<T: Mergeable> {
+    root: *mut Node<T>,
 }
 
-struct Node {
+struct Node<T: Mergeable> {
     // Null pointer = child is a leaf
-    left: *mut Node,
-    right: *mut Node,
-    parent: *mut Node,
+    left: *mut Node<T>,
+    right: *mut Node<T>,
+    parent: *mut Node<T>,
     colour: NodeColour,
-    interval: ClashInterval,
+    interval: Interval,
     max: IntervalBound,
+    data: T,
 }
 
 #[derive(Clone, PartialEq)]
@@ -38,12 +45,17 @@ enum NodeColour {
     Black,
 }
 
-impl Node {
-    fn new(colour: NodeColour, interval: ClashInterval, max: u32) -> *mut Self {
+pub trait Mergeable {
+    fn merge(&mut self, other: &Self);
+}
+
+impl<T: Mergeable> Node<T> {
+    fn new(colour: NodeColour, interval: Interval, max: u32, data: T) -> *mut Self {
         Box::into_raw(Box::new(Self {
             colour,
             interval,
             max,
+            data,
             left: std::ptr::null_mut(),
             right: std::ptr::null_mut(),
             parent: std::ptr::null_mut(),
@@ -54,16 +66,14 @@ impl Node {
         self.interval.start
     }
 
-    fn merge_clashes(&mut self, other: *const Node) {
+    fn merge_data(&mut self, other: *const Node<T>) {
         unsafe {
-            self.interval
-                .clashes
-                .extend((*other).interval.clashes.to_owned())
+            self.data.merge(&(*other).data);
         }
     }
 }
 
-impl ClashesIntervalTree {
+impl<T: Mergeable> IntervalTree<T> {
     /// ```plaintext
     ///       X                 Y
     ///      / \               / \
@@ -73,7 +83,7 @@ impl ClashesIntervalTree {
     /// ```
     ///
     /// Returns true if the rotation was completed successfully
-    fn left_rotate(&mut self, x: *mut Node) -> bool {
+    fn left_rotate(&mut self, x: *mut Node<T>) -> bool {
         unsafe {
             // can't left-rotate if no right child
             if (*x).right.is_null() {
@@ -119,7 +129,7 @@ impl ClashesIntervalTree {
     /// ```
     ///
     /// Returns true if the rotation was completed successfully
-    fn right_rotate(&mut self, x: *mut Node) {
+    fn right_rotate(&mut self, x: *mut Node<T>) {
         unsafe {
             // can't right-rotate if no left child
             if (*x).left.is_null() {
@@ -155,8 +165,8 @@ impl ClashesIntervalTree {
         }
     }
 
-    fn insert_or_merge(&mut self, interval: ClashInterval) {
-        let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end);
+    fn insert_or_merge(&mut self, interval: Interval, data: T) {
+        let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
 
         let mut y = std::ptr::null_mut();
         let mut x = self.root;
@@ -168,7 +178,7 @@ impl ClashesIntervalTree {
 
                 if (*new_node).interval == (*x).interval {
                     // merge new node with x
-                    (*x).merge_clashes(new_node);
+                    (*x).merge_data(new_node);
                     return;
                 }
 
@@ -198,7 +208,7 @@ impl ClashesIntervalTree {
         }
     }
 
-    fn insert_fixup(&mut self, mut node: *mut Node) {
+    fn insert_fixup(&mut self, mut node: *mut Node<T>) {
         unsafe {
             // the node we've inserted is red, so if parent is also red we need to fixup
             while (*(*node).parent).colour == NodeColour::Red {
@@ -253,7 +263,7 @@ impl ClashesIntervalTree {
         }
     }
 
-    fn deallocate_from(&mut self, node: *mut Node) {
+    fn deallocate_from(&mut self, node: *mut Node<T>) {
         if node.is_null() {
             return;
         }
@@ -268,7 +278,7 @@ impl ClashesIntervalTree {
     }
 }
 
-impl Drop for ClashesIntervalTree {
+impl<T: Mergeable> Drop for IntervalTree<T> {
     fn drop(&mut self) {
         self.deallocate_from(self.root);
     }

@@ -22,18 +22,12 @@ impl VarLocation {
         self.start + self.byte_size - 1
     }
 
-    fn overlaps(&self, other: &VarLocation) -> bool {
+    pub fn overlaps(&self, other: &VarLocation) -> bool {
         // no overlap if one interval ends before another starts
         // end() is exclusive, so use <=
         let no_overlap = self.end() <= other.start || other.end() <= self.start;
 
         !no_overlap
-    }
-
-    /// Returns true if this interval is strictly after the other interval
-    fn is_strictly_after(&self, other: &VarLocation) -> bool {
-        // end() is exclusive, so use >=
-        self.start >= other.end()
     }
 }
 
@@ -55,42 +49,4 @@ pub trait VarLocations {
 
     /// Add a new location to the data structure
     fn insert(&mut self, location: VarLocation);
-}
-
-pub struct NaiveVarLocations {
-    locations: HashSet<VarLocation>,
-}
-
-impl NaiveVarLocations {
-    pub fn new() -> Self {
-        NaiveVarLocations {
-            locations: HashSet::new(),
-        }
-    }
-}
-
-impl VarLocations for NaiveVarLocations {
-    fn into_hashset(self) -> HashSet<VarLocation> {
-        self.locations
-    }
-
-    fn get_locations_overlapping_with(
-        &self,
-        overlap_location: &VarLocation,
-    ) -> HashSet<&VarLocation> {
-        let mut overlaps = HashSet::new();
-
-        for location in &self.locations {
-            if !location.overlaps(overlap_location) {
-                continue;
-            }
-            overlaps.insert(location);
-        }
-
-        overlaps
-    }
-
-    fn insert(&mut self, location: VarLocation) {
-        self.locations.insert(location);
-    }
 }

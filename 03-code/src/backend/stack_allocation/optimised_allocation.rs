@@ -6,9 +6,8 @@ use crate::backend::dataflow_analysis::clash_graph::{generate_clash_graph, Clash
 use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
-use crate::backend::stack_allocation::var_locations::{
-    NaiveVarLocations, VarLocation, VarLocations,
-};
+use crate::backend::stack_allocation::naive_var_locations::NaiveVarLocations;
+use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations};
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
