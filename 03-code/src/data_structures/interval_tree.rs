@@ -4,24 +4,16 @@ use crate::middle_end::ids::VarId;
 
 type IntervalBound = u32;
 
-#[derive(Clone)]
-pub struct ClashInterval {
-    start: IntervalBound,
-    end: IntervalBound,
-    clashes: HashSet<VarId>,
+/// Data stored in an interval tree should be 'mergeable'. If we try to insert data
+/// with an interval that already exists in the tree, the data will be merged
+pub trait Mergeable {
+    fn merge(&mut self, other: &Self);
 }
 
 #[derive(PartialEq, Clone)]
 pub struct Interval {
     start: IntervalBound,
     end: IntervalBound,
-}
-
-impl PartialEq for ClashInterval {
-    /// equality comparison just based on interval bounds
-    fn eq(&self, other: &Self) -> bool {
-        self.start == other.start && self.end == other.end
-    }
 }
 
 pub struct IntervalTree<T: Mergeable> {
@@ -43,10 +35,6 @@ struct Node<T: Mergeable> {
 enum NodeColour {
     Red,
     Black,
-}
-
-pub trait Mergeable {
-    fn merge(&mut self, other: &Self);
 }
 
 impl<T: Mergeable> Node<T> {
@@ -74,6 +62,51 @@ impl<T: Mergeable> Node<T> {
 }
 
 impl<T: Mergeable> IntervalTree<T> {
+    /// Insert data to the given interval in the tree. If the interval isn't in the tree, a new
+    /// node is created. If the interval already exists, data is merged to the existing node.
+    pub fn insert_or_merge(&mut self, interval: Interval, data: T) {
+        let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
+
+        let mut y = std::ptr::null_mut();
+        let mut x = self.root;
+
+        unsafe {
+            // walk down the tree until we get to a leaf, or we find a matching node
+            while !x.is_null() {
+                y = x;
+
+                if (*new_node).interval == (*x).interval {
+                    // merge new node with x
+                    (*x).merge_data(new_node);
+                    return;
+                }
+
+                // smaller keys or equal to the left, bigger keys to the right
+                if (*new_node).key() <= (*x).key() {
+                    x = (*x).left;
+                } else {
+                    x = (*x).right;
+                }
+            }
+
+            // replace the leaf with the new node
+            (*new_node).parent = y;
+
+            // check if the tree is empty (we didn't walk down it), and so
+            // set the new node as the root
+            // otherwise set the new node as the correct left/right child depending on its key
+            if y.is_null() {
+                self.root = new_node;
+            } else if (*new_node).key() <= (*y).key() {
+                (*y).left = new_node;
+            } else {
+                (*y).right = new_node;
+            }
+
+            self.insert_fixup(new_node);
+        }
+    }
+
     /// ```plaintext
     ///       X                 Y
     ///      / \               / \
@@ -165,49 +198,7 @@ impl<T: Mergeable> IntervalTree<T> {
         }
     }
 
-    fn insert_or_merge(&mut self, interval: Interval, data: T) {
-        let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
-
-        let mut y = std::ptr::null_mut();
-        let mut x = self.root;
-
-        unsafe {
-            // walk down the tree until we get to a leaf, or we find a matching node
-            while !x.is_null() {
-                y = x;
-
-                if (*new_node).interval == (*x).interval {
-                    // merge new node with x
-                    (*x).merge_data(new_node);
-                    return;
-                }
-
-                // smaller keys or equal to the left, bigger keys to the right
-                if (*new_node).key() <= (*x).key() {
-                    x = (*x).left;
-                } else {
-                    x = (*x).right;
-                }
-            }
-
-            // replace the leaf with the new node
-            (*new_node).parent = y;
-
-            // check if the tree is empty (we didn't walk down it), and so
-            // set the new node as the root
-            // otherwise set the new node as the correct left/right child depending on its key
-            if y.is_null() {
-                self.root = new_node;
-            } else if (*new_node).key() <= (*y).key() {
-                (*y).left = new_node;
-            } else {
-                (*y).right = new_node;
-            }
-
-            self.insert_fixup(new_node);
-        }
-    }
-
+    /// After inserting a new node, maintain the red-black tree invariants
     fn insert_fixup(&mut self, mut node: *mut Node<T>) {
         unsafe {
             // the node we've inserted is red, so if parent is also red we need to fixup
@@ -263,6 +254,7 @@ impl<T: Mergeable> IntervalTree<T> {
         }
     }
 
+    /// Deallocate all the nodes from the given node downwards
     fn deallocate_from(&mut self, node: *mut Node<T>) {
         if node.is_null() {
             return;
