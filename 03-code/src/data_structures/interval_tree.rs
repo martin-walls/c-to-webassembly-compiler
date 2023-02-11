@@ -1,11 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;
 
 use log::debug;
 
 use crate::fmt_indented::{FmtIndented, IndentLevel};
-use crate::middle_end::ids::VarId;
 
 type IntervalBound = u32;
 
@@ -15,10 +14,16 @@ pub trait Mergeable {
     fn merge(&mut self, other: &Self);
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Interval {
     pub start: IntervalBound,
     pub end: IntervalBound,
+}
+
+impl Interval {
+    fn overlaps(&self, other: &Interval) -> bool {
+        self.start <= other.end && other.start <= self.end
+    }
 }
 
 pub struct IntervalTree<T: Mergeable> {
@@ -113,10 +118,21 @@ impl<T: Mergeable> IntervalTree<T> {
             } else {
                 (*y).right = new_node;
             }
-
-            self.insert_fixup(new_node);
-            self.insert_update_max(new_node);
         }
+
+        self.insert_fixup(new_node);
+        self.insert_update_max(new_node);
+
+        debug!("{self}");
+    }
+
+    pub fn find_overlaps(&self, interval: &Interval) -> HashMap<&Interval, &T> {
+        let overlapping_nodes = self.find_overlapping_nodes_from(self.root, interval);
+
+        overlapping_nodes
+            .iter()
+            .map(|&node| unsafe { (&(*node).interval, &(*node).data) })
+            .collect()
     }
 
     /// ```plaintext
@@ -296,6 +312,34 @@ impl<T: Mergeable> IntervalTree<T> {
                 node = (*node).parent;
             }
         }
+    }
+
+    fn find_overlapping_nodes_from(
+        &self,
+        node: *mut Node<T>,
+        interval: &Interval,
+    ) -> HashSet<*mut Node<T>> {
+        let mut results = HashSet::new();
+
+        if node.is_null() {
+            return results;
+        }
+
+        unsafe {
+            if (*node).interval.overlaps(interval) {
+                results.insert(node);
+            }
+            if (*node).left.is_null() || (*(*node).left).max < interval.start {
+                // no interval in the left subtree can overlap the search interval
+                results.extend(self.find_overlapping_nodes_from((*node).right, interval));
+            } else {
+                // otherwise there could be overlapping nodes in both subtrees
+                results.extend(self.find_overlapping_nodes_from((*node).left, interval));
+                results.extend(self.find_overlapping_nodes_from((*node).right, interval));
+            }
+        }
+
+        results
     }
 
     /// Deallocate all the nodes from the given node downwards
