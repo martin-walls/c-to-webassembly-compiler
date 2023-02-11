@@ -76,7 +76,6 @@ impl<T: Mergeable> IntervalTree<T> {
     /// Insert data to the given interval in the tree. If the interval isn't in the tree, a new
     /// node is created. If the interval already exists, data is merged to the existing node.
     pub fn insert_or_merge(&mut self, interval: Interval, data: T) {
-        debug!("inserting");
         let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
 
         let mut y = std::ptr::null_mut();
@@ -116,15 +115,16 @@ impl<T: Mergeable> IntervalTree<T> {
             }
 
             self.insert_fixup(new_node);
+            self.insert_update_max(new_node);
         }
     }
 
     /// ```plaintext
-    ///       X                 Y
-    ///      / \               / \
-    ///     a   Y     ==>     X   c
-    ///        / \           / \
-    ///       b   c         a   b
+    ///       X                Y
+    ///      / \              / \
+    ///     a   Y     =>     X   c
+    ///        / \          / \
+    ///       b   c        a   b
     /// ```
     ///
     /// Returns true if the rotation was completed successfully
@@ -161,16 +161,22 @@ impl<T: Mergeable> IntervalTree<T> {
             (*y).left = x;
             // point X upwards to Y
             (*x).parent = y;
+
+            // update max values
+            // Y is now at the top of this subtree, so it's max will be X.max
+            (*y).max = (*x).max;
+            // X.max = MAX(X.left.max, X.right.max, X.max)
+            (*x).max = std::cmp::max((*(*x).left).max, std::cmp::max((*(*x).right).max, (*x).max));
         }
         true
     }
 
     /// ```plaintext
-    ///       X                 Y
-    ///      / \               / \
-    ///     Y   c     ==>     a   X
-    ///    / \                   / \
-    ///   a   b                 b   c
+    ///       X                Y
+    ///      / \              / \
+    ///     Y   c     =>     a   X
+    ///    / \                  / \
+    ///   a   b                b   c
     /// ```
     ///
     /// Returns true if the rotation was completed successfully
@@ -207,16 +213,23 @@ impl<T: Mergeable> IntervalTree<T> {
             (*y).right = x;
             // point X upwards to Y
             (*x).parent = y;
+
+            // update max values
+            // Y is now at the top of this subtree, so it's max will be X.max
+            (*y).max = (*x).max;
+            // X.max = MAX(X.left.max, X.right.max, X.max)
+            (*x).max = std::cmp::max((*(*x).left).max, std::cmp::max((*(*x).right).max, (*x).max));
         }
     }
 
     /// After inserting a new node, maintain the red-black tree invariants
     fn insert_fixup(&mut self, mut node: *mut Node<T>) {
-        debug!("fixup");
         unsafe {
             // the node we've inserted is red, so if parent is also red we need to fixup
             while !(*node).parent.is_null() && (*(*node).parent).colour == NodeColour::Red {
                 // if parent is a left child
+                // (we've just checked that node.parent is red, therefore node.parent.parent must exist,
+                // cos the root node is always black
                 if (*node).parent == (*(*(*node).parent).parent).left {
                     let y = (*(*(*node).parent).parent).right;
                     if (*y).colour == NodeColour::Red {
@@ -265,7 +278,18 @@ impl<T: Mergeable> IntervalTree<T> {
             // the root should always be black
             (*self.root).colour = NodeColour::Black;
         }
-        debug!("done");
+    }
+
+    /// Bubble up the new max value through the tree
+    fn insert_update_max(&mut self, mut node: *mut Node<T>) {
+        unsafe {
+            // while parent has a lower max than the node we inserted, update
+            // the parent's max
+            while !(*node).parent.is_null() && (*(*node).parent).max < (*node).max {
+                (*(*node).parent).max = (*node).max;
+                node = (*node).parent;
+            }
+        }
     }
 
     /// Deallocate all the nodes from the given node downwards

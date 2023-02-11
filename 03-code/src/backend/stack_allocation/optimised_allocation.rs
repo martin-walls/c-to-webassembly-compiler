@@ -141,7 +141,7 @@ fn allocate_vars_from_stack(
     interval_tree.insert_or_merge(Interval { start: 2, end: 7 }, Value(2));
     debug!("{interval_tree}");
 
-    interval_tree.insert_or_merge(Interval { start: 3, end: 4 }, Value(3));
+    interval_tree.insert_or_merge(Interval { start: 3, end: 9 }, Value(3));
     debug!("{interval_tree}");
 
     todo!();
