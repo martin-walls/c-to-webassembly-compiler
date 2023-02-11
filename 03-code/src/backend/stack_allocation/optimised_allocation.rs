@@ -12,7 +12,6 @@ use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations}
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
-use crate::data_structures::interval_tree::{Interval, IntervalTree, Mergeable};
 use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
@@ -115,38 +114,11 @@ fn pop_smallest_least_clashed_var(
     min_var.map(|min_var| (min_var, min_var_byte_size))
 }
 
-struct Value(u32);
-
-impl Mergeable for Value {
-    fn merge(&mut self, other: &Self) {
-        self.0 = other.0;
-    }
-}
-
 fn allocate_vars_from_stack(
     mut var_allocation_stack: VarAllocationStack,
     clash_graph: &ClashGraph,
     prog_metadata: &ProgramMetadata,
 ) -> HashSet<VarLocation> {
-    let mut interval_tree = IntervalTree::<Value>::new();
-
-    debug!("{interval_tree}");
-
-    interval_tree.insert_or_merge(Interval { start: 3, end: 5 }, Value(4));
-    debug!("{interval_tree}");
-
-    interval_tree.insert_or_merge(Interval { start: 4, end: 5 }, Value(5));
-    debug!("{interval_tree}");
-
-    interval_tree.insert_or_merge(Interval { start: 2, end: 7 }, Value(2));
-    debug!("{interval_tree}");
-
-    interval_tree.insert_or_merge(Interval { start: 3, end: 9 }, Value(3));
-    debug!("{interval_tree}");
-
-    todo!();
-
-    // naive data structure: todo use an interval tree or similar
     let mut var_locations = NaiveVarLocations::new();
 
     // allocate vars in order of the stack
@@ -161,33 +133,10 @@ fn allocate_vars_from_stack(
         }
 
         // find the lowest addr where this var fits without clashing
-        let mut lowest_possible_location = VarLocation {
-            var: var.to_owned(),
-            start: 0,
-            byte_size: byte_size as u32,
-        };
-        let mut is_valid_allocation = false;
-        while !is_valid_allocation {
-            is_valid_allocation = true;
-            // check against all existing allocations for clashes
-            for existing_location in
-                var_locations.get_locations_overlapping_with(&lowest_possible_location)
-            {
-                // if overlaps with existing location, check if the vars clash
-                let do_vars_clash = clash_graph.do_vars_clash(&var, &existing_location.var);
-                if do_vars_clash {
-                    // move the var we're allocating to the next addr past the var it
-                    // clashes with
-                    lowest_possible_location.start = existing_location.end();
-                    is_valid_allocation = false;
-                    // restart checking against all existing allocations,
-                    // now that we've moved where we're trying to allocate to
-                    break;
-                }
-            }
-        }
+        let lowest_possible_location =
+            var_locations.find_lowest_non_clashing_location_for_var(var, byte_size, clash_graph);
         // allocate the var in the location we found
-        var_locations.insert(lowest_possible_location);
+        var_locations.insert(lowest_possible_location, &clash_graph);
     }
 
     var_locations.into_hashset()

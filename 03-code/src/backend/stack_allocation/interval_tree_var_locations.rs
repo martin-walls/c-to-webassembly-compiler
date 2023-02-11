@@ -37,10 +37,12 @@ impl VarLocations for IntervalTreeVarLocations {
         self.locations
     }
 
-    fn get_locations_overlapping_with(
+    fn find_lowest_non_clashing_location_for_var(
         &self,
-        overlap_location: &VarLocation,
-    ) -> HashSet<&VarLocation> {
+        var: VarId,
+        byte_size: u64,
+        clash_graph: &ClashGraph,
+    ) -> VarLocation {
         todo!()
     }
 

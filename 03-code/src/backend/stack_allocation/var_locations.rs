@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Formatter;
 
+use crate::backend::dataflow_analysis::clash_graph::ClashGraph;
 use crate::middle_end::ids::VarId;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -41,12 +42,15 @@ pub trait VarLocations {
     /// Get the allocations of all vars
     fn into_hashset(self) -> HashSet<VarLocation>;
 
-    /// Return just the locations that overlap with the given interval
-    fn get_locations_overlapping_with(
+    /// Find the lowest valid location to allocate a new variable so that it doesn't clash
+    /// with any variables already allocated.
+    fn find_lowest_non_clashing_location_for_var(
         &self,
-        overlap_location: &VarLocation,
-    ) -> HashSet<&VarLocation>;
+        var: VarId,
+        byte_size: u64,
+        clash_graph: &ClashGraph,
+    ) -> VarLocation;
 
     /// Add a new location to the data structure
-    fn insert(&mut self, location: VarLocation);
+    fn insert(&mut self, location: VarLocation, clash_graph: &ClashGraph);
 }
