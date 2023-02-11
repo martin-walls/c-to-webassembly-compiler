@@ -23,6 +23,15 @@ pub struct IntervalTreeVarLocations {
     locations: HashSet<VarLocation>,
 }
 
+impl IntervalTreeVarLocations {
+    pub fn new() -> Self {
+        Self {
+            interval_tree: IntervalTree::new(),
+            locations: HashSet::new(),
+        }
+    }
+}
+
 impl VarLocations for IntervalTreeVarLocations {
     fn into_hashset(self) -> HashSet<VarLocation> {
         self.locations
@@ -35,7 +44,5 @@ impl VarLocations for IntervalTreeVarLocations {
         todo!()
     }
 
-    fn insert(&mut self, location: VarLocation) {
-        todo!()
-    }
+    fn insert(&mut self, location: VarLocation) {}
 }

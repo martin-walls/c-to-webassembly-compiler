@@ -1,5 +1,10 @@
 use std::collections::HashSet;
+use std::fmt;
+use std::fmt::Formatter;
 
+use log::debug;
+
+use crate::fmt_indented::{FmtIndented, IndentLevel};
 use crate::middle_end::ids::VarId;
 
 type IntervalBound = u32;
@@ -12,8 +17,8 @@ pub trait Mergeable {
 
 #[derive(PartialEq, Clone)]
 pub struct Interval {
-    start: IntervalBound,
-    end: IntervalBound,
+    pub start: IntervalBound,
+    pub end: IntervalBound,
 }
 
 pub struct IntervalTree<T: Mergeable> {
@@ -62,9 +67,16 @@ impl<T: Mergeable> Node<T> {
 }
 
 impl<T: Mergeable> IntervalTree<T> {
+    pub fn new() -> Self {
+        Self {
+            root: std::ptr::null_mut(),
+        }
+    }
+
     /// Insert data to the given interval in the tree. If the interval isn't in the tree, a new
     /// node is created. If the interval already exists, data is merged to the existing node.
     pub fn insert_or_merge(&mut self, interval: Interval, data: T) {
+        debug!("inserting");
         let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
 
         let mut y = std::ptr::null_mut();
@@ -200,9 +212,10 @@ impl<T: Mergeable> IntervalTree<T> {
 
     /// After inserting a new node, maintain the red-black tree invariants
     fn insert_fixup(&mut self, mut node: *mut Node<T>) {
+        debug!("fixup");
         unsafe {
             // the node we've inserted is red, so if parent is also red we need to fixup
-            while (*(*node).parent).colour == NodeColour::Red {
+            while !(*node).parent.is_null() && (*(*node).parent).colour == NodeColour::Red {
                 // if parent is a left child
                 if (*node).parent == (*(*(*node).parent).parent).left {
                     let y = (*(*(*node).parent).parent).right;
@@ -252,6 +265,7 @@ impl<T: Mergeable> IntervalTree<T> {
             // the root should always be black
             (*self.root).colour = NodeColour::Black;
         }
+        debug!("done");
     }
 
     /// Deallocate all the nodes from the given node downwards
@@ -273,5 +287,47 @@ impl<T: Mergeable> IntervalTree<T> {
 impl<T: Mergeable> Drop for IntervalTree<T> {
     fn drop(&mut self) {
         self.deallocate_from(self.root);
+    }
+}
+
+impl fmt::Display for Interval {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}, {}]", self.start, self.end)
+    }
+}
+
+impl<T: Mergeable> FmtIndented for Node<T> {
+    fn fmt_indented(&self, f: &mut Formatter<'_>, indent_level: &mut IndentLevel) -> fmt::Result {
+        indent_level.write(f)?;
+        writeln!(f, "{} (max = {})", self.interval, self.max)?;
+        indent_level.increment_marked();
+        unsafe {
+            if !self.left.is_null() {
+                (*self.left).fmt_indented(f, indent_level)?;
+            } else {
+                indent_level.write(f)?;
+                writeln!(f, "NULL")?;
+            }
+            if !self.right.is_null() {
+                (*self.right).fmt_indented(f, indent_level)?;
+            } else {
+                indent_level.write(f)?;
+                writeln!(f, "NULL")?;
+            }
+        }
+        indent_level.decrement();
+        Ok(())
+    }
+}
+
+impl<T: Mergeable> fmt::Display for IntervalTree<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        unsafe {
+            if !self.root.is_null() {
+                (*self.root).fmt_indented(f, &mut IndentLevel::zero())
+            } else {
+                write!(f, "NULL")
+            }
+        }
     }
 }

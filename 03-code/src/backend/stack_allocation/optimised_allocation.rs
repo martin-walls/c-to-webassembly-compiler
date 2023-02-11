@@ -6,11 +6,13 @@ use crate::backend::dataflow_analysis::clash_graph::{generate_clash_graph, Clash
 use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
+use crate::backend::stack_allocation::interval_tree_var_locations::IntervalTreeVarLocations;
 use crate::backend::stack_allocation::naive_var_locations::NaiveVarLocations;
 use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations};
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
+use crate::data_structures::interval_tree::{Interval, IntervalTree, Mergeable};
 use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
@@ -113,11 +115,37 @@ fn pop_smallest_least_clashed_var(
     min_var.map(|min_var| (min_var, min_var_byte_size))
 }
 
+struct Value(u32);
+
+impl Mergeable for Value {
+    fn merge(&mut self, other: &Self) {
+        self.0 = other.0;
+    }
+}
+
 fn allocate_vars_from_stack(
     mut var_allocation_stack: VarAllocationStack,
     clash_graph: &ClashGraph,
     prog_metadata: &ProgramMetadata,
 ) -> HashSet<VarLocation> {
+    let mut interval_tree = IntervalTree::<Value>::new();
+
+    debug!("{interval_tree}");
+
+    interval_tree.insert_or_merge(Interval { start: 3, end: 5 }, Value(4));
+    debug!("{interval_tree}");
+
+    interval_tree.insert_or_merge(Interval { start: 4, end: 5 }, Value(5));
+    debug!("{interval_tree}");
+
+    interval_tree.insert_or_merge(Interval { start: 2, end: 7 }, Value(2));
+    debug!("{interval_tree}");
+
+    interval_tree.insert_or_merge(Interval { start: 3, end: 4 }, Value(3));
+    debug!("{interval_tree}");
+
+    todo!();
+
     // naive data structure: todo use an interval tree or similar
     let mut var_locations = NaiveVarLocations::new();
 
