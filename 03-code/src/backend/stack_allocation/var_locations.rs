@@ -17,6 +17,11 @@ impl VarLocation {
         self.start + self.byte_size
     }
 
+    /// End of the interval (inclusive)
+    pub fn end_inclusive(&self) -> u32 {
+        self.start + self.byte_size - 1
+    }
+
     fn overlaps(&self, other: &VarLocation) -> bool {
         // no overlap if one interval ends before another starts
         // end() is exclusive, so use <=
