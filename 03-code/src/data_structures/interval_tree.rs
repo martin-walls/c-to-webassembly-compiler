@@ -11,7 +11,7 @@ type IntervalBound = u32;
 /// Data stored in an interval tree should be 'mergeable'. If we try to insert data
 /// with an interval that already exists in the tree, the data will be merged
 pub trait Mergeable {
-    fn merge(&mut self, other: &Self);
+    fn merge(&mut self, other: Self);
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -64,10 +64,21 @@ impl<T: Mergeable> Node<T> {
         self.interval.start
     }
 
-    fn merge_data(&mut self, other: *const Node<T>) {
+    /// Locally update the max value of this node
+    fn update_max(&mut self) {
+        self.max = self.interval.end;
         unsafe {
-            self.data.merge(&(*other).data);
+            if !self.left.is_null() {
+                self.max = std::cmp::max(self.max, (*self.left).max);
+            }
+            if !self.right.is_null() {
+                self.max = std::cmp::max(self.max, (*self.right).max);
+            }
         }
+    }
+
+    fn merge_data(&mut self, data: T) {
+        self.data.merge(data);
     }
 }
 
@@ -81,8 +92,6 @@ impl<T: Mergeable> IntervalTree<T> {
     /// Insert data to the given interval in the tree. If the interval isn't in the tree, a new
     /// node is created. If the interval already exists, data is merged to the existing node.
     pub fn insert_or_merge(&mut self, interval: Interval, data: T) {
-        let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
-
         let mut y = std::ptr::null_mut();
         let mut x = self.root;
 
@@ -91,19 +100,21 @@ impl<T: Mergeable> IntervalTree<T> {
             while !x.is_null() {
                 y = x;
 
-                if (*new_node).interval == (*x).interval {
+                if interval == (*x).interval {
                     // merge new node with x
-                    (*x).merge_data(new_node);
+                    (*x).merge_data(data);
                     return;
                 }
 
                 // smaller keys or equal to the left, bigger keys to the right
-                if (*new_node).key() <= (*x).key() {
+                if interval.start <= (*x).key() {
                     x = (*x).left;
                 } else {
                     x = (*x).right;
                 }
             }
+
+            let new_node = Node::new(NodeColour::Red, interval.to_owned(), interval.end, data);
 
             // replace the leaf with the new node
             (*new_node).parent = y;
@@ -118,12 +129,10 @@ impl<T: Mergeable> IntervalTree<T> {
             } else {
                 (*y).right = new_node;
             }
+
+            self.insert_fixup(new_node);
+            self.insert_update_max(new_node);
         }
-
-        self.insert_fixup(new_node);
-        self.insert_update_max(new_node);
-
-        debug!("{self}");
     }
 
     pub fn find_overlaps(&self, interval: &Interval) -> HashMap<&Interval, &T> {
@@ -182,10 +191,7 @@ impl<T: Mergeable> IntervalTree<T> {
             // Y is now at the top of this subtree, so it's max will be X.max
             (*y).max = (*x).max;
             // X.max = MAX(X.left.max, X.right.max, X.max)
-            (*x).max = std::cmp::max(
-                (*(*x).left).max,
-                std::cmp::max((*(*x).right).max, (*x).interval.end),
-            );
+            (*x).update_max();
         }
         true
     }
@@ -237,10 +243,7 @@ impl<T: Mergeable> IntervalTree<T> {
             // Y is now at the top of this subtree, so it's max will be X.max
             (*y).max = (*x).max;
             // X.max = MAX(X.left.max, X.right.max, X.max)
-            (*x).max = std::cmp::max(
-                (*(*x).left).max,
-                std::cmp::max((*(*x).right).max, (*x).interval.end),
-            );
+            (*x).update_max();
         }
     }
 
@@ -254,7 +257,7 @@ impl<T: Mergeable> IntervalTree<T> {
                 // cos the root node is always black
                 if (*node).parent == (*(*(*node).parent).parent).left {
                     let y = (*(*(*node).parent).parent).right;
-                    if (*y).colour == NodeColour::Red {
+                    if !y.is_null() && (*y).colour == NodeColour::Red {
                         (*(*node).parent).colour = NodeColour::Black;
                         (*y).colour = NodeColour::Black;
                         (*(*(*node).parent).parent).colour = NodeColour::Red;
@@ -276,7 +279,7 @@ impl<T: Mergeable> IntervalTree<T> {
                 } else {
                     // symmetric for if parent is a right child
                     let y = (*(*(*node).parent).parent).left;
-                    if (*y).colour == NodeColour::Red {
+                    if !y.is_null() && (*y).colour == NodeColour::Red {
                         (*(*node).parent).colour = NodeColour::Black;
                         (*y).colour = NodeColour::Black;
                         (*(*(*node).parent).parent).colour = NodeColour::Red;
@@ -329,14 +332,17 @@ impl<T: Mergeable> IntervalTree<T> {
             if (*node).interval.overlaps(interval) {
                 results.insert(node);
             }
-            if (*node).left.is_null() || (*(*node).left).max < interval.start {
-                // no interval in the left subtree can overlap the search interval
-                results.extend(self.find_overlapping_nodes_from((*node).right, interval));
-            } else {
-                // otherwise there could be overlapping nodes in both subtrees
-                results.extend(self.find_overlapping_nodes_from((*node).left, interval));
-                results.extend(self.find_overlapping_nodes_from((*node).right, interval));
-            }
+            // if (*node).left.is_null() || (*(*node).left).max < interval.start {
+            // no interval in the left subtree can overlap the search interval
+            // results.extend(self.find_overlapping_nodes_from((*node).right, interval));
+            // } else {
+            // otherwise there could be overlapping nodes in both subtrees
+
+            // with the current implementation, cos keys can be duplicate, the BST property can
+            // be violated by rotations, so we need to search the whole tree
+            results.extend(self.find_overlapping_nodes_from((*node).left, interval));
+            results.extend(self.find_overlapping_nodes_from((*node).right, interval));
+            // }
         }
 
         results
