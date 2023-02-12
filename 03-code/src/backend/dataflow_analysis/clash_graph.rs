@@ -94,7 +94,11 @@ impl fmt::Display for ClashGraph {
             }
             writeln!(f)?;
         }
-        write!(f, "")
+        write!(f, "universal clashes: ")?;
+        for clash_var in &self.universal_clashes {
+            write!(f, "{clash_var}, ")?;
+        }
+        Ok(())
     }
 }
 
