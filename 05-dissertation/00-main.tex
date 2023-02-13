@@ -1,0 +1,49 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage{mrw}
+
+\usepackage{biblatex}
+\addbibresource{90-references.bib}
+
+\usepackage{imakeidx}
+\makeindex[intoc]
+
+% best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
+\usepackage{subfiles}
+
+\title{Part II Project}
+\author{Martin Walls}
+
+\begin{document}
+
+\maketitle
+
+\renewcommand{\thesection}{\roman{section}}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
+
+\section{Declaration of Originality}
+
+\section{Proforma}
+
+\tableofcontents
+
+\renewcommand{\thesection}{\arabic{section}}
+\setcounter{section}{0}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{5}}
+
+\subfile{01-introduction}
+
+\subfile{02-preparation}
+
+\subfile{03-implementation}
+
+\subfile{04-evaluation}
+
+\subfile{05-conclusions}
+
+\printbibliography
+
+\printindex
+
+\end{document}
+
