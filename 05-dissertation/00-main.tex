@@ -1,6 +1,8 @@
-\documentclass[12pt, a4paper]{article}
+\documentclass[12pt, a4paper]{report}
 
-\usepackage{mrw}
+\usepackage[nogeometry]{mrw}
+
+\usepackage[margin=2cm]{geometry}
 
 \usepackage{biblatex}
 \addbibresource{90-references.bib}
@@ -8,34 +10,50 @@
 \usepackage{imakeidx}
 \makeindex[intoc]
 
+\graphicspath{{20-figures}}
+
+% set the format of \today
+\usepackage[UKenglish]{datetime2}
+\DTMlangsetup{ord=raise, monthyearsep={,\space}}
+
+% Needed for vertical alignment of signature
+\usepackage[export]{adjustbox}
+
+\newcommand{\FullName}{Martin Walls}
+\newcommand{\College}{Churchill College}
+\newcommand{\ProjectTitle}{C to WebAssembly Compiler}
+\newcommand{\Examination}{Computer Science Tripos: Part II}
+\newcommand{\Date}{\today}
+
+\setlength{\parindent}{0pt}
+\addtolength{\parskip}{1ex}
+% slightly increase line spacing to be more readable
+\renewcommand{\baselinestretch}{1.1}
+
+\NewDocumentCommand{\Signature}{}{
+  \includegraphics[width=2cm, valign=m]{00-signature.jpg}
+}
+
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}
 
-\title{Part II Project}
-\author{Martin Walls}
-
 \begin{document}
 
-\maketitle
+\subfile{10-titlepage.tex}
 
-\renewcommand{\thesection}{\roman{section}}
-\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
+\subfile{11-declaration-of-originality.tex}
 
-\section{Declaration of Originality}
-
-\section{Proforma}
+\subfile{12-proforma.tex}
 
 \tableofcontents
-
-\renewcommand{\thesection}{\arabic{section}}
-\setcounter{section}{0}
-\addtocontents{toc}{\protect\setcounter{tocdepth}{5}}
 
 \subfile{01-introduction}
 
 \subfile{02-preparation}
 
 \subfile{03-implementation}
+
+\cite{emscripten}
 
 \subfile{04-evaluation}
 
