@@ -10,13 +10,6 @@
 \input{\string ~/UNI/mrw.tikzdefs}
 \input{\string ~/UNI/mrw.tikzstyles}
 
-% \usepackage{pgf}
-% \usepackage{tikz}
-% \usepgfplotslibrary{external} 
-% \tikzexternalize
-% \tikzset{external/system call={xelatex \tikzexternalcheckshellescape
-%   -halt-on-error -interaction=batchmode -jobname "\image" "\texsource"}}
-
 \title{Part II Project: Progress Report}
 \author{Martin Walls}
 \date{}
@@ -61,8 +54,11 @@ Implemented the Relooper algorithm
 \begin{itemize}
 \item Turning the linear sequence of IR instructions into a structure of `blocks'
 \end{itemize}
-\vspace{20pt}
-\resizebox{\linewidth}{!}{\tikzfig{13-relooper-blocks}}
+
+\vspace{6pt}
+\begin{center}
+  \resizebox{0.8\linewidth}{!}{\tikzfig{13-relooper-blocks}}
+\end{center}
 }
 
 \only<4>{
@@ -113,6 +109,5 @@ NodeJS runtime:
 \end{frame}
 
 
-% end with 'ive done my success criteria, plan to write up in x', just kinda draw to a close
 
 \end{document}
