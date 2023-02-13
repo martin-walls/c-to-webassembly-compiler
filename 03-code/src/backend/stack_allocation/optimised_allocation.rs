@@ -5,6 +5,7 @@ use log::debug;
 use crate::backend::dataflow_analysis::clash_graph::{generate_clash_graph, ClashGraph};
 use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
+use crate::backend::stack_allocation::clash_interval_var_locations::ClashIntervalVarLocations;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
 use crate::backend::stack_allocation::interval_tree_var_locations::IntervalTreeVarLocations;
 use crate::backend::stack_allocation::naive_var_locations::NaiveVarLocations;
@@ -119,18 +120,17 @@ fn allocate_vars_from_stack(
     clash_graph: &ClashGraph,
     prog_metadata: &ProgramMetadata,
 ) -> HashSet<VarLocation> {
-    let mut var_locations = NaiveVarLocations::new();
+    let mut var_locations = ClashIntervalVarLocations::new();
 
     // allocate vars in order of the stack
     while let Some((var, byte_size)) = var_allocation_stack.pop() {
         // don't allocate the null dest
         if let Some(null_dest) = &prog_metadata.null_dest_var {
-            debug!("null dest: {}; var: {}", null_dest, var);
             if var == *null_dest {
-                debug!("var is null dest");
                 continue;
             }
         }
+        debug!("allocating var {var}");
 
         // find the lowest addr where this var fits without clashing
         let lowest_possible_location =
@@ -149,8 +149,8 @@ fn calculate_var_offsets(
 ) -> (VariableAllocationMap, u32) {
     let mut total_offset = 0;
     for var_location in var_locations {
-        if var_location.end() > total_offset {
-            total_offset = var_location.end();
+        if var_location.end_exclusive() > total_offset {
+            total_offset = var_location.end_exclusive();
         }
         let offset = var_location.start + start_offset;
         debug!("offset {}: {}", var_location.var, offset);

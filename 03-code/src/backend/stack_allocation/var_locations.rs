@@ -14,7 +14,7 @@ pub struct VarLocation {
 
 impl VarLocation {
     /// End of the interval (exclusive)
-    pub fn end(&self) -> u32 {
+    pub fn end_exclusive(&self) -> u32 {
         self.start + self.byte_size
     }
 
@@ -24,17 +24,19 @@ impl VarLocation {
     }
 
     pub fn overlaps(&self, other: &VarLocation) -> bool {
-        // no overlap if one interval ends before another starts
-        // end() is exclusive, so use <=
-        let no_overlap = self.end() <= other.start || other.end() <= self.start;
-
-        !no_overlap
+        self.start <= other.end_inclusive() && other.start <= self.end_inclusive()
     }
 }
 
 impl fmt::Display for VarLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: [{}, {})", self.var, self.start, self.end())
+        write!(
+            f,
+            "{}: [{}, {})",
+            self.var,
+            self.start,
+            self.end_exclusive()
+        )
     }
 }
 

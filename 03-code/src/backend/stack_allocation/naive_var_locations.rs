@@ -61,7 +61,7 @@ impl VarLocations for NaiveVarLocations {
                 let do_vars_clash = clash_graph.do_vars_clash(&var, &existing_location.var);
                 if do_vars_clash {
                     // move the var we're allocating to the next addr past the var it clashes with
-                    lowest_possible_location.start = existing_location.end();
+                    lowest_possible_location.start = existing_location.end_exclusive();
                     is_valid_allocation = false;
                     // restart checking against all existing allocations, now that we've moved where
                     // we're trying to allocate to
