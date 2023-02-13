@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# only run pre-commit tests if code dir has changed
 git diff --cached --name-only | if grep --quiet "03-code/"
 then
   echo "Running pre-commit tests"
