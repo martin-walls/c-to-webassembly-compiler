@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-from pathlib import Path
-import sys
 import argparse
+import sys
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -30,7 +31,7 @@ def read_stack_ptr_log_file(filepath: Path):
         return values
 
 
-def plot_stack_memory_usage(stack_ptr_log_file: Path, plot_output_file: Path | None):
+def plot_stack_memory_usage(stack_ptr_log_file: Path, plot_output_file: Path | None, title: str):
     log_values = read_stack_ptr_log_file(stack_ptr_log_file)
     x = np.arange(len(log_values))
 
@@ -40,6 +41,42 @@ def plot_stack_memory_usage(stack_ptr_log_file: Path, plot_output_file: Path | N
     ax.set_xticklabels([])
     ax.set_xticks([])
     ax.set_ylabel("Stack size (bytes)")
+    if title:
+        ax.set_title(title)
+
+    if plot_output_file is not None:
+        plt.savefig(plot_output_file)
+
+    plt.show()
+
+
+def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2: Path, plot_output_file: Path | None,
+                               title: str, subtitle1: str, subtitle2: str):
+    log_values_1 = read_stack_ptr_log_file(stack_ptr_log_file_1)
+    log_values_2 = read_stack_ptr_log_file(stack_ptr_log_file_2)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey="all")
+
+    x1 = np.arange(len(log_values_1))
+    x2 = np.arange(len(log_values_2))
+
+    ax1.bar(x1, log_values_1, width=1)
+    ax1.set_xlabel(r"Program execution $\rightarrow$")
+    ax1.set_xticklabels([])
+    ax1.set_xticks([])
+    ax1.set_ylabel("Stack size (bytes)")
+    if subtitle1:
+        ax1.set_title(subtitle1)
+
+    ax2.bar(x2, log_values_2, width=1)
+    ax2.set_xlabel(r"Program execution $\rightarrow$")
+    ax2.set_xticklabels([])
+    ax2.set_xticks([])
+    if subtitle2:
+        ax2.set_title(subtitle2)
+
+    if title:
+        fig.suptitle(title)
 
     if plot_output_file is not None:
         plt.savefig(plot_output_file)
@@ -54,7 +91,12 @@ def stack_memory_usage_profiler(args):
     if output_plot_path is not None:
         output_plot_path = Path(output_plot_path).resolve()
 
-    plot_stack_memory_usage(stack_ptr_log_file, output_plot_path)
+    if args.compare:
+        stack_ptr_log_file_2 = Path(args.logfile2).resolve()
+        compare_stack_memory_usage(stack_ptr_log_file, stack_ptr_log_file_2, output_plot_path, args.title,
+                                   args.subtitle1, args.subtitle2)
+    else:
+        plot_stack_memory_usage(stack_ptr_log_file, output_plot_path, args.title)
 
 
 if __name__ == "__main__":
@@ -64,7 +106,13 @@ if __name__ == "__main__":
 
     parser_stack = subparsers.add_parser("stack", help="Stack memory usage profiling")
     parser_stack.add_argument("logfile", help="Path to stack pointer log file")
+    parser_stack.add_argument("logfile2", default="", nargs="?",
+                              help="Path to second stack pointer log file, when using --compare")
+    parser_stack.add_argument("--compare", "-c", action="store_true", help="Plot two logfiles next to each other")
     parser_stack.add_argument("--output", "-o", help="Path to save plot as PGF file")
+    parser_stack.add_argument("--title", default="", help="Plot title")
+    parser_stack.add_argument("--subtitle1", default="", help="Title for 1st subplot")
+    parser_stack.add_argument("--subtitle2", default="", help="Title for 2nd subplot")
     # define the function to call if the stack subcommand is used
     parser_stack.set_defaults(func=stack_memory_usage_profiler)
 
