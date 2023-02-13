@@ -22,8 +22,8 @@ build:
 objdump WASM:
     wasm-objdump {{WASM}} -d
 
-profile-stack LOGFILE *ARGS:
-    ./tools/profiler.py stack {{LOGFILE}} {{ARGS}}
+profile-stack *ARGS:
+    ./tools/profiler.py stack {{ARGS}}
 
 clear-logs:
     rm ./logs/*.stackptrlog
