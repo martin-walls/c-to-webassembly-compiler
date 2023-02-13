@@ -10,6 +10,13 @@
 \input{\string ~/UNI/mrw.tikzdefs}
 \input{\string ~/UNI/mrw.tikzstyles}
 
+% \usepackage{pgf}
+% \usepackage{tikz}
+% \usepgfplotslibrary{external} 
+% \tikzexternalize
+% \tikzset{external/system call={xelatex \tikzexternalcheckshellescape
+%   -halt-on-error -interaction=batchmode -jobname "\image" "\texsource"}}
+
 \title{Part II Project: Progress Report}
 \author{Martin Walls}
 \date{}
@@ -94,6 +101,15 @@ NodeJS runtime:
 
 
 \end{columns}
+\end{frame}
+
+\begin{frame}
+\frametitle{Optimised stack allocation}
+
+\renewcommand{\rmfamily}{\sffamily}
+
+\resizebox{\textwidth}{!}{\input{14-fibonacci-compare.pgf}}
+
 \end{frame}
 
 
