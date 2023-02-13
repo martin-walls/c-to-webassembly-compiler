@@ -51,8 +51,6 @@ pub fn optimised_allocate_local_vars(
     while let Some(var_and_type) =
         pop_smallest_least_clashed_var(&mut vars_to_allocate, &mut temp_clash_graph, prog_metadata)
     {
-        // var_allocation_stack.push(var_and_type);
-
         // if we make it FIFO, we'll allocate vars with the least clashes first.
         // Because we always allocate vars to the lowest possible addr given
         // the constraints of the existing allocations, this will put vars
