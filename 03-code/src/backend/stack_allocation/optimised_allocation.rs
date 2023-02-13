@@ -7,8 +7,6 @@ use crate::backend::dataflow_analysis::dead_code_analysis::remove_dead_vars;
 use crate::backend::stack_allocation::allocate_vars::VariableAllocationMap;
 use crate::backend::stack_allocation::clash_interval_var_locations::ClashIntervalVarLocations;
 use crate::backend::stack_allocation::get_vars_from_block::get_vars_from_block;
-use crate::backend::stack_allocation::interval_tree_var_locations::IntervalTreeVarLocations;
-use crate::backend::stack_allocation::naive_var_locations::NaiveVarLocations;
 use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations};
 use crate::backend::stack_frame_operations::increment_stack_ptr_by_known_offset;
 use crate::backend::target_code_generation_context::ModuleContext;

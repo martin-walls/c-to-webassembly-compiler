@@ -2,8 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Formatter;
 
-use log::debug;
-
 use crate::fmt_indented::{FmtIndented, IndentLevel};
 
 type IntervalBound = u32;

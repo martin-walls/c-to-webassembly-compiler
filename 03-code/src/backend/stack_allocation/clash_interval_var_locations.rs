@@ -1,8 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-use log::debug;
-
 use crate::backend::dataflow_analysis::clash_graph::ClashGraph;
 use crate::backend::stack_allocation::var_locations::{VarLocation, VarLocations};
 use crate::middle_end::ids::VarId;
