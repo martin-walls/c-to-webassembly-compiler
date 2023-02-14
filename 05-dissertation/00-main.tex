@@ -2,6 +2,8 @@
 
 \usepackage[nogeometry]{mrw}
 
+% \usepackage{showframe}
+
 \usepackage[margin=2cm]{geometry}
 
 \usepackage{biblatex}
@@ -39,9 +41,13 @@
   {\bfseries\Huge} % format
   {} % chapter number label
   {0pt} % separation
-  {\rule[\heightof{\thechapter}/2]{\linewidth}{1pt}
+  {\rule[\heightof{\thechapter}/2]{\linewidth}{1pt}%
+  \vspace{5pt}
   \centering} % before code
   [\vspace{-6pt}\rule{\linewidth}{1pt}] % after code
+% spacing: left indent, above title, below title
+\titlespacing*{\chapter}{0pt}{-30pt}{40pt}
+\titlespacing*{name=\chapter,numberless}{0pt}{-68pt}{40pt}
 
 \pagestyle{fancy}
 \fancyfoot{}
