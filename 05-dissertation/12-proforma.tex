@@ -4,4 +4,29 @@
 
 \chapter*{Proforma}
 
+\begin{tabular}{ll}
+\toprule
+Candidate Number: & \CandidateNumber \\
+Project Title: & \ProjectTitle \\
+Examination: & \Examination \\
+Year: & \Year \\
+Dissertation Word Count: & \DissertationWordCount\footnotemark[1] \\
+Code Line Count: & \CodeLineCount\footnotemark[2] \\
+Project Originator: & \ProjectOriginator \\
+Supervisor: & \ProjectSupervisor \\
+\bottomrule
+\end{tabular}
+
+\footnotetext[1]{Word count computed by \texttt{texcount -inc -total -sum}}
+\footnotetext[2]{Code line count computed by \texttt{cloc . --by-file --force-lang=Rust,lalrpop --list-file=.cloc}}
+
+\section*{Original Aims of the Project}
+% At most 100 words describing the original aims of the project.
+
+\section*{Work Completed}
+% At most 100 words summarising the work completed.
+
+\section*{Special Difficulties}
+% At most 100 words describing any special difficulties that you faced. (In most cases the special difficulties entry will say "None".)
+
 \end{document}

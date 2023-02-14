@@ -2,21 +2,36 @@
 
 \usepackage[nogeometry]{mrw}
 
-% \usepackage{showframe}
-
-\usepackage[margin=2cm]{geometry}
-
-\usepackage{biblatex}
-\addbibresource{90-references.bib}
-
-\usepackage{imakeidx}
-\makeindex[intoc]
-
 \graphicspath{{20-figures}}
 
 % set the format of \today
 \usepackage[UKenglish]{datetime2}
 \DTMlangsetup{ord=raise, monthyearsep={,\space}}
+
+\newcommand{\FullName}{Martin Walls}
+\newcommand{\College}{Churchill College}
+\newcommand{\ProjectTitle}{C to WebAssembly Compiler}
+\newcommand{\Examination}{Computer Science Tripos: Part II}
+\newcommand{\CandidateNumber}{}
+\newcommand{\Date}{\today}
+\newcommand{\Year}{2023}
+\newcommand{\DissertationWordCount}{}
+\newcommand{\CodeLineCount}{}
+\newcommand{\ProjectOriginator}{Timothy M. Jones}
+\newcommand{\ProjectSupervisor}{Timothy M. Jones}
+
+\usepackage[margin=2cm]{geometry}
+
+% For the bibliography
+\usepackage{biblatex}
+\addbibresource{90-references.bib}
+
+% To generate the index
+\usepackage{imakeidx}
+\makeindex[intoc]
+
+% For including the original project proposal
+\usepackage{pdfpages}
 
 % Needed for vertical alignment of signature
 \usepackage[export]{adjustbox}
@@ -49,15 +64,10 @@
 \titlespacing*{\chapter}{0pt}{-30pt}{40pt}
 \titlespacing*{name=\chapter,numberless}{0pt}{-68pt}{40pt}
 
-\pagestyle{fancy}
+\fancyhead[L]{\nouppercase\leftmark}
+\fancyhead[R]{\nouppercase\rightmark}
 \fancyfoot{}
 \fancyfoot[C]{\thepage\ / \pageref{LastPage}}
-
-\newcommand{\FullName}{Martin Walls}
-\newcommand{\College}{Churchill College}
-\newcommand{\ProjectTitle}{C to WebAssembly Compiler}
-\newcommand{\Examination}{Computer Science Tripos: Part II}
-\newcommand{\Date}{\today}
 
 \setlength{\parindent}{0pt}
 \addtolength{\parskip}{1ex}
@@ -75,9 +85,13 @@
 
 \subfile{10-titlepage.tex}
 
+\pagestyle{plain}
+
 \subfile{11-declaration-of-originality.tex}
 
 \subfile{12-proforma.tex}
+
+\pagestyle{fancy}
 
 \tableofcontents
 
@@ -96,6 +110,13 @@
 \printbibliography
 
 \printindex
+
+% Start appendices
+\appendix
+% Show "Appendix X" instead of just "X"
+\renewcommand{\ChapterNumber}{\colorbox{white}{\hspace{\ChapterNumberPadding}Appendix \thechapter\hspace{\ChapterNumberPadding}}}
+
+\subfile{13-original-proposal.tex}
 
 \end{document}
 
