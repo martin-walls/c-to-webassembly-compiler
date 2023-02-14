@@ -45,7 +45,7 @@ The main challenge here was to understand the algorithm thoroughly enough to act
 
 The last step in the main pipeline was generating WebAssembly binary code.
 
-The main things I implemented for target code generation were managing the function call stack, including frame and stack pointers, and also allocating an address to every variable.
+As well as defining the binary instructions to generate for each IR instruction, the main things I implemented here were managing the function call stack, including moving the frame and stack pointers, and also allocating an address to every variable.
 
 
 \section*{Runtime environment}
@@ -63,7 +63,7 @@ This allowed me to work on optimisations while making sure I didn't break anythi
 
 Once the main compiler pipeline was complete, I implemented some optimisations.
 
-I implemented tail-call optimisation to make recursive functions more memory efficient.
+I implemented tail-call optimisation to make recursive functions more memory efficient. I did this by transforming the recursive call into iteration back to the start of the function, so no new stack frame has to be allocated.
 
 I also implemented unreachable procedure elimination, by generating a call graph for the program, walking over it, and removing all functions we can't reach.
 
