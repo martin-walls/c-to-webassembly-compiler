@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * Returns the nth Fibonacci number.
@@ -10,8 +11,14 @@ int fib(int n) {
 }
 
 int main(int argc, char *argv[]) {
-    for (int i = 0; i < 15; i++) {
-        printf("%d: %d\n", i, fib(i));
+    if (argc < 1 + 1) {
+        for (int i = 0; i < 15; i++) {
+            printf("%d: %d\n", i, fib(i));
+        }
+    } else {
+        int n = (int) strtol(argv[1], NULL, 10);
+        int f = fib(n);
+        printf("fib(%d) = %d\n", n, f);
     }
 
     return 0;
