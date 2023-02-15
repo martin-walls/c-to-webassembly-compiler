@@ -254,7 +254,7 @@ def run_program(test_name_filter: str or None, program_args: list[str], wasm_com
             # pass supplied args if any, else use the args from the test spec
             wasm_run_stdout, wasm_run_stderr, wasm_run_exit_code = run_wasm(test_spec.name,
                                                                             program_args if len(
-                                                                                program_args) > 1 else test_spec.args)
+                                                                                program_args) > 0 else test_spec.args)
 
             print("Stdout:")
             print(wasm_run_stdout)
