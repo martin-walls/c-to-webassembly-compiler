@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 char *
-trim(char *str)
+trim(char str[])
 {
     char *end;
 
@@ -23,7 +23,8 @@ trim(char *str)
     }
 
     // null terminator
-    *(end+1) = 0;
+    end++;
+    *end = 0;
 
     return str;
 }

@@ -2,6 +2,6 @@
 #define __TRIM__
 
 char *
-trim(char *str);
+trim(char str[]);
 
 #endif /*__TRIM__*/
