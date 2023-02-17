@@ -4,4 +4,47 @@
 
 \chapter{Evaluation}
 
+\newcommand{\stackplot}[1]{\fbox{\resizebox{\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
+
+\section{Tail-Call Optimisation}
+
+My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls. The recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
+Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
+
+To evaluate the optimisation, I used the following function that uses tail-recursion to compute the sum of the first $n$ integers.
+
+\begin{listing}[H]
+  \caption{Tail-recursive function to sum the integers 1 to $n$}
+  \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-optimised.c}
+  \label{lst:tail-recursive sum}
+\end{listing}
+
+
+\figref{fig:plot:tail-call optimisation stack use} compares the stack memory usage with tail-call optimisation disabled and enabled.
+Without the optimisation, the stack size grows linearly with $n$.
+When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is reached.
+When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used.
+This is a \SI{99.36}{\percent} reduction in memory usage.
+
+\begin{figure}[h]
+  \centering
+  \stackplot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
+  \caption{Stack usage for calling \texttt{sum(500, 0)} (see \lstref{lst:tail-recursive sum})}
+  \label{fig:plot:tail-call optimisation stack use}
+\end{figure}
+
+\section{Stack Allocation Policy}
+
+The stack allocation policy that I implemented was successful in reducing the amount of stack memory used.
+
+From my test programs, the highest gain was xxx and the average gain was xxx.
+The amount of different made depended on how many temp vars there were, and how much they clashed with each other.
+
+\begin{figure}[h]
+  \centering
+  \stackplot{01-case-compare.pgf}
+  \caption{Stack profile}
+  \label{fig:}
+\end{figure}
+
 \end{document}

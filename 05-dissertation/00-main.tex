@@ -4,7 +4,7 @@
 
 \input{91-metadata.tex}
 
-\graphicspath{{20-figures}}
+\graphicspath{{20-figures/}{21-stack-profile-plots/}}
 
 \usepackage[margin=2cm]{geometry}
 
@@ -63,6 +63,23 @@
 \NewDocumentCommand{\Signature}{}{
   \includegraphics[width=2cm, valign=m]{00-signature.jpg}
 }
+
+% Caption style
+\usepackage[font=small,
+            labelfont=bf,
+            format=hang]{caption}
+% Figure references
+\NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
+% Code references
+\NewDocumentCommand{\lstref}{m}{\textbf{\listingscaption~\ref{#1}}}
+
+% code highlighting
+\setminted{frame=lines,
+           framerule=0.8pt,
+           framesep=6pt}
+% Minted environments
+\newminted[CListing]{c}{}
+\newmintedfile[CInputListing]{c}{}
 
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}
