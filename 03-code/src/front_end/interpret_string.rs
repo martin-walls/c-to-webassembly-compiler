@@ -1,8 +1,8 @@
+use std::{iter::Peekable, str::Chars};
+
 #[cfg(test)]
 #[path = "interpret_string_tests.rs"]
 mod interpret_string_tests;
-
-use std::{iter::Peekable, str::Chars};
 
 pub fn interpret_string(s: &str) -> Result<String, Error> {
     InterpretString::new(s).collect()

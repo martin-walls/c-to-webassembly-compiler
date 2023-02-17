@@ -1,19 +1,22 @@
-#[cfg(test)]
-#[path = "parser_tests.rs"]
-mod parser_tests;
-
-use super::ast::AstNode;
-use super::lexer::Lexer;
-use crate::parser::ast::Program;
-use log::{info, trace};
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
-lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
+use log::{info, trace};
+
+use crate::front_end::ast::Program;
+
+use super::ast::AstNode;
+use super::lexer::Lexer;
+
+#[cfg(test)]
+#[path = "parser_tests.rs"]
+mod parser_tests;
+
+lalrpop_mod!(pub c_parser, "/front_end/c_parser.rs");
 
 pub fn parse(source: String) -> Result<Program, ParseError> {
-    info!("Running lexer and parser");
+    info!("Running lexer and front_end");
 
     let lexer = Lexer::new(source.as_str());
 

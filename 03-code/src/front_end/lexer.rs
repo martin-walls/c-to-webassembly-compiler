@@ -4,11 +4,11 @@ use std::{fmt, iter::Peekable, str::CharIndices};
 
 use log::trace;
 
-use crate::parser::lexer::LexError::InvalidTypedefDeclaration;
+use crate::front_end::lexer::LexError::InvalidTypedefDeclaration;
 
 use super::ast;
 
-lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
+lalrpop_mod!(pub c_parser, "/front_end/c_parser.rs");
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {

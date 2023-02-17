@@ -1,5 +1,10 @@
 use log::{debug, trace};
 
+use crate::front_end::ast;
+use crate::front_end::ast::{
+    BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
+    Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
+};
 use crate::middle_end::aggregate_type_initialisers::{
     array_initialiser, convert_string_literal_to_init_list_of_chars_ast, struct_initialiser,
 };
@@ -14,11 +19,6 @@ use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::middle_end::type_conversions::{
     binary_convert, binary_convert_separately, convert_type_for_assignment,
     get_type_conversion_instrs, unary_convert,
-};
-use crate::parser::ast;
-use crate::parser::ast::{
-    BinaryOperator, DeclaratorInitialiser, Expression, ExpressionOrDeclaration, Identifier,
-    Initialiser, LabelledStatement, Program as AstProgram, Statement, TypeSpecifier, UnaryOperator,
 };
 
 pub fn convert_to_ir(ast: AstProgram) -> Result<Program, MiddleEndError> {

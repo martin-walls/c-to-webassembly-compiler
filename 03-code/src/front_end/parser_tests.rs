@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod parser_tests {
-    lalrpop_mod!(pub c_parser, "/parser/c_parser.rs");
     use super::super::super::ast::*;
 
+    lalrpop_mod!(pub c_parser, "/front_end/c_parser.rs");
     // #[test]
     // fn identifier_parser() {
     //     assert!(c_parser::IdentifierParser::new().parse("foo").is_ok());

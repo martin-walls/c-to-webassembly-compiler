@@ -1,6 +1,6 @@
-use crate::parser::ast;
-use crate::parser::lexer;
-use crate::parser::interpret_string::interpret_string;
+use crate::front_end::ast;
+use crate::front_end::lexer;
+use crate::front_end::interpret_string::interpret_string;
 
 grammar;
 

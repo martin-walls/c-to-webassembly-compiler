@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
+use crate::front_end::ast::{BinaryOperator, Constant, Expression, Initialiser};
 use crate::middle_end::ids::{StructId, UnionId};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::middle_end_error::MiddleEndError;
-use crate::parser::ast::{BinaryOperator, Constant, Expression, Initialiser};
 
 const POINTER_SIZE: u64 = 4; // bytes
 

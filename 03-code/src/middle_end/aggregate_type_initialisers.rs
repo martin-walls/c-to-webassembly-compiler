@@ -1,3 +1,4 @@
+use crate::front_end::ast::{Constant as AstConstant, Expression, Initialiser};
 use crate::middle_end::ast_to_ir::convert_expression_to_ir;
 use crate::middle_end::context::Context;
 use crate::middle_end::ids::{ValueType, VarId};
@@ -6,7 +7,6 @@ use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::{IrType, TypeSize};
 use crate::middle_end::middle_end_error::MiddleEndError;
 use crate::middle_end::type_conversions::convert_type_for_assignment;
-use crate::parser::ast::{Constant as AstConstant, Expression, Initialiser};
 
 pub fn array_initialiser(
     dest: VarId,

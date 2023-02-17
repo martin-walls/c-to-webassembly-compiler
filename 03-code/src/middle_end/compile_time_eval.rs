@@ -1,7 +1,7 @@
+use crate::front_end::ast::{BinaryOperator, Expression};
+use crate::front_end::ast::{Constant as AstConstant, UnaryOperator};
 use crate::middle_end::instructions::Constant as IrConstant;
 use crate::middle_end::middle_end_error::MiddleEndError;
-use crate::parser::ast::{BinaryOperator, Expression};
-use crate::parser::ast::{Constant as AstConstant, UnaryOperator};
 
 /// constant expression used for array bounds, explicit enum values,
 /// values of case labels. Must evaluate to an integer

@@ -1,15 +1,15 @@
 use log::trace;
 
+use crate::front_end::ast::{
+    ArithmeticType, Declarator, EnumType, Enumerator, Identifier, ParameterTypeList,
+    SpecifierQualifier, StorageClassSpecifier, StructType as AstStructType, TypeSpecifier,
+    UnionType as AstUnionType,
+};
 use crate::middle_end::compile_time_eval::eval_integral_constant_expression;
 use crate::middle_end::context::Context;
 use crate::middle_end::ir::Program;
 use crate::middle_end::ir_types::{EnumConstant, IrType, StructType, TypeSize, UnionType};
 use crate::middle_end::middle_end_error::MiddleEndError;
-use crate::parser::ast::{
-    ArithmeticType, Declarator, EnumType, Enumerator, Identifier, ParameterTypeList,
-    SpecifierQualifier, StorageClassSpecifier, StructType as AstStructType, TypeSpecifier,
-    UnionType as AstUnionType,
-};
 
 pub type FunctionParameterBindings = Vec<(String, IrType)>;
 
