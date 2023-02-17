@@ -10,6 +10,46 @@ Word budget: \textasciitilde 4500 words
 
 \section{Repository Overview}
 
+% - horizontal offset of vertical lines to the right
+% - width of horizontal lines sticking out
+% - separation between horizontal lines and start of text
+% - length of horizontal lines
+% - size of connecting dots
+\DTsetlength{0.2em}{1em}{0.2em}{0.4pt}{2pt}
+
+\dirtree{%
+.1 /.
+.2 headers\DTcomment{Stdlib definitions}.
+.3 stdio.h.
+.3 {...}.
+.2 runtime.
+.3 stdlib.
+.3 init\_memory.mjs.
+.3 memory\_constants.mjs.
+.3 memory\_operations.mjs.
+.3 number\_operations.mjs.
+.3 profiler.mjs.
+.3 run.mjs.
+.2 src.
+.3 back\_end.
+.3 data\_structures.
+.3 front\_end.
+.3 middle\_end.
+.3 program\_config.
+.3 relooper.
+.3 fmt\_indented.rs.
+.3 id.rs.
+.3 lib.rs.
+.3 main.rs.
+.3 preprocessor.rs.
+.2 tests.
+.2 tools.
+}
+
+\begin{Comment}
+Finish this. Will have to see if it'll be better to have comments on the right of dirs, or to highlight the main structure below
+\end{Comment}
+
 \section{System Architecture}
 
 \begin{Comment}
