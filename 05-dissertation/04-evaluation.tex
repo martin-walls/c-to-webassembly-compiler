@@ -4,7 +4,7 @@
 
 \chapter{Evaluation}
 
-\newcommand{\stackplot}[1]{\fbox{\resizebox{\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
+\newcommand{\stackplot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
 
 \section{Tail-Call Optimisation}
 
@@ -13,9 +13,9 @@ Therefore, the stack memory usage remains constant rather than growing linearly 
 
 To evaluate the optimisation, I used the following function that uses tail-recursion to compute the sum of the first $n$ integers.
 
-\begin{listing}[H]
-  \caption{Tail-recursive function to sum the integers 1 to $n$}
+\begin{listing}[h]
   \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-optimised.c}
+  \caption{Tail-recursive function to sum the integers 1 to $n$}
   \label{lst:tail-recursive sum}
 \end{listing}
 
