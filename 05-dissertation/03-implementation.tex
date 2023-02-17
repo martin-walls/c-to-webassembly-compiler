@@ -4,4 +4,90 @@
 
 \chapter{Implementation}
 
+\begin{Comment}
+Word budget: \textasciitilde 4500 words
+\end{Comment}
+
+\section{Repository Overview}
+
+\section{System Architecture}
+
+\begin{Comment}
+Compiler Pipeline overview -- include the diagram here
+\end{Comment}
+
+\section{Front End: Lexer and Parser}
+
+\begin{Comment}
+Describe what was actually produced.
+
+Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
+
+\end{Comment}
+
+\begin{Comment}
+- wrote parser grammar
+
+Talk about avoiding ambiguities - eg. dangling else - by using Open/Closed statement in grammar
+
+Talk about my \texttt{interpret\_string} implementation, to handle string escaping. Implemented using an iterator.
+
+- wrote custom lexer - cos typedefs make C context-sensitive, so handle them as we see them so they don't get mixed with identifiers
+
+- created AST representation
+
+Talk about structure of my AST
+
+Talk about how I parsed type specifiers into a standard type representation. Used a bitfield to parse arithmetic types, cos they can be declared in any order.
+\end{Comment}
+
+\begin{Comment}
+Describe high-level structure of codebase.
+
+Say that I wrote it from scratch.
+
+-> mention LALRPOP parser generator used for .lalrpop files
+\end{Comment}
+
+\section{Middle End: Intermediate Representation}
+
+\begin{Comment}
+- Defined my own three-address code representation
+
+- for every ast node, defined transformation to 3AC instructions
+
+- created IR data structure to hold instructions + all necessary metadata
+
+- Talk about auto-incrementing IDs - abstraction of the Id trait and generic IdGenerator struct
+
+- handled type information - created data structure to represent possible types
+
+- making sure instructions are type-safe, type converting where necessary - talk about unary/binary conversions, cite the C reference book
+
+- Talk about the Context design pattern I used throughout -- maybe research this and see if it's been done before?
+\end{Comment}
+
+\section{The Relooper Algorithm}
+
+\begin{Comment}
+cite Emscripten \cite{emscripten}
+\end{Comment}
+
+\section{Back End: Target Code Generation}
+
+
+\section{Optimisations}
+
+\subsection{Unreachable Procedure Elimination}
+
+\subsection{Tail-Call Optimisation}
+
+\begin{Comment}
+Defn of tail-call optimisation
+
+Why do the optimisation
+\end{Comment}
+
+\section{Summary}
+
 \end{document}

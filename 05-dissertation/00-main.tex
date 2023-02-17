@@ -77,6 +77,12 @@
 \newminted[CListing]{c}{}
 \newmintedfile[CInputListing]{c}{}
 
+% Comment box for working on the dissertation
+\usepackage{tcolorbox}
+\NewDocumentEnvironment{Comment}{}
+  {\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]}
+  {\end{tcolorbox}}
+
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}
 
@@ -100,13 +106,11 @@
 
 \subfile{03-implementation}
 
-\cite{emscripten}
-
 \subfile{04-evaluation}
 
 \subfile{05-conclusions}
 
-\printbibliography
+\printbibliography[heading=bibintoc]
 
 \printindex
 

@@ -4,9 +4,48 @@
 
 \chapter{Evaluation}
 
+\begin{Comment}
+Word budget: \textasciitilde 2000 words
+\end{Comment}
+
+\begin{Comment}
+"Signs of success, evidence of thorough and systematic evaluation"
+
+- How many of the original goals were achieved?
+
+- Were they proved to have been achieved?
+
+- Did the program really work?
+
+Answer questions posed in the introduction
+
+use appropriate techniques for evaluation, eg. confidence intervals
+\end{Comment}
+
+\begin{Comment}
+Talk about how I wrote my test script to automatically compare with GCC.
+
+Talk about the test programs I used.
+\end{Comment}
+
+
+\section{Success Criteria}
+
+\section{Testing}
+
+\section{Correctness}
+
+\section{Performance Impacts of Optimisations}
+
+\subsection{Profiling}
+
+\begin{Comment}
+Talk about how I implemented the stack profiler
+\end{Comment}
+
 \newcommand{\stackplot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
 
-\section{Tail-Call Optimisation}
+\subsection{Tail-Call Optimisation}
 
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls. The recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
 Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
@@ -33,7 +72,7 @@ This is a \SI{99.36}{\percent} reduction in memory usage.
   \label{fig:plot:tail-call optimisation stack use}
 \end{figure}
 
-\section{Stack Allocation Policy}
+\subsection{Stack Allocation Policy}
 
 The stack allocation policy that I implemented was successful in reducing the amount of stack memory used.
 
@@ -46,5 +85,7 @@ The amount of different made depended on how many temp vars there were, and how 
   \caption{Stack profile}
   \label{fig:}
 \end{figure}
+
+\section{Summary}
 
 \end{document}
