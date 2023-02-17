@@ -1,6 +1,5 @@
 use log::info;
 
-use crate::back_end::import_export_names::{MEMORY_IMPORT_FIELD_NAME, MEMORY_IMPORT_MODULE_NAME};
 use crate::back_end::memory_constants::{PTR_SIZE, STACK_PTR_ADDR};
 use crate::back_end::target_code_generation_context::ModuleContext;
 use crate::back_end::wasm_instructions::{WasmExpression, WasmInstruction};
@@ -9,6 +8,9 @@ use crate::back_end::wasm_module::imports_section::{ImportDescriptor, WasmImport
 use crate::back_end::wasm_module::module::WasmModule;
 use crate::back_end::wasm_types::{Limits, MemoryType};
 use crate::middle_end::ir::ProgramMetadata;
+use crate::program_config::program_constants::{
+    MEMORY_IMPORT_FIELD_NAME, MEMORY_IMPORT_MODULE_NAME,
+};
 
 pub fn initialise_memory(
     wasm_module: &mut WasmModule,

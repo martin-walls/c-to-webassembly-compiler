@@ -4,7 +4,6 @@ use std::fmt::Formatter;
 
 use log::{debug, trace};
 
-use crate::back_end::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
 use crate::id::IdGenerator;
 use crate::middle_end::ids::{
     FunId, InstructionId, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,
@@ -12,6 +11,7 @@ use crate::middle_end::ids::{
 use crate::middle_end::instructions::{Dest, Instruction};
 use crate::middle_end::ir_types::{IrType, StructType, UnionType};
 use crate::middle_end::middle_end_error::MiddleEndError;
+use crate::program_config::program_constants::MAIN_FUNCTION_SOURCE_NAME;
 
 #[derive(Debug)]
 pub struct Function {

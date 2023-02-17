@@ -4,8 +4,6 @@ use std::collections::{HashMap, VecDeque};
 use log::{debug, info};
 
 use crate::back_end::backend_error::BackendError;
-use crate::back_end::import_export_names::get_imported_function_names;
-use crate::back_end::import_export_names::MAIN_FUNCTION_EXPORT_NAME;
 use crate::back_end::initialise_memory::initialise_memory;
 use crate::back_end::memory_constants::PTR_SIZE;
 use crate::back_end::memory_operations::{
@@ -34,10 +32,12 @@ use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
 use crate::program_config::enabled_optimisations::EnabledOptimisations;
 use crate::program_config::enabled_profiling::EnabledProfiling;
+use crate::program_config::program_constants::MAIN_FUNCTION_EXPORT_NAME;
+use crate::program_config::program_constants::{
+    get_imported_function_names, MAIN_FUNCTION_SOURCE_NAME,
+};
 use crate::relooper::blocks::{Block, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
-
-pub const MAIN_FUNCTION_SOURCE_NAME: &str = "main";
 
 pub fn generate_target_code(
     mut prog: ReloopedProgram,
