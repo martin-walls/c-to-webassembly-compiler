@@ -1,4 +1,4 @@
 pub mod ast;
-pub mod interpret_string;
-pub mod lexer;
+mod interpret_string;
+mod lexer;
 pub mod parser;
