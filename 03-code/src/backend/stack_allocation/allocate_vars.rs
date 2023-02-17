@@ -7,10 +7,10 @@ use crate::backend::stack_allocation::naive_allocation::{
 use crate::backend::stack_allocation::optimised_allocation::optimised_allocate_local_vars;
 use crate::backend::target_code_generation_context::ModuleContext;
 use crate::backend::wasm_instructions::WasmInstruction;
-use crate::enabled_optimisations::EnabledOptimisations;
 use crate::middle_end::ids::VarId;
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::{IrType, TypeSize};
+use crate::program_config::enabled_optimisations::EnabledOptimisations;
 use crate::relooper::blocks::Block;
 
 pub type VariableAllocationMap = HashMap<VarId, u32>;

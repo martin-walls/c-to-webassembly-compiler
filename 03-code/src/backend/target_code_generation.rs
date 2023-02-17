@@ -27,13 +27,13 @@ use crate::backend::wasm_module::exports_section::{ExportDescriptor, WasmExport}
 use crate::backend::wasm_module::module::WasmModule;
 use crate::backend::wasm_module::types_section::WasmFunctionType;
 use crate::backend::wasm_types::{NumType, ValType};
-use crate::enabled_optimisations::EnabledOptimisations;
-use crate::enabled_profiling::EnabledProfiling;
 use crate::id::Id;
 use crate::middle_end::ids::{FunId, LabelId};
 use crate::middle_end::instructions::{Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 use crate::middle_end::ir_types::IrType;
+use crate::program_config::enabled_optimisations::EnabledOptimisations;
+use crate::program_config::enabled_profiling::EnabledProfiling;
 use crate::relooper::blocks::{Block, MultipleBlockId};
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
 

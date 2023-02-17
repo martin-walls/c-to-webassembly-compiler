@@ -13,22 +13,21 @@ use log::{debug, info, trace};
 use middle_end::ast_to_ir::convert_to_ir;
 use parser::parser::parse;
 use preprocessor::preprocess;
+use program_config::enabled_optimisations::EnabledOptimisations;
+use program_config::enabled_profiling::EnabledProfiling;
 
 use crate::backend::target_code_generation::generate_target_code;
-use crate::enabled_optimisations::EnabledOptimisations;
-use crate::enabled_profiling::EnabledProfiling;
 use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::relooper::relooper::reloop;
 
 mod backend;
 mod data_structures;
-mod enabled_optimisations;
-mod enabled_profiling;
 mod fmt_indented;
 mod id;
 mod middle_end;
 mod parser;
 mod preprocessor;
+mod program_config;
 mod relooper;
 
 #[derive(ClapParser, Debug)]

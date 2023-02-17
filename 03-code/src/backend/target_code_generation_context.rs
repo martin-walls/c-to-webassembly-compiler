@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::backend::wasm_indices::{FuncIdx, WasmIdx};
-use crate::enabled_profiling::EnabledProfiling;
 use crate::id::Id;
 use crate::middle_end::ids::{FunId, StringLiteralId, VarId};
+use crate::program_config::enabled_profiling::EnabledProfiling;
 use crate::relooper::blocks::{LoopBlockId, MultipleBlockId};
 use crate::relooper::relooper::ReloopedFunction;
 
