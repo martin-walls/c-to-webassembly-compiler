@@ -25,6 +25,7 @@ mod data_structures;
 mod enabled_optimisations;
 mod enabled_profiling;
 mod fmt_indented;
+mod id;
 mod middle_end;
 mod parser;
 mod preprocessor;

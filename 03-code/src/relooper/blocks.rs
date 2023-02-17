@@ -2,7 +2,8 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use crate::fmt_indented::{FmtIndented, IndentLevel};
-use crate::middle_end::ids::{Id, InstructionId, LabelId};
+use crate::id::Id;
+use crate::middle_end::ids::{InstructionId, LabelId};
 use crate::middle_end::instructions::{
     remove_instr_from_instr_list, replace_instr_from_instr_list, Instruction,
 };

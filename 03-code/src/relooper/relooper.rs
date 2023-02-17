@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use log::{error, info};
 
-use crate::middle_end::ids::{FunId, Id, IdGenerator, LabelId, ValueType, VarId};
+use crate::id::{Id, IdGenerator};
+use crate::middle_end::ids::{FunId, LabelId, ValueType, VarId};
 use crate::middle_end::instructions::{Constant, Instruction, Src};
 use crate::middle_end::ir::{Program, ProgramMetadata};
 use crate::middle_end::ir_types::IrType;
