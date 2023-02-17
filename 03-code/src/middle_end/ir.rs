@@ -4,7 +4,7 @@ use std::fmt::Formatter;
 
 use log::{debug, trace};
 
-use crate::backend::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
+use crate::back_end::target_code_generation::MAIN_FUNCTION_SOURCE_NAME;
 use crate::id::IdGenerator;
 use crate::middle_end::ids::{
     FunId, InstructionId, LabelId, StringLiteralId, StructId, UnionId, ValueType, VarId,

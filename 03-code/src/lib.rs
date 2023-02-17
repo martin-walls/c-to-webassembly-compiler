@@ -16,11 +16,11 @@ use preprocessor::preprocess;
 use program_config::enabled_optimisations::EnabledOptimisations;
 use program_config::enabled_profiling::EnabledProfiling;
 
-use crate::backend::target_code_generation::generate_target_code;
+use crate::back_end::target_code_generation::generate_target_code;
 use crate::middle_end::middle_end_optimiser::ir_optimiser::optimise_ir;
 use crate::relooper::relooper::reloop;
 
-mod backend;
+mod back_end;
 mod data_structures;
 mod fmt_indented;
 mod front_end;
