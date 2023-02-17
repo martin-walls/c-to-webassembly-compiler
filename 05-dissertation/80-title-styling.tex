@@ -1,0 +1,27 @@
+% Chapter title styling
+\usepackage{titlesec}
+\usepackage{calc}
+\newlength{\ChapterNumberPadding}
+\setlength{\ChapterNumberPadding}{0.6em}
+\newcommand{\ChapterNumber}{\colorbox{white}{\hspace{\ChapterNumberPadding}\thechapter\hspace{\ChapterNumberPadding}}}
+\titleformat{\chapter}[display]
+  {\bfseries\Huge} % format
+  {%
+  \makebox[\linewidth/2 - \widthof{\ChapterNumber}/2][l]
+  {\rule[\heightof{\thechapter}/2]{\linewidth}{1pt}}%
+  \ChapterNumber%
+  } % chapter number label
+  {0pt} % separation
+  {\centering} % before code
+  [\vspace{-6pt}\rule{\linewidth}{1pt}] % after code
+\titleformat{name=\chapter,numberless}[display]
+  {\bfseries\Huge} % format
+  {} % chapter number label
+  {0pt} % separation
+  {\rule[\heightof{\thechapter}/2]{\linewidth}{1pt}%
+  \vspace{5pt}
+  \centering} % before code
+  [\vspace{-6pt}\rule{\linewidth}{1pt}] % after code
+% spacing: left indent, above title, below title
+\titlespacing*{\chapter}{0pt}{-30pt}{40pt}
+\titlespacing*{name=\chapter,numberless}{0pt}{-68pt}{40pt}
