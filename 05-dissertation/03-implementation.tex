@@ -5,10 +5,17 @@
 \chapter{Implementation}
 
 \begin{Comment}
-Word budget: \textasciitilde 4500 words
+Word budget: \textasciitilde 4500--5400 words
 \end{Comment}
 
 \section{Repository Overview}
+
+% formatting commands for files/directories in tree
+\newcommand{\DTfile}[1]{#1}
+\newcommand{\DTdir}[1]{\textbf{#1}/}
+
+I developed my project in a GitHub repository\footnote{\url{https://github.com/martin-walls/cam-part-ii-c-webassembly-compiler}}, ensuring to regularly push to the cloud for backup purposes.
+This repository is a monorepo containing both my research and documentation along with my source code.
 
 % - horizontal offset of vertical lines to the right
 % - width of horizontal lines sticking out
@@ -17,33 +24,48 @@ Word budget: \textasciitilde 4500 words
 % - size of connecting dots
 \DTsetlength{0.2em}{1em}{0.2em}{0.4pt}{2pt}
 
+\makeatletter
+\newcommand \Dotfill {\leavevmode \cleaders \hb@xt@ .7em{\hss .\hss }\hfill \kern \z@}
+\makeatother
+\renewcommand{\DTcomment}[1]{%
+\Dotfill
+\rmfamily
+\begin{minipage}[t]{8cm}
+#1
+\end{minipage}
+}
+
 \dirtree{%
-.1 /.
-.2 headers\DTcomment{Stdlib definitions}.
-.3 stdio.h.
+.1 .
+.2 \DTdir{headers} \DTcomment{Header files for the standard library functions I implemented}.
+.3 \DTfile{stdio.h}.
 .3 {...}.
-.2 runtime.
-.3 stdlib.
-.3 init\_memory.mjs.
-.3 memory\_constants.mjs.
-.3 memory\_operations.mjs.
-.3 number\_operations.mjs.
-.3 profiler.mjs.
-.3 run.mjs.
-.2 src.
-.3 back\_end.
-.3 data\_structures.
-.3 front\_end.
-.3 middle\_end.
-.3 program\_config.
-.3 relooper.
-.3 fmt\_indented.rs.
-.3 id.rs.
-.3 lib.rs.
-.3 main.rs.
-.3 preprocessor.rs.
-.2 tests.
-.2 tools.
+.2 \DTdir{runtime} \DTcomment{NodeJS runtime environment}.
+.3 \DTdir{stdlib} \DTcomment{Implementations of standard library functions in JS}.
+.3 \DTfile{run.mjs}.
+.3 {...}.
+.2 \DTdir{src} \DTcomment{The source code for the compiler, explained below}.
+.3 {...}.
+.2 \DTdir{tests} \DTcomment{Test specification files}.
+.3 {...}.
+.2 \DTdir{tools}.
+.3 \DTfile{profiler.py} \DTcomment{Code to plot stack usage profiles}.
+.3 \DTfile{testsuite.py} \DTcomment{Test runner}.
+}
+
+\dirtree{%
+.1 \DTdir{src}.
+.2 \DTdir{back\_end}.
+.2 \DTdir{data\_structures}.
+.2 \DTdir{front\_end}.
+.2 \DTdir{middle\_end}.
+.2 \DTdir{program\_config}.
+.2 \DTdir{relooper}.
+.2 \DTfile{fmt\_indented.rs}.
+.2 \DTfile{id.rs}.
+.2 \DTfile{lib.rs}.
+.2 \DTfile{main.rs}.
+.2 \DTfile{preprocessor.rs}.
 }
 
 \begin{Comment}
