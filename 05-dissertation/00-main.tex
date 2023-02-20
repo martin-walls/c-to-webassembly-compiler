@@ -40,6 +40,8 @@
 \NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
 % Code references
 \NewDocumentCommand{\lstref}{m}{\textbf{\listingscaption~\ref{#1}}}
+% Section references
+\NewDocumentCommand{\secref}{m}{\textbf{Section~\ref{#1}}}
 
 % code highlighting
 \setminted{frame=lines,
@@ -48,9 +50,12 @@
 % Minted environments
 \newminted[CListing]{c}{}
 \newmintedfile[CInputListing]{c}{}
+\newmintinline[CInlineCode]{c}{}
 
 % For showing a directory tree in the repository overview
 \usepackage{dirtree}
+
+\NewDocumentCommand{\Filename}{m}{\texttt{#1}}
 
 % Comment box for working on the dissertation
 \usepackage{tcolorbox}

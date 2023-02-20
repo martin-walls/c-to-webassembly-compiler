@@ -31,17 +31,84 @@ Talk about the test programs I used.
 
 \section{Success Criteria}
 
-\section{Testing}
+The success criteria for my project, as defined in my project proposal, are:
+\begin{itemize}
+\item The program generates an abstract syntax tree from C source code.
+\item The program transforms the abstract syntax tree into an intermediate representation.
+\item The program uses the Relooper algorithm to transform unstructured to structured control
+flow.
+\item The program generates WebAssembly binary code from the intermediate representation.
+\item The compiler generates binary code that produces the same output as the source program.
+\end{itemize}
 
-\section{Correctness}
+All of my success criteria have been met.
+The first four criteria correspond to the main stages of the compiler pipeline, respectively.
+The correctness of this pipeline is verified by the correctness of the generated binary code.
+The generated binary would not be correct if any of the stages had not been successful.
+
+I used a variety of test programs to verify the success of the fifth criteria. This is described in \secref{sec:eval:testing}.
+
+
+\section{Testing} \label{sec:eval:testing}
+
+I wrote a suite of test programs in C to evaluate the correctness and performance of my compiler.
+There were two types of program:
+\begin{itemize}
+\item `Unit test' programs, which test a specific construct in the C language;
+\item Full programs, which represent real workloads that the compiler would be used for.
+\end{itemize}
+
+The first type of test program are not strictly unit tests in the standard sense of the word. However, since they verify the functionality of the compiler on individual parts of the C language, they fulfil a very similar purpose.
+
+Examples of `full programs' include Conway's Game of Life \cite{conways-game-of-life}, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string.
+
+For all my tests, I used GCC\footnote{GCC version 11.3.1} as the reference for correctness.
+I deemed a program to be correct if it produced the same output as when compiled with GCC.
+To facilitate this, I made liberal use of \texttt{printf}, to output the results of computations.
+
+I wrote a test runner script to ensure that I maintained correctness as I continued to develop the compiler, fix bugs, and implement optimisations.
+This script read a directory of \texttt{.yaml} files, which described the path to each test program, and the arguments to run it with.
+It then compiled the program with both my compiler and with GCC, and compared the outputs.
+A test passed if the outputs were identical, and failed otherwise.
+The script reported which tests, if any, failed.
+
+I also implemented some convenience features into the test script.
+The command-line interface takes an optional `filter' argument, which can be used to run a subset of the tests whose name matches the filter.
+The script can also be used to run one of the test programs without comparing to GCC, printing to the standard output. This allows easier manual testing.
+
+To prevent bugs from accidentally creeping in to my compiler, I set up the test suite to run automatically as a commit hook. This would prevent a commit from succeeding if any of the tests failed, allowing me to make corrections first.
+This ensured that the version of my project in source control was always correct and functioning.
+
+
+
 
 \section{Performance Impacts of Optimisations}
+
+\subsection{Unreachable Procedure Elimination}
+
+
+In the context of this project, unreachable procedure elimination mainly has benefits in removing unused standard library functions from the compiled binary.
+When a standard library header is included in the program, the preprocessing stage inserts the entire code of that library\footnote{That is, the entirety of my skeleton implementation of that library, rather than the actual standard library code.}.
+If the program only uses one or two of the functions, most of them will be dead code.
+Unreachable procedure elimination is able to safely remove these.
+
+I only implemented enough of the standard library to allow my test programs to run, so the impact of this optimisation is limited by the number of functions imported.
+If I were to implement more of the standard library, this optimisation would become more important.
+
+The standard library header with the most functions that I implemented was \Filename{ctype.h}.
+This header contains 13 functions, of which a program might normally use two or three.
+This is where I saw the biggest improvement from the optimisation.
+Programs that used the \CInlineCode{ctype} library saw an average file-size reduction of \SI{4.7}{\kilo\byte}.
+
+The other standard library headers I implemented only contained a few functions, so the impact of this optimisation was much more limited. However, as mentioned above, if I implemented more of the standard library, I would see much more of an improvement.
 
 \subsection{Profiling}
 
 \begin{Comment}
 Talk about how I implemented the stack profiler
 \end{Comment}
+
+
 
 \newcommand{\stackplot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
 
