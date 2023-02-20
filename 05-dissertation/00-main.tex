@@ -10,7 +10,7 @@
 \usepackage[margin=2cm]{geometry}
 
 % For the bibliography
-\usepackage{biblatex}
+\usepackage[sorting=none]{biblatex}
 \addbibresource{90-references.bib}
 
 % To generate the index
@@ -90,6 +90,20 @@
 \subfile{04-evaluation}
 
 \subfile{05-conclusions}
+
+\begin{Comment}
+References:
+
+\begin{itemize}
+\item Relooper algorithm: \cite{emscripten}
+\item WebAssembly spec: \cite{wasm-spec}
+\item C grammar, Microsoft page: \cite{c-language-grammar-microsoft}
+\item Avoiding the dangling else ambiguity in LR parsers (Wiki): \cite{wiki:avoiding-dangling-else-ambiguity}. Wiki page references \cite{final-solution-to-dangling-else} (``A Final Solution to the Dangling Else of ALGOL 60 and Related Languages'')
+\item C reference manual book: \cite{c-reference-manual}
+\item CLRS algorithms textbook, for interval trees: \cite{clrs-algorithms}
+\item LALRPOP tutorial/docs: \cite{lalrpop-docs}
+\end{itemize}
+\end{Comment}
 
 \printbibliography[heading=bibintoc]
 
