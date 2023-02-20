@@ -1,9 +1,8 @@
 use crate::back_end::target_code_generation_context::ModuleContext;
 use crate::back_end::wasm_instructions::WasmInstruction;
 use crate::middle_end::ir_types::IrType;
+use crate::program_config::program_constants::LOG_STACK_PTR_IMPORT_NAME;
 use crate::relooper::relooper::{ReloopedFunction, ReloopedProgram};
-
-const LOG_STACK_PTR_IMPORT_NAME: &str = "log_stack_ptr";
 
 pub fn initialise_profiler(module_context: &mut ModuleContext, prog: &mut ReloopedProgram) {
     // initialise stack pointer logging

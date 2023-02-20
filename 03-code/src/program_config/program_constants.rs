@@ -12,6 +12,8 @@ pub const MEMORY_IMPORT_MODULE_NAME: &str = "runtime";
 /// import in `runtime/run.mjs`.
 pub const MEMORY_IMPORT_FIELD_NAME: &str = "memory";
 
+pub const LOG_STACK_PTR_IMPORT_NAME: &str = "log_stack_ptr";
+
 /// A list of the standard library functions that I've implemented in the JavaScript
 /// runtime, that will get imported. Must match the corresponding import names in `runtime/run.mjs`.
 pub fn get_imported_function_names() -> Vec<String> {
@@ -21,6 +23,6 @@ pub fn get_imported_function_names() -> Vec<String> {
         "strtol".to_owned(),
         "strlen".to_owned(),
         "strstr".to_owned(),
-        "log_stack_ptr".to_owned(),
+        LOG_STACK_PTR_IMPORT_NAME.to_owned(),
     ]
 }
