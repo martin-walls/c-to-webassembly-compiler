@@ -102,24 +102,29 @@ Programs that used the \CInlineCode{ctype} library saw an average file-size redu
 
 The other standard library headers I implemented only contained a few functions, so the impact of this optimisation was much more limited. However, as mentioned above, if I implemented more of the standard library, I would see much more of an improvement.
 
-\subsection{Profiling}
+\subsection{Stack Usage Profiling}
 
-\begin{Comment}
-Talk about how I implemented the stack profiler
-\end{Comment}
+The other two optimisations I implemented both reduced the amount of stack memory used by programs.
+To evaluate the effectiveness of the optimisations, I inserted profiling code when compiling the programs, to measure the size of the stack throughout program execution.
+
+When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInlineCode{log_stack_ptr}, which is a function imported from the JavaScript runtime.
+\JSInlineCode{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
+
+To visualise the resulting data, I wrote a Python script to plot the stack usage log.
+All the figures below are generated using this profiling method.
 
 
 
-\newcommand{\stackplot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
+\newcommand{\IncludeStackPlot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
 
 \subsection{Tail-Call Optimisation}
 
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls. The recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
 Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
 
-To evaluate the optimisation, I used the following function that uses tail-recursion to compute the sum of the first $n$ integers.
+One of the functions I used to evaluate this optimisation was the function in \lstref{lst:tail-recursive sum} below, that uses tail-recursion to compute the sum of the first $n$ integers.
 
-\begin{listing}[h]
+\begin{listing}[ht]
   \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-optimised.c}
   \caption{Tail-recursive function to sum the integers 1 to $n$}
   \label{lst:tail-recursive sum}
@@ -131,13 +136,20 @@ Without the optimisation, the stack size grows linearly with $n$.
 When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is reached.
 When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used.
 This is a \SI{99.36}{\percent} reduction in memory usage.
+Of course, the reduction depends on how many iterations of the function are run.
+In the non-optimised case, the stack usage is \bigo{n} in the number of iterations, whereas in the optimised case it is \bigo{1}.
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \centering
-  \stackplot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
+  \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
   \caption{Stack usage for calling \texttt{sum(500, 0)} (see \lstref{lst:tail-recursive sum})}
   \label{fig:plot:tail-call optimisation stack use}
 \end{figure}
+
+When testing with large $n$, the non-optimised version ran out of memory space, and failed to complete.
+In contrast, the optimised version has no memory constraint on how many iterations can be run.
+It successfully runs \num{1000000} levels of recursion without needing any more memory; even GCC fails to run that many.
+
 
 \subsection{Stack Allocation Policy}
 
@@ -146,9 +158,9 @@ The stack allocation policy that I implemented was successful in reducing the am
 From my test programs, the highest gain was xxx and the average gain was xxx.
 The amount of different made depended on how many temp vars there were, and how much they clashed with each other.
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \centering
-  \stackplot{01-case-compare.pgf}
+  \IncludeStackPlot{01-case-compare.pgf}
   \caption{Stack profile}
   \label{fig:}
 \end{figure}
