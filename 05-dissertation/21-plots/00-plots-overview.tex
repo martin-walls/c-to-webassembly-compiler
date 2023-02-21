@@ -1,0 +1,114 @@
+\documentclass{article}
+\usepackage{mrw}
+\pagenumbering{gobble}
+
+\newcommand{\plot}[1]{
+\rule{\textwidth}{1pt}
+\texttt{#1}
+
+% \setmainfont{\mrwSerifFont}[Scale=1.2]
+% \setmonofont{\mrwMonoFont}[Scale=1.2]
+\fbox{\resizebox{\textwidth}{!}{\input{#1}}}
+% \setmainfont{\mrwSerifFont}
+% \setmonofont{\mrwMonoFont}
+}
+
+\begin{document}
+
+\section{Impact of stack allocation optimisation}
+
+\subsection{Comparison across files}
+
+\plot{40-stack-use-across-programs.pgf}
+
+\subsection{Individual plots}
+
+\plot{01-case-compare.pgf}
+
+Percentage decrease: 65.15\%
+
+
+\plot{02-fibonacci-compare.pgf}
+
+Percentage decrease: 67.20\%
+
+\plot{03-gameoflife-blinker-compare.pgf}
+
+Percentage decrease: 69.73\%
+
+\plot{04-gameoflife-pulsar-compare.pgf}
+
+Percentage decrease: 58.96\%
+
+\plot{05-gcd-compare.pgf}
+
+Percentage decrease: 49.57\%
+
+\plot{06-hexify-compare.pgf}
+
+Percentage decrease: 59.70\%
+
+\plot{07-occurrences-compare.pgf}
+
+Percentage decrease: 33.90\%
+
+\plot{08-strlen-compare.pgf}
+
+Percentage decrease: 10.26\%
+
+\plot{09-wildcardcmp-compare.pgf}
+
+Percentage decrease: 53.75\%
+
+
+\plot{10-trim-compare.pgf}
+
+Percentage decrease: 51.71\%
+
+\plot{11-tailcall-sum-compare.pgf}
+
+Comparing the stack allocation of the \texttt{tailcall-sum} program, both with tail-call optimisation enabled, without and with stack allocation optimisation.
+
+Percentage decrease: 41.47\%
+
+\plot{12-tailcall-sum-compare-without-tailcallopt.pgf}
+
+Comparing the stack allocation of the \texttt{tailcall-sum} program, both with tail-call optimisation disabled, without and with stack allocation optimisation.
+
+Percentage decrease: 52.11\%
+
+\plot{13-non-recursive-tailcall-compare-without-tailcallopt.pgf}
+
+Comparing the stack allocation of the \texttt{non-recursive-tailcall} program, both with tail-call optimisation disabled, without and with stack allocation optimisation.
+
+Percentage decrease: 41.33\%
+
+\plot{14-gcd-compare-without-tailcallopt.pgf}
+
+Comparing the stack allocation of \texttt{gcd}, both with tail-call optimisation disabled, without and with stack allocation optimisation.
+
+
+
+\newpage
+\section{Impact of tail-call optimisation}
+
+\plot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
+
+Comparing the stack usage of \texttt{tailcall-sum}, with and without tail-call optimisation. Stack allocation optimisation is disabled in both cases.
+
+Percentage decrease: 99.36\%
+
+\plot{23-non-recursive-tailcall-compare-tailcallopt-without-stackopt.pgf}
+
+Comparing the stack usage of \texttt{non-recursive-tail-call}.
+The program has tailcalls that are mutually recursive but not self recursive.
+Stack allocation optimisation is disabled in both cases.
+
+Percentage decrease: 68.52\%
+
+\plot{24-gcd-compare-tailcallopt-without-stackopt.pgf}
+
+Comparing stack usage of \texttt{gcd}, without and with tail-call optimisation. Stack allocation disabled in both cases.
+
+
+\end{document}

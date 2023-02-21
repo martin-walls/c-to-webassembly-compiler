@@ -1,4 +1,4 @@
 name: tailcall-sum
-source: 15-tail-call-optimisation/02-tail-call-optimised.c
+source: 15-tail-call-optimisation/02-tail-call-sum.c
 args:
   - "100000"

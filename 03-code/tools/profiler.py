@@ -13,6 +13,11 @@ EXIT_CODE_INVALID_LOG_FILE = 2
 
 # plot config
 plt.rc("font", family="serif")
+plt.rc("text", usetex=True)
+plt.rc("figure", autolayout=True)
+# plt.rc("figure", labelsize=12)
+plt.rc("font", size=12)
+plt.rc("ytick", alignment="center")
 plt.style.use("seaborn-muted")
 
 
@@ -72,7 +77,7 @@ def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2:
     max_value_1 = np.max(log_values_1)
     max_value_2 = np.max(log_values_2)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey="all", figsize=(10, 4))
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharey="all", figsize=(8, 4))
 
     x1 = np.arange(len(log_values_1))
     x2 = np.arange(len(log_values_2))
