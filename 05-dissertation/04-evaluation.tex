@@ -4,6 +4,8 @@
 
 \chapter{Evaluation}
 
+\newcommand{\IncludeStackPlot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-plots/#1}}}}
+
 \begin{Comment}
 Word budget: \textasciitilde 2000--2400 words
 \end{Comment}
@@ -61,6 +63,7 @@ There were two types of program:
 The first type of test program are not strictly unit tests in the standard sense of the word. However, since they verify the functionality of the compiler on individual parts of the C language, they fulfil a very similar purpose.
 
 Examples of `full programs' include Conway's Game of Life \cite{conways-game-of-life}, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string.
+Some of the test programs I used were sourced from Clib \cite{clib}, which contains many small utility packages for C. Some of these had no external dependencies, and were useful in verifying that my compiler also worked for other people's code. Clib is licensed under the MIT license, which permits use of the software ``without restriction''.
 
 For all my tests, I used GCC\footnote{GCC version 11.3.1} as the reference for correctness.
 I deemed a program to be correct if it produced the same output as when compiled with GCC.
@@ -115,7 +118,6 @@ All the figures below are generated using this profiling method.
 
 
 
-\newcommand{\IncludeStackPlot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-stack-profile-plots/#1}}}}
 
 \subsection{Tail-Call Optimisation}
 
@@ -134,8 +136,7 @@ One of the functions I used to evaluate this optimisation was the function in \l
 \figref{fig:plot:tail-call optimisation stack use} compares the stack memory usage with tail-call optimisation disabled and enabled.
 Without the optimisation, the stack size grows linearly with $n$.
 When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is reached.
-When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used.
-This is a \SI{99.36}{\percent} reduction in memory usage.
+When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used; a \SI{99.36}{\percent} reduction in memory usage.
 Of course, the reduction depends on how many iterations of the function are run.
 In the non-optimised case, the stack usage is \bigo{n} in the number of iterations, whereas in the optimised case it is \bigo{1}.
 
@@ -146,7 +147,7 @@ In the non-optimised case, the stack usage is \bigo{n} in the number of iteratio
   \label{fig:plot:tail-call optimisation stack use}
 \end{figure}
 
-When testing with large $n$, the non-optimised version ran out of memory space, and failed to complete.
+When testing with large $n$, the non-optimised version quickly ran out of memory space, and threw an exception.
 In contrast, the optimised version has no memory constraint on how many iterations can be run.
 It successfully runs \num{1000000} levels of recursion without needing any more memory; even GCC fails to run that many.
 
