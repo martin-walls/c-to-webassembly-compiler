@@ -44,7 +44,8 @@
 % code highlighting
 \setminted{frame=lines,
            framerule=0.8pt,
-           framesep=6pt}
+           framesep=6pt,
+           autogobble}
 % Minted environments
 \newminted[CListing]{c}{}
 \newmintedfile[CInputListing]{c}{}
@@ -61,6 +62,13 @@
 \NewDocumentEnvironment{Comment}{}
   {\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]}
   {\end{tcolorbox}}
+
+% try to avoid widows and orphans
+\clubpenalty = 1000
+\widowpenalty = 1000
+\displaywidowpenalty = 1000
+
+% \DeclareSIUnit[quantity-product = {}]{\percent}{\char`\%}
 
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}

@@ -4,7 +4,7 @@
 
 \chapter{Evaluation}
 
-\newcommand{\IncludeStackPlot}[1]{\fbox{\resizebox{0.98\textwidth}{!}{\input{21-plots/#1}}}}
+\newcommand{\IncludeStackPlot}[1]{\resizebox{0.98\textwidth}{!}{\input{21-plots/#1}}}
 
 \begin{Comment}
 Word budget: \textasciitilde 2000--2400 words
@@ -127,7 +127,7 @@ Therefore, the stack memory usage remains constant rather than growing linearly 
 One of the functions I used to evaluate this optimisation was the function in \lstref{lst:tail-recursive sum} below, that uses tail-recursion to compute the sum of the first $n$ integers.
 
 \begin{listing}[ht]
-  \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-optimised.c}
+  \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
   \caption{Tail-recursive function to sum the integers 1 to $n$}
   \label{lst:tail-recursive sum}
 \end{listing}
@@ -156,15 +156,81 @@ It successfully runs \num{1000000} levels of recursion without needing any more 
 
 The stack allocation policy that I implemented was successful in reducing the amount of stack memory used.
 
-From my test programs, the highest gain was xxx and the average gain was xxx.
-The amount of different made depended on how many temp vars there were, and how much they clashed with each other.
+From my test programs, the highest gain was \SI{69.73}{\percent}.
+The average gain was \SI{50.28}{\percent}, with a \SI{95}{\percent} confidence interval of $[41.37\%, 59.19\%]$.
+
+\figref{fig:comparing stack usage optimisation across programs} shows the impact that this optimisation had on the different test programs.
+The full light-blue bars represent the stack usage of the unoptimised program, which we measure the optimised program against.
+The darker blue bars show the stack usage of the optimised program as a percentage of the original stack usage.
+Shorter bars represent a greater improvement (less memory is being used).
+
+\begin{figure}[ht]
+  \centering
+  \adjustbox{clip, trim=0cm 1.2cm 0cm 0cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
+  \caption{Comparing optimised stack usage to unoptimised stack usage. Shorter bars represent more improvement.}
+  \label{fig:comparing stack usage optimisation across programs}
+\end{figure}
+
+One of the main factors influencing the amount of improvement is the number of temporary variables generated.
+The more temporary variables generated, the larger each stack frame will be in the unoptimised version, and the more scope there is for the compiler to find non-clashing variables to overlap.
+Because temporary variables are generated locally for each instruction, the majority of them only have short-range dependencies.
+Only the variables that correspond to user variables have longer-range dependencies. 
+Therefore the temporary variables offer the compiler more options of independent variables.
+
+The result of this is that as a function increases in its number of operations, the number of temporary variables increases, and so does the scope for optimisation that the compiler is able to exploit.
+
+We can see the effect of this directly when we compare the stack usage of the unoptimised and optimised versions of the same program.
+\figref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a test program that converts strings to upper, lower, or camel case.
+Since the main stack allocations and deallocations occur on function calls and returns respectively, we can trace the execution of the program through the stack usage plot.
 
 \begin{figure}[ht]
   \centering
   \IncludeStackPlot{01-case-compare.pgf}
-  \caption{Stack profile}
-  \label{fig:}
+  \caption{Comparing stack usage for \Filename{case.c}}
+  \label{fig:comparing stack usage for case.c}
 \end{figure}
+
+The program in turn calls \CInlineCode{case_upper()}, \CInlineCode{case_lower()}, and \CInlineCode{case_camel()}, which corresponds to the three distinct sections of the plot.
+
+\CInlineCode{case_upper()} and \CInlineCode{case_lower()} each make repeated calls to \CInlineCode{toupper()} and \CInlineCode{tolower()}, which corresponds to the many short spikes on the plot (one for each character in the string).
+Other than a \CInlineCode{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
+
+
+In contrast, \CInlineCode{case_camel()} performs many more operations iteratively in the body of the function.
+\lstref{lst:section of casecamel body code} shows an extract of its body code.
+Even in this short section, more temporary variables are created than in the entire body of \CInlineCode{case_upper()}.
+This results in the large spike at the end of \figref{fig:comparing stack usage for case.c}.
+
+\begin{listing}[ht]
+  \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
+  \caption{The entire body of \CInlineCode{case_upper()}}
+  \label{lst:caseupper body code}
+\end{listing}
+
+\begin{listing}[ht]
+  \CInputListing[firstline=39, lastline=43]{../02-test-programs/12-single-source-programs/case.c}
+  \caption{A short section of the body of \CInlineCode{case_camel()}}
+  \label{lst:section of casecamel body code}
+\end{listing}
+
+Due to the differences in temporary variables described above, the compiler is able to optimise \CInlineCode{case_camel()} much more than the other functions.
+This parallels the fact that \CInlineCode{case_camel()} had the largest stack frame initially.
+
+
+Another area that this optimisation has a large impact is for recursive functions.
+Since this optimisation reduces the size of each stack frame, we will see a large improvement if we have lots of stack frames from recursion.
+\figref{fig:comparing stack usage for fibonacci.c} shows the size of the stack over the execution of calculating the Fibonacci numbers recursively.
+In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
+
+
+\begin{figure}[ht]
+  \centering
+  \IncludeStackPlot{02-fibonacci-compare.pgf}
+  \caption{Comparing stack usage for \Filename{fibonacci.c}}
+  \label{fig:comparing stack usage for fibonacci.c}
+\end{figure}
+
+
 
 \section{Summary}
 
