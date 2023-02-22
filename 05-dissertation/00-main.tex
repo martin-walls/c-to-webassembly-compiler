@@ -59,9 +59,16 @@
 
 % Comment box for working on the dissertation
 \usepackage{tcolorbox}
-\NewDocumentEnvironment{Comment}{}
-  {\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]}
-  {\end{tcolorbox}}
+\usepackage{environ}
+\newif\ifshowcomments
+% set to true/false to show/hide comments
+\showcommentstrue
+\NewEnviron{Comment}{%
+  \ifshowcomments
+  \begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]
+  \BODY
+  \end{tcolorbox}
+  \fi}
 
 % try to avoid widows and orphans
 \clubpenalty = 1000
