@@ -18,7 +18,10 @@ plt.rc("figure", autolayout=True)
 # plt.rc("figure", labelsize=12)
 plt.rc("font", size=12)
 plt.rc("ytick", alignment="center")
-plt.style.use("seaborn-muted")
+# plt.style.use("seaborn-muted")
+
+RED = "#ff5959"
+BLUE = "#5977ff"
 
 
 def read_stack_ptr_log_file(filepath: Path):
@@ -37,7 +40,7 @@ def read_stack_ptr_log_file(filepath: Path):
 
 
 def plot_max_value(ax, max_value, ymax):
-    max_value_colour = "#D65F5F"
+    max_value_colour = RED
     ax.axhline(max_value, linestyle="--", color=max_value_colour)
     ax.text(0, max_value + ymax * 0.025, f"$\\max = {max_value}$", color=max_value_colour)
 
@@ -48,7 +51,7 @@ def plot_stack_memory_usage(stack_ptr_log_file: Path, plot_output_file: Path | N
     x = np.arange(len(log_values))
 
     fig, ax = plt.subplots()
-    ax.bar(x, log_values, width=1, rasterized=True)
+    ax.bar(x, log_values, width=1, rasterized=True, color=BLUE)
     ax.set_xlabel(r"Program execution $\rightarrow$")
     ax.set_xticklabels([])
     ax.set_xticks([])
@@ -82,7 +85,7 @@ def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2:
     x1 = np.arange(len(log_values_1))
     x2 = np.arange(len(log_values_2))
 
-    ax1.bar(x1, log_values_1, width=1, rasterized=True)
+    ax1.bar(x1, log_values_1, width=1, rasterized=True, color=BLUE)
     ax1.set_xlabel(r"Program execution $\rightarrow$")
     ax1.set_xticklabels([])
     ax1.set_xticks([])
@@ -96,7 +99,7 @@ def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2:
 
     plot_max_value(ax1, max_value_1, ymax)
 
-    ax2.bar(x2, log_values_2, width=1, rasterized=True)
+    ax2.bar(x2, log_values_2, width=1, rasterized=True, color=BLUE)
     ax2.set_xlabel(r"Program execution $\rightarrow$")
     ax2.set_xticklabels([])
     ax2.set_xticks([])
