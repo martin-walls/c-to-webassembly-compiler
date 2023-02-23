@@ -24,9 +24,10 @@ Word budget: \textasciitilde 2000--2400 words
 - use appropriate techniques for evaluation, eg. confidence intervals
 \end{Comment}
 
-\begin{Comment}
-Add a paragraph here as chapter overview, what I'm gonna say in this chapter
-\end{Comment}
+
+In this chapter, I evaluate my project against my success criteria, showing that all the success criteria were achieved.
+In \ccref{sec:eval:correctness testing} I demonstrate that the compiler is correct using a variety of test programs.
+In \ccref{sec:eval:optimisations} I evaluate the impact of the optimisations I implemented, particularly showing significant improvements in memory usage.
 
 
 \section{Success Criteria}
@@ -46,16 +47,16 @@ The first four criteria correspond to the main stages of the compiler pipeline, 
 The correctness of this pipeline is verified by the correctness of the generated binary code.
 The generated binary would not be correct if any of the stages had not been successful.
 
-I used a variety of test programs to verify the success of the fifth criteria. This is described in \secref{sec:eval:testing}.
+I used a variety of test programs to verify the success of the fifth criteria. This is described in \ccref{sec:eval:correctness testing}.
 
 
-\section{Correctness Testing} \label{sec:eval:testing}
+\section{Correctness Testing} \label{sec:eval:correctness testing}
 
 I wrote a suite of test programs in C to evaluate the correctness and performance of my compiler.
 There were two types of program:
 \begin{itemize}
-\item `Unit test' programs, which test a specific construct in the C language; and
-\item Full programs, which represent real workloads that the compiler would be used for.
+\item 18 `unit test' programs, which test a specific construct in the C language; and
+\item 11 `full programs', which represent real workloads that the compiler would be used for.
 \end{itemize}
 
 Programs of the first type are not strictly unit tests by the standard definition.
@@ -65,12 +66,9 @@ My test programs don't test an isolated behaviour of the compiler's source code.
 Instead, they test a single behaviour of the C source code that is being compiled (for example, dereferencing a pointer), verifying that the compiler pipeline maintains the correct behaviour.
 This allowed me to trace bugs to the units of code that transformed that particular construct.
 
-\begin{Comment}
-"Some of the tests are from Clib" -- say where the others were from (ie. explicitly say I wrote them)
-\end{Comment}
-
 Examples of `full programs' include Conway's Game of Life \cite{conways-game-of-life}, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string.
-Some of the test programs I used were sourced from Clib \cite{clib}, which contains many small utility packages for C. Some of these had no external dependencies, and were useful in verifying that my compiler also worked for other people's code. Clib is licensed under the MIT license, which permits use of the software ``without restriction''.
+Six of the test programs I used were sourced from Clib \cite{clib}, which contains many small utility packages for C. Those that I used had no external dependencies, and were useful in verifying that my compiler worked for other people's code as well as my own. Clib is licensed under the MIT license, which permits use of the software ``without restriction''.
+The remaining five full programs and all 18 unit test programs were written by myself.
 
 For all my tests, I used GCC\footnote{GCC version 11.3.1.} as the reference for correctness.
 I deemed a program to be correct if it produced the same output as when compiled with GCC.
@@ -93,11 +91,18 @@ This ensured that the version of my project in source control was always correct
 
 
 
-\section{Performance Impacts of Optimisations}
+\section{Impacts of Optimisations} \label{sec:eval:optimisations}
 
-\begin{Comment}
-If at all possible, don't have two section titles in a row. Add a few lines of text here
-\end{Comment}
+In the following sections, I will evaluate the impacts that the optimisations I implemented had.
+For unreachable procedure elimination, I will evaluate the reduction in code size.
+For tail-call optimisation and stack allocation optimisation, I will evaluate the effectiveness at reducing memory usage.
+
+To evaluate the memory usage optimisations, I inserted profiling code when compiling the programs, to measure the size of the stack throughout program execution.
+When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInlineCode{log_stack_ptr}, a function imported from the JavaScript runtime.
+\JSInlineCode{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
+I wrote a Python script to visualise the resulting data.
+The plots show how the size of the stack grows and shrinks throughout the execution of the program.
+\Ccref{fig:tail-call optimisation stack use,fig:comparing stack usage optimisation across programs,fig:comparing stack usage for case.c,fig:comparing stack usage for fibonacci.c} are generated using this method.
 
 \subsection{Unreachable Procedure Elimination}
 
@@ -125,38 +130,13 @@ axis and code size before / after optimisation on the y axis.  Or
 reduction in code size on y?
 \end{Comment}
 
-\subsection{Stack Usage Profiling}
-
-The other two optimisations I implemented both reduced the amount of stack memory used by programs.
-To evaluate the effectiveness of the optimisations, I inserted profiling code when compiling the programs, to measure the size of the stack throughout program execution.
-
-When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInlineCode{log_stack_ptr}, a function imported from the JavaScript runtime.
-\JSInlineCode{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
-
-\begin{Comment}
-Don't refer to figures as `figures below' but always
-reference them using their numbers (e.g. figures 1.1 - 1.4 in this case).
-\end{Comment}
-
-To visualise the resulting data, I wrote a Python script to plot the stack usage log.
-The plots show how the size of the stack grows and shrinks throughout the execution of the program.
-All the figures below are generated using this profiling method.
-
-
-
 
 \subsection{Tail-Call Optimisation}
-
-\begin{Comment}
-Sections 1.3.3 and 1.3.4 are really subsections of 1.3.2 are they?
-Could you make them just paragraphs in LaTeX or something similar since
-the reader currently views them as distinct sections currently.
-\end{Comment}
 
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls. The recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
 Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
 
-One of the functions I used to evaluate this optimisation was the function in \lstref{lst:tail-recursive sum} below, that uses tail-recursion to compute the sum of the first $n$ integers.
+One of the functions I used to evaluate this optimisation was the function in \ccref{lst:tail-recursive sum} below, that uses tail-recursion to compute the sum of the first $n$ integers.
 
 \begin{listing}[ht]
   \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
@@ -165,7 +145,7 @@ One of the functions I used to evaluate this optimisation was the function in \l
 \end{listing}
 
 
-\figref{fig:plot:tail-call optimisation stack use} compares the stack memory usage with tail-call optimisation disabled and enabled.
+\Ccref{fig:tail-call optimisation stack use} compares the stack memory usage with tail-call optimisation disabled and enabled.
 Without the optimisation, the stack size clearly grows linearly with $n$.
 When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is reached.
 When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used; a \SI{99.36}{\percent} reduction in memory usage.
@@ -175,8 +155,8 @@ In the non-optimised case, the stack usage is \bigo{n} in the number of iteratio
 \begin{figure}[ht]
   \centering
   \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
-  \caption{Stack usage for calling \texttt{sum(500, 0)} (see \lstref{lst:tail-recursive sum})}
-  \label{fig:plot:tail-call optimisation stack use}
+  \caption{Stack usage for calling \texttt{sum(500, 0)} (see \ccref{lst:tail-recursive sum})}
+  \label{fig:tail-call optimisation stack use}
 \end{figure}
 
 When testing with large $n$, the non-optimised version quickly runs out of memory space, and throws an exception.
@@ -189,18 +169,10 @@ It successfully runs \num{1000000} levels of recursion without using any more me
 The stack allocation policy that I implemented was successful in reducing the amount of stack memory used.
 
 From my test programs, the largest reduction in memory use was \SI{69.73}{\percent} compared to the unoptimised program.
-The average improvement was \SI{50.28}{\percent}, with a \SI{95}{\percent}~confidence interval of $[41.37\%, 59.19\%]$.
+The average improvement was \SI{50.28}{\percent}.
+% with a \SI{95}{\percent}~confidence interval of $[41.37\%, 59.19\%]$.
 
-\begin{Comment}
-Does using a confidence interval on this data actually make sense? The data isn't necessarily normally distributed, is it?
-\end{Comment}
-
-\begin{Comment}
-You don't have to have a confidence interval but use error bars on the
-bar graphs.
-\end{Comment}
-
-\figref{fig:comparing stack usage optimisation across programs} shows the impact that this optimisation had on the different test programs.
+\Ccref{fig:comparing stack usage optimisation across programs} shows the impact that this optimisation had on the different test programs.
 The full-height bars represent the stack usage of the unoptimised program, which we measure the optimised program against.
 The darker bars show the stack usage of the optimised program as a percentage of the original stack usage.
 Shorter bars represent a greater improvement (less memory is being used).
@@ -211,7 +183,7 @@ I did this because tail-call optimisation also affects how much memory is used, 
 \begin{figure}[ht]
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
-  \caption{Comparing optimised stack usage to unoptimised stack usage. Shorter bars represent more improvement.}
+  \caption{Comparing optimised stack usage to unoptimised stack usage. Shorter bars represent greater improvement.}
   \label{fig:comparing stack usage optimisation across programs}
 \end{figure}
 
@@ -224,7 +196,7 @@ Therefore the temporary variables offer the compiler more options of independent
 The result of this is that as a function increases in its number of operations, the number of temporary variables increases, and so does the scope for optimisation that the compiler is able to exploit.
 
 We can see the effect of this directly when we compare the stack usage of the unoptimised and optimised versions of the same program.
-\figref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a test program that converts strings to upper, lower, or camel case.
+\Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a test program that converts strings to upper, lower, or camel case.
 Since the main stack allocations and deallocations occur on function calls and returns respectively, each spike on the plot corresponds to a function call. We can use this to figure out which parts of the plot correspond to which part of the source program.
 
 \begin{figure}[ht]
@@ -241,9 +213,9 @@ Other than a \CInlineCode{for} loop, they do not contain many operations, and th
 
 
 In contrast, \CInlineCode{case_camel()} performs many more operations iteratively in the body of the function.
-\lstref{lst:section of casecamel body code} shows an extract of its body code.
+\Ccref{lst:section of casecamel body code} shows an extract of its body code.
 Even in this short section, more temporary variables are created than in the entire body of \CInlineCode{case_upper()}.
-This results in the large spike at the end of \figref{fig:comparing stack usage for case.c}.
+This results in the large spike at the end of \ccref{fig:comparing stack usage for case.c}.
 
 \begin{listing}[!ht]
   \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
@@ -263,7 +235,7 @@ This parallels the fact that \CInlineCode{case_camel()} had the largest stack fr
 
 Another area that this optimisation has a large impact is for recursive functions.
 Since this optimisation reduces the size of each stack frame, we will see a large improvement when we have lots of recursive stack frames.
-\figref{fig:comparing stack usage for fibonacci.c} shows the size of the stack over the execution of calculating the Fibonacci numbers recursively.
+\Ccref{fig:comparing stack usage for fibonacci.c} shows the size of the stack over the execution of calculating the Fibonacci numbers recursively.
 In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
 
 

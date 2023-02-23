@@ -34,8 +34,10 @@
 \usepackage[font=small,
             labelfont=bf,
             format=hang]{caption}
+
 % Figure references
 \NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
+\NewDocumentCommand{\figrefrange}{mm}{\textbf{\figurename s~\ref{#1}--\ref{#2}}}
 % Code references
 \NewDocumentCommand{\lstref}{m}{\textbf{\listingscaption~\ref{#1}}}
 % Section references
@@ -76,6 +78,15 @@
 \displaywidowpenalty = 1000
 
 % \DeclareSIUnit[quantity-product = {}]{\percent}{\char`\%}
+
+% Cross-referencing
+% cleveref should be loaded basically last in the preamble (according to the docs)
+\usepackage[capitalise, noabbrev, nameinlink]{cleveref}
+\newcommand{\crefrangeconjunction}{--}
+% Make cross-references coloured
+\definecolor{refcolor}{HTML}{0066ba}
+\NewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{\cref{#1}}}
+\NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
 
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}
