@@ -22,6 +22,7 @@ plt.rc("ytick", alignment="center")
 
 RED = "#ff5959"
 BLUE = "#5977ff"
+COLOR_GRID = "#88d1d1"
 
 
 def read_stack_ptr_log_file(filepath: Path):
@@ -86,7 +87,7 @@ def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2:
     x2 = np.arange(len(log_values_2))
 
     ax1.bar(x1, log_values_1, width=1, rasterized=True, color=BLUE)
-    ax1.set_xlabel(r"Program execution $\rightarrow$")
+    ax1.set_xlabel("Execution time")
     ax1.set_xticklabels([])
     ax1.set_xticks([])
     ax1.set_ylabel("Stack size (bytes)")
@@ -100,13 +101,19 @@ def compare_stack_memory_usage(stack_ptr_log_file_1: Path, stack_ptr_log_file_2:
     plot_max_value(ax1, max_value_1, ymax)
 
     ax2.bar(x2, log_values_2, width=1, rasterized=True, color=BLUE)
-    ax2.set_xlabel(r"Program execution $\rightarrow$")
+    ax2.set_xlabel("Execution time")
     ax2.set_xticklabels([])
     ax2.set_xticks([])
     if subtitle2:
         ax2.set_title(subtitle2)
 
     plot_max_value(ax2, max_value_2, ymax)
+
+    # put the grid behind the bars
+    ax1.set_axisbelow(True)
+    ax2.set_axisbelow(True)
+    ax1.grid(axis="y", color=COLOR_GRID)
+    ax2.grid(axis="y", color=COLOR_GRID)
 
     if title:
         fig.suptitle(title)
