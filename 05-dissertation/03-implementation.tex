@@ -5,7 +5,9 @@
 \chapter{Implementation}
 
 \begin{Comment}
+%TC:ignore
 Word budget: \textasciitilde 4500--5400 words
+%TC:endignore
 \end{Comment}
 
 \section{Repository Overview}
@@ -69,25 +71,31 @@ This repository is a monorepo containing both my research and documentation alon
 }
 
 \begin{Comment}
+%TC:ignore
 Finish this. Will have to see if it'll be better to have comments on the right of dirs, or to highlight the main structure below
+%TC:endignore
 \end{Comment}
 
 \section{System Architecture}
 
 \begin{Comment}
+%TC:ignore
 Compiler Pipeline overview -- include the diagram here
+%TC:endignore
 \end{Comment}
 
 \section{Front End: Lexer and Parser}
 
 \begin{Comment}
+%TC:ignore
 Describe what was actually produced.
 
 Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
-
+%TC:endignore
 \end{Comment}
 
 \begin{Comment}
+%TC:ignore
 - wrote parser grammar
 
 Talk about avoiding ambiguities - eg. dangling else - by using Open/Closed statement in grammar
@@ -101,19 +109,23 @@ Talk about my \texttt{interpret\_string} implementation, to handle string escapi
 Talk about structure of my AST
 
 Talk about how I parsed type specifiers into a standard type representation. Used a bitfield to parse arithmetic types, cos they can be declared in any order.
+%TC:endignore
 \end{Comment}
 
 \begin{Comment}
+%TC:ignore
 Describe high-level structure of codebase.
 
 Say that I wrote it from scratch.
 
 -> mention LALRPOP parser generator used for .lalrpop files
+%TC:endignore
 \end{Comment}
 
 \section{Middle End: Intermediate Representation}
 
 \begin{Comment}
+%TC:ignore
 - Defined my own three-address code representation
 
 - for every ast node, defined transformation to 3AC instructions
@@ -129,12 +141,15 @@ Say that I wrote it from scratch.
 - Compile-time evaluation of expressions, eg. for array sizes
 
 - Talk about the Context design pattern I used throughout -- maybe research this and see if it's been done before?
+%TC:endignore
 \end{Comment}
 
 \section{The Relooper Algorithm}
 
 \begin{Comment}
+%TC:ignore
 cite Emscripten \cite{emscripten}
+%TC:endignore
 \end{Comment}
 
 \section{Back End: Target Code Generation}
@@ -147,9 +162,11 @@ cite Emscripten \cite{emscripten}
 \subsection{Tail-Call Optimisation}
 
 \begin{Comment}
+%TC:ignore
 Defn of tail-call optimisation
 
 Why do the optimisation
+%TC:endignore
 \end{Comment}
 
 \section{Summary}
