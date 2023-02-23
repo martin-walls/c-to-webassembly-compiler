@@ -24,6 +24,10 @@ Word budget: \textasciitilde 2000--2400 words
 - use appropriate techniques for evaluation, eg. confidence intervals
 \end{Comment}
 
+\begin{Comment}
+Add a paragraph here as chapter overview, what I'm gonna say in this chapter
+\end{Comment}
+
 
 \section{Success Criteria}
 
@@ -54,12 +58,22 @@ There were two types of program:
 \item Full programs, which represent real workloads that the compiler would be used for.
 \end{itemize}
 
+\begin{Comment}
+- ``The first type of test program are'' sounds clunky -- reword this
+
+- say *why* they're not strictly unit tests
+\end{Comment}
+
 The first type of test program are not strictly unit tests in the standard sense of the word. However, since they verify the functionality of the compiler on individual parts of the C language, they fulfil a very similar purpose.
+
+\begin{Comment}
+"Some of the tests are from Clib" -- say where the others were from (ie. explicitly say I wrote them)
+\end{Comment}
 
 Examples of `full programs' include Conway's Game of Life \cite{conways-game-of-life}, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string.
 Some of the test programs I used were sourced from Clib \cite{clib}, which contains many small utility packages for C. Some of these had no external dependencies, and were useful in verifying that my compiler also worked for other people's code. Clib is licensed under the MIT license, which permits use of the software ``without restriction''.
 
-For all my tests, I used GCC\footnote{GCC version 11.3.1} as the reference for correctness.
+For all my tests, I used GCC\footnote{GCC version 11.3.1.} as the reference for correctness.
 I deemed a program to be correct if it produced the same output as when compiled with GCC.
 To facilitate this, I made liberal use of \texttt{printf}, to output the results of computations.
 
@@ -73,6 +87,10 @@ I also implemented some convenience features into the test script.
 The command-line interface takes an optional `filter' argument, which can be used to run a subset of the tests whose name matches the filter.
 The script can also be used to run one of the test programs without comparing to GCC, printing to the standard output. This allows easier manual testing.
 
+\begin{Comment}
+``...automatically as a commit hook'' when I committed changes to the git(?) repository.
+\end{Comment}
+
 To prevent bugs from accidentally being introduced into my compiler, I set up the test suite to run automatically as a commit hook. This would prevent a commit from succeeding if any of the tests failed, allowing me to make corrections first.
 This ensured that the version of my project in source control was always correct and functioning.
 
@@ -81,8 +99,17 @@ This ensured that the version of my project in source control was always correct
 
 \section{Performance Impacts of Optimisations}
 
+\begin{Comment}
+If at all possible, don't have two section titles in a row. Add a few lines of text here
+\end{Comment}
+
 \subsection{Unreachable Procedure Elimination}
 
+\begin{Comment}
+``If the program only uses one or two of the functions, most of them
+will be dead code.''.  Technically the unreachable functions will not be
+dead code.  You could say that most of them will be redundant instead.
+\end{Comment}
 
 In the context of this project, unreachable procedure elimination mainly has benefits in removing unused standard library functions from the compiled binary.
 When a standard library header is included in the program, the preprocessing stage inserts the entire code of that library\footnote{That is, the entirety of my skeleton implementation of that library, rather than the actual standard library code.}.
@@ -102,6 +129,12 @@ The other standard library headers I implemented only contained a few functions,
 Due to this difference in the standard library header files, and also to the fact that source programs can arbitrarily contain functions that are never used, it is not meaningful to calculate aggregate metrics across all my test programs.
 However, testing each program individually does verify that any functions that are unused are removed from the compiled binary.
 
+\begin{Comment}
+Can you graph the results from this section?  Benchmarks along the x
+axis and code size before / after optimisation on the y axis.  Or
+reduction in code size on y?
+\end{Comment}
+
 \subsection{Stack Usage Profiling}
 
 The other two optimisations I implemented both reduced the amount of stack memory used by programs.
@@ -109,6 +142,11 @@ To evaluate the effectiveness of the optimisations, I inserted profiling code wh
 
 When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInlineCode{log_stack_ptr}, a function imported from the JavaScript runtime.
 \JSInlineCode{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
+
+\begin{Comment}
+Don't refer to figures as `figures below' but always
+reference them using their numbers (e.g. figures 1.1 - 1.4 in this case).
+\end{Comment}
 
 To visualise the resulting data, I wrote a Python script to plot the stack usage log.
 The plots show how the size of the stack grows and shrinks throughout the execution of the program.
@@ -118,6 +156,12 @@ All the figures below are generated using this profiling method.
 
 
 \subsection{Tail-Call Optimisation}
+
+\begin{Comment}
+Sections 1.3.3 and 1.3.4 are really subsections of 1.3.2 are they?
+Could you make them just paragraphs in LaTeX or something similar since
+the reader currently views them as distinct sections currently.
+\end{Comment}
 
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls. The recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
 Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
@@ -137,6 +181,11 @@ When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is 
 When the same program is compiled with tail-call optimisation enabled, only 298 bytes of stack space are used; a \SI{99.36}{\percent} reduction in memory usage.
 Of course, the reduction depends on how many iterations of the function are run.
 In the non-optimised case, the stack usage is \bigo{n} in the number of iterations, whereas in the optimised case it is \bigo{1}.
+
+\begin{Comment}
+Figure 1.1:  Alter the x axis caption to say 'Run time' or 'Execution
+time' or something similar.  It's time you're plotting here.
+\end{Comment}
 
 \begin{figure}[ht]
   \centering
@@ -161,6 +210,11 @@ The average improvement was \SI{50.28}{\percent}, with a \SI{95}{\percent}~confi
 Does using a confidence interval on this data actually make sense? The data isn't necessarily normally distributed, is it?
 \end{Comment}
 
+\begin{Comment}
+You don't have to have a confidence interval but use error bars on the
+bar graphs.
+\end{Comment}
+
 \figref{fig:comparing stack usage optimisation across programs} shows the impact that this optimisation had on the different test programs.
 The full-height bars represent the stack usage of the unoptimised program, which we measure the optimised program against.
 The darker bars show the stack usage of the optimised program as a percentage of the original stack usage.
@@ -168,6 +222,11 @@ Shorter bars represent a greater improvement (less memory is being used).
 
 For programs that benefit from tail-call optimisation, I measured the effect of this optimisation on both the optimised and unoptimised versions.
 I did this because tail-call optimisation also affects how much memory is used, so it may have an impact on the effectiveness of this optimisation.
+
+\begin{Comment}
+Also, add some grid lines into the figure.  Not so important for
+figure 1.1 but very useful for bar charts.
+\end{Comment}
 
 \begin{figure}[ht]
   \centering
