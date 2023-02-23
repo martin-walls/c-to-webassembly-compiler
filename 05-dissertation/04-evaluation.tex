@@ -54,17 +54,16 @@ I used a variety of test programs to verify the success of the fifth criteria. T
 I wrote a suite of test programs in C to evaluate the correctness and performance of my compiler.
 There were two types of program:
 \begin{itemize}
-\item `Unit test' programs, which test a specific construct in the C language;
+\item `Unit test' programs, which test a specific construct in the C language; and
 \item Full programs, which represent real workloads that the compiler would be used for.
 \end{itemize}
 
-\begin{Comment}
-- ``The first type of test program are'' sounds clunky -- reword this
-
-- say *why* they're not strictly unit tests
-\end{Comment}
-
-The first type of test program are not strictly unit tests in the standard sense of the word. However, since they verify the functionality of the compiler on individual parts of the C language, they fulfil a very similar purpose.
+Programs of the first type are not strictly unit tests by the standard definition.
+Unit tests verify the functionality of individual units of source code, in isolation from the rest of the application.
+Each test should test one particular behaviour of that unit, and should be independent from the rest of the program's functionality \cite{unit-testing}.
+My test programs don't test an isolated behaviour of the compiler's source code.
+Instead, they test a single behaviour of the C source code that is being compiled (for example, dereferencing a pointer), verifying that the compiler pipeline maintains the correct behaviour.
+This allowed me to trace bugs to the units of code that transformed that particular construct.
 
 \begin{Comment}
 "Some of the tests are from Clib" -- say where the others were from (ie. explicitly say I wrote them)
@@ -78,7 +77,7 @@ I deemed a program to be correct if it produced the same output as when compiled
 To facilitate this, I made liberal use of \texttt{printf}, to output the results of computations.
 
 I wrote a test runner script to ensure that I maintained correctness as I continued to develop the compiler, fix bugs, and implement optimisations.
-This script read a directory of \texttt{.yaml} files, which described the path to each test program, and the arguments to run it with.
+This script read a directory of \Filename{.yaml} files, which described the path to each test program, and the arguments to run it with.
 It then compiled the program with both my compiler and with GCC, and compared the outputs.
 A test passed if the outputs were identical, and failed otherwise.
 The script reported which tests, if any, failed.
@@ -87,11 +86,8 @@ I also implemented some convenience features into the test script.
 The command-line interface takes an optional `filter' argument, which can be used to run a subset of the tests whose name matches the filter.
 The script can also be used to run one of the test programs without comparing to GCC, printing to the standard output. This allows easier manual testing.
 
-\begin{Comment}
-``...automatically as a commit hook'' when I committed changes to the git(?) repository.
-\end{Comment}
-
-To prevent bugs from accidentally being introduced into my compiler, I set up the test suite to run automatically as a commit hook. This would prevent a commit from succeeding if any of the tests failed, allowing me to make corrections first.
+To prevent bugs from accidentally being introduced into my compiler, I set up the test suite to run automatically as a commit hook whenever I committed changes to the Git repository.
+This would prevent a commit from succeeding if any of the tests failed, allowing me to make corrections first.
 This ensured that the version of my project in source control was always correct and functioning.
 
 
@@ -105,16 +101,10 @@ If at all possible, don't have two section titles in a row. Add a few lines of t
 
 \subsection{Unreachable Procedure Elimination}
 
-\begin{Comment}
-``If the program only uses one or two of the functions, most of them
-will be dead code.''.  Technically the unreachable functions will not be
-dead code.  You could say that most of them will be redundant instead.
-\end{Comment}
-
 In the context of this project, unreachable procedure elimination mainly has benefits in removing unused standard library functions from the compiled binary.
 When a standard library header is included in the program, the preprocessing stage inserts the entire code of that library\footnote{That is, the entirety of my skeleton implementation of that library, rather than the actual standard library code.}.
-If the program only uses one or two of the functions, most of them will be dead code.
-Unreachable procedure elimination is able to safely remove these.
+If the program only uses one or two of the functions, most of them will be redundant.
+Unreachable procedure elimination is able to safely remove these, resulting in a smaller binary.
 
 I only implemented enough of the standard library to allow my test programs to run, so the impact of this optimisation is limited by the number of functions imported.
 If I were to implement more of the standard library, this optimisation would become more important.
@@ -182,11 +172,6 @@ When the same program is compiled with tail-call optimisation enabled, only 298 
 Of course, the reduction depends on how many iterations of the function are run.
 In the non-optimised case, the stack usage is \bigo{n} in the number of iterations, whereas in the optimised case it is \bigo{1}.
 
-\begin{Comment}
-Figure 1.1:  Alter the x axis caption to say 'Run time' or 'Execution
-time' or something similar.  It's time you're plotting here.
-\end{Comment}
-
 \begin{figure}[ht]
   \centering
   \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
@@ -222,11 +207,6 @@ Shorter bars represent a greater improvement (less memory is being used).
 
 For programs that benefit from tail-call optimisation, I measured the effect of this optimisation on both the optimised and unoptimised versions.
 I did this because tail-call optimisation also affects how much memory is used, so it may have an impact on the effectiveness of this optimisation.
-
-\begin{Comment}
-Also, add some grid lines into the figure.  Not so important for
-figure 1.1 but very useful for bar charts.
-\end{Comment}
 
 \begin{figure}[ht]
   \centering
