@@ -1,0 +1,19 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=FSM node] (0) at (-4, 0) {};
+		\node [style=FSM node] (1) at (0, 4) {};
+		\node [style=FSM node long] (2) at (0, -4) {String};
+		\node [style=FSM node] (3) at (4, 0) {};
+		\node [style=none] (4) at (-8, 0) {};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=Arrow] (0) to node [style=FSM input transition, above left] {\char`\\} (1);
+		\draw [style=Arrow] (0) to node [style=FSM input transition, below left] {"} (2);
+		\draw [style=Arrow] (3) to node [style=FSM input transition, below right] {"} (2);
+		\draw [style=Arrow] (0) to node [style=FSM input transition, below] {[\^{}"\char`\\]} (3);
+		\draw [style=Arrow, in=-30, out=30, loop] (3) to node [style=FSM input transition, right] {[\^{}"\char`\\]} ();
+		\draw [style=Arrow, bend left] (1) to node [style=FSM input transition, above right] {.} (3);
+		\draw [style=Arrow, bend left] (3) to node [style=FSM input transition, left=0.1cm] {\char`\\} (1);
+		\draw [style=Arrow] (4.center) to node [style=FSM input transition, above] {"} (0);
+	\end{pgfonlayer}
+\end{tikzpicture}

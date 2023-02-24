@@ -136,7 +136,7 @@ Create rest of the diagrams and put in the appendix.
 
 The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in the appendix.
 The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character \texttt{.} represents the literal full stop character, rather than an arbitrary character.)
-It is assumed that when no state transition is shown for a particular input, 
+It is assumed that when no state transition is shown for a particular input,
 there is an implicit transition that leads to the single `end of token' state of the machine.
 Transition arrows without a prior state are the initial transitions for the first input character.
 
@@ -152,7 +152,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
 
 \begin{figure}[ht]
   \centering
-  \tikzfig{20-figures/10-lexer-fsm-numbers}
+  \tikzfig{20-figures/10-lexer-fsm/00-numbers}
   \caption{Finite state machine for lexing number literals.}
   \label{fig:lexing numbers fsm}
 \end{figure}
@@ -166,7 +166,7 @@ When we reach the end of the token, the three states will emit the corresponding
 
 \begin{figure}[ht]
   \centering
-  \tikzfig{20-figures/11-lexer-fsm-identifiers}
+  \tikzfig{20-figures/10-lexer-fsm/01-identifiers}
   \caption{Finite state machine for lexing identifiers.}
   \label{fig:lexing identifiers fsm}
 \end{figure}

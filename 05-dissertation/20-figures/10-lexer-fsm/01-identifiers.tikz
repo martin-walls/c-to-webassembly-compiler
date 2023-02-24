@@ -7,8 +7,8 @@
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=Arrow] (1.center) to node [style=FSM input transition, above] {[a-zA-Z\_]} (0);
-		\draw [style=Arrow] (0) to node [style=FSM transition text, below right] {$\epsilon$ $|$ matches keyword} (2);
-		\draw [style=Arrow] (0) to node [style=FSM transition text, above right] {$\epsilon$ $|$ matches typedef name} (3);
+		\draw [style=Arrow] (0) to node [below right] {$\epsilon$ $|$ matches keyword} (2);
+		\draw [style=Arrow] (0) to node [above right] {$\epsilon$ $|$ matches typedef name} (3);
 		\draw [style=Arrow, bend right=45] (2) to node [style=FSM input transition, above left] {[a-zA-Z0-9\_]} (0);
 		\draw [style=Arrow, bend right=315] (3) to node [style=FSM input transition, below left] {[a-zA-Z0-9\_]} (0);
 		\draw [style=Arrow, in=120, out=150, loop] (0) to node [style=FSM input transition, above left] {[a-zA-Z0-9\_]} ();

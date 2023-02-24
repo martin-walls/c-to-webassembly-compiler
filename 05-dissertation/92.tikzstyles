@@ -19,7 +19,6 @@
 \tikzstyle{FSM node}=[fill=white, draw=black, shape=circle, tikzit fill=white, tikzit draw=black, text width=0.6cm, text centered, font={\small}]
 \tikzstyle{FSM node long}=[fill=white, draw=black, shape=circle, tikzit fill=white, tikzit draw=black, text centered, font={\small}]
 \tikzstyle{FSM input transition}=[font={\ttfamily}]
-\tikzstyle{FSM transition text}=[]
 
 % Edge styles
 \tikzstyle{line}=[-]
