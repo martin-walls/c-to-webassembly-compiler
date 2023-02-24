@@ -10,6 +10,14 @@ Word budget: \textasciitilde 4500--5400 words
 %TC:endignore
 \end{Comment}
 
+\begin{Comment}
+%TC:ignore
+Describe what was actually produced.
+
+Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
+%TC:endignore
+\end{Comment}
+
 \section{Repository Overview}
 
 % formatting commands for files/directories in tree
@@ -80,19 +88,90 @@ Finish this. Will have to see if it'll be better to have comments on the right o
 
 \begin{Comment}
 %TC:ignore
-Compiler Pipeline overview -- include the diagram here
+Compiler Pipeline overview
 %TC:endignore
 \end{Comment}
 
-\section{Front End: Lexer and Parser}
+\Ccref{fig:project flowchart} describes the high-level structure of the project. The \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end} are denoted by colour.
+
+\begin{figure}[H]
+  \centering
+  \tikzfig{20-figures/01-overview-flowchart}
+  \caption{Project structure, highlighting the \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end}.}
+  \label{fig:project flowchart}
+\end{figure}
+
+Each solid box represents a module of the project, transforming the input data representation into the output representation.
+The data representations are represented by the dashed boxes.
+
+% The optimisations I implemented in the middle end were unreachable procedure elimination, and tail-call optimisation.
+% As an extension to the project, I implemented a more optimal stack allocation policy, as part of the target code generation module.
+
+\section{Front End}
 
 \begin{Comment}
 %TC:ignore
-Describe what was actually produced.
-
-Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
+Give an overview of the front end
 %TC:endignore
 \end{Comment}
+
+\subsection{Lexer}
+
+\begin{Comment}
+%TC:ignore
+C is context-sensitive bcos of typedef defns
+
+Wrote custom lexer to handle this
+
+Implemented as FSM - defined all state transitions
+
+Include FSM diagrams here (main ones here, and put rest in appendix?)
+%TC:endignore
+\end{Comment}
+\begin{Comment}
+%TC:ignore
+Create rest of the diagrams and put in the appendix.
+%TC:endignore
+\end{Comment}
+
+The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in the appendix.
+The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character (\texttt{.}) represents the literal full stop character, rather than an arbitrary character.)
+It is assumed that when no state transition is shown for a particular input, there is no further transition and the end of the current token has been reached.
+Transition arrows without a prior state are the initial transitions for the first input character.
+
+The finite state machine consumes the source code one character at a time, until there is no further possible transition.
+Then, the token corresponding to the current state is emitted to the parser.
+For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition, and when the token is complete, the string is stored inside the token.
+This gives the parser access to the necessary data about the token, for example the name of the literal.
+
+If, when starting to lex a new token, there is no initial transition corresponding to the input character, then there is no valid token for this input. This raises a lex error, and the compiler will exit.
+
+\Ccref{fig:lexing numbers fsm} shows the finite state machine for lexing number literals. This handles all the different forms of number that C supports: decimal, binary, octal, hexadecimal, and floating point.
+(Note: the states leading to the ellipsis token are shown for completeness, even though the token is not a number literal, since they share the starting dot state.)
+
+\begin{figure}[ht]
+  \centering
+  \tikzfig{20-figures/10-lexer-fsm-numbers}
+  \caption{Finite state machine for lexing number literals.}
+  \label{fig:lexing numbers fsm}
+\end{figure}
+
+\Ccref{fig:lexing identifiers fsm} shows the finite state machine for lexing identifiers and typedef names.
+This is where we handle the ambiguity introduced into the language by typedef names.
+  Every time we consume another character of an identifier, we check whether the current name (which we have stored in the string buffer) matches either a keyword of the language of a typedef name we have encountered this far.
+(Keywords are given a higher priority of matching.)
+  If a match is found, we move to the corresponding state, represented by the $\epsilon$ transitions (since no input is consumed along these transitions).
+When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or typedef name token respectively.
+
+\begin{figure}[ht]
+  \centering
+  \tikzfig{20-figures/11-lexer-fsm-identifiers}
+  \caption{Finite state machine for lexing identifiers.}
+  \label{fig:lexing identifiers fsm}
+\end{figure}
+
+
+\subsection{Parser}
 
 \begin{Comment}
 %TC:ignore
@@ -101,8 +180,6 @@ Describe any design strategies that looked ahead to the testing phase, to demons
 Talk about avoiding ambiguities - eg. dangling else - by using Open/Closed statement in grammar
 
 Talk about my \texttt{interpret\_string} implementation, to handle string escaping. Implemented using an iterator.
-
-- wrote custom lexer - cos typedefs make C context-sensitive, so handle them as we see them so they don't get mixed with identifiers
 
 - created AST representation
 
@@ -122,7 +199,15 @@ Say that I wrote it from scratch.
 %TC:endignore
 \end{Comment}
 
-\section{Middle End: Intermediate Representation}
+\section{Middle End}
+
+\begin{Comment}
+%TC:ignore
+Give an overview of the middle end
+%TC:endignore
+\end{Comment}
+
+\subsection{Intermediate Code Generation}
 
 \begin{Comment}
 %TC:ignore
@@ -144,7 +229,7 @@ Say that I wrote it from scratch.
 %TC:endignore
 \end{Comment}
 
-\section{The Relooper Algorithm}
+\subsection{The Relooper Algorithm}
 
 \begin{Comment}
 %TC:ignore
@@ -154,6 +239,18 @@ cite Emscripten \cite{emscripten}
 
 \section{Back End: Target Code Generation}
 
+
+\section{Runtime Environment}
+
+\begin{Comment}
+%TC:ignore
+- Instantiating wasm module
+
+- stdlib functions skeleton implementation
+
+- arg passing + memory initialisation
+%TC:endignore
+\end{Comment}
 
 \section{Optimisations}
 

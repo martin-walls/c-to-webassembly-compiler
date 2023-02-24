@@ -1,16 +1,32 @@
 \begin{tikzpicture}
 	\begin{pgfonlayer}{nodelayer}
-		\node [style=Flowchart Box] (0) at (0, 8) {Source code};
-		\node [style=Flowchart Box] (1) at (0, 4) {AST};
-		\node [style=Flowchart Box] (2) at (0, 0) {Three-address code IR};
-		\node [style=Flowchart Box] (4) at (0, -4) {Relooper algorithm};
-		\node [style=Flowchart Box] (5) at (0, -8) {Wasm binary};
+		\node [style=Flowchart data structure] (0) at (0, 24) {Source code};
+		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (11) at (0, 20) {Lexer};
+		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (12) at (0, 16) {Token stream};
+		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (7) at (0, 12) {Parser};
+		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (13) at (0, 8) {AST};
+		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (8) at (0, 4) {Intermediate code generation};
+		\node [style=Flowchart data structure, draw=middleendcolor, text=middleendcolor] (2) at (0, 0) {Three-address code IR};
+		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (14) at (10, 0) {Optimise};
+		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (4) at (0, -4) {Relooper algorithm};
+		\node [style=Flowchart data structure, draw=middleendcolor, text=middleendcolor] (9) at (0, -8) {Relooped IR};
+		\node [style=Flowchart process, draw=backendcolor, text=backendcolor] (10) at (0, -12) {Target code generation};
+		\node [style=Flowchart data structure, draw=backendcolor, text=backendcolor] (5) at (0, -16) {Wasm binary};
+		\node [style=Flowchart process] (6) at (10, -16) {NodeJS runtime};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
-		\draw [style=Arrow] (0) to node [right=1.5cm] {Lexer/parser generator} (1);
-		\draw [style=Arrow] (1) to node [right=1.5cm] {Transform AST to IR} (2);
-		\draw [style=Arrow] (4) to node [right=1.5cm] {Target code generation} (5);
-		\draw [style=Arrow] (2) to (4);
-		\draw [style=Arrow, in=-10, out=10, loop] (2) to node [right=0.2cm] {Optimise} ();
+	\draw [style=Arrow, draw=frontendcolor] (0) to (11);
+	\draw [style=Arrow, draw=frontendcolor] (11) to (12);
+	\draw [style=Arrow, draw=frontendcolor] (12) to (7);
+	\draw [style=Arrow, draw=frontendcolor] (7) to (13);
+	\draw [style=Arrow, draw=middleendcolor] (13) to (8);
+	\draw [style=Arrow, draw=middleendcolor] (8) to (2);
+	\draw [style=Arrow, bend left=15, looseness=0.75, draw=middleendcolor] (2) to (14);
+	\draw [style=Arrow, bend right=345, looseness=0.75, draw=middleendcolor] (14) to (2);
+		\draw [style=Arrow, draw=middleendcolor] (2) to (4);
+		\draw [style=Arrow, draw=middleendcolor] (4) to (9);
+		\draw [style=Arrow, draw=backendcolor] (9) to (10);
+		\draw [style=Arrow, draw=backendcolor] (10) to (5);
+		\draw [style=Dashed arrow] (5) to (6);
 	\end{pgfonlayer}
 \end{tikzpicture}

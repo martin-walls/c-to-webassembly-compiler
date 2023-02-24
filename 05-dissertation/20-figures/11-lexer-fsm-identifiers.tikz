@@ -1,0 +1,16 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=FSM node long] (0) at (0, 0) {Iden};
+		\node [style=none] (1) at (-7, 0) {};
+		\node [style=FSM node long] (2) at (7, 5) {Keyword};
+		\node [style=FSM node long] (3) at (7, -5) {Typedef};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=Arrow] (1.center) to node [style=FSM input transition, above] {[a-zA-Z\_]} (0);
+		\draw [style=Arrow] (0) to node [style=FSM transition text, below right] {$\epsilon$ $|$ matches keyword} (2);
+		\draw [style=Arrow] (0) to node [style=FSM transition text, above right] {$\epsilon$ $|$ matches typedef name} (3);
+		\draw [style=Arrow, bend right=45] (2) to node [style=FSM input transition, above left] {[a-zA-Z0-9\_]} (0);
+		\draw [style=Arrow, bend right=315] (3) to node [style=FSM input transition, below left] {[a-zA-Z0-9\_]} (0);
+		\draw [style=Arrow, in=120, out=150, loop] (0) to node [style=FSM input transition, above left] {[a-zA-Z0-9\_]} ();
+	\end{pgfonlayer}
+\end{tikzpicture}
