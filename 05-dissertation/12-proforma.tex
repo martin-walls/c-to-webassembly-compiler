@@ -17,8 +17,12 @@ Supervisor: & \ProjectSupervisor \\
 \bottomrule
 \end{tabular}
 
-\footnotetext[1]{Word count computed by \mintinline{bash}{texcount -inc -total -sum}.}
-\footnotetext[2]{Code line count computed by \mintinline{bash}{cloc . --by-file --force-lang=Rust,lalrpop --list-file=.cloc}.}
+\footnotetext[1]{Word count computed with TexCount
+% \mintinline{bash}{texcount -inc -total -sum}
+(\url{https://app.uio.no/ifi/texcount}).}
+\footnotetext[2]{Code line count computed with cloc
+% \mintinline{bash}{cloc . --by-file --force-lang=Rust,lalrpop --list-file=.cloc}
+(\url{https://github.com/AlDanial/cloc}).}
 
 \section*{Original Aims of the Project}
 \begin{Comment}
@@ -27,12 +31,16 @@ At most 100 words describing the original aims of the project.
 %TC:endignore
 \end{Comment}
 
+\subfile{12.1-original-aims.tex}
+
 \section*{Work Completed}
 \begin{Comment}
 %TC:ignore
 At most 100 words summarising the work completed.
 %TC:endignore
 \end{Comment}
+
+\subfile{12.2-work-completed.tex}
 
 \section*{Special Difficulties}
 

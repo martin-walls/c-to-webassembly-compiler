@@ -7,13 +7,20 @@
 \input{80-title-styling.tex}
 %TC:endignore
 
+\definecolor{refcolor}{HTML}{0066ba}
+\definecolor{citecolor}{HTML}{0066ba}
+
 \graphicspath{{20-figures/}{21-plots/}}
+
+\input{92.tikzdefs}
+\input{92.tikzstyles}
 
 \usepackage[margin=2cm]{geometry}
 
 % For the bibliography
 \usepackage[sorting=none]{biblatex}
 \addbibresource{90-references.bib}
+\NewDocumentCommand{\ccite}{m}{\textcolor{citecolor}{\cite{#1}}}
 
 % To generate the index
 \usepackage{imakeidx}
@@ -79,14 +86,13 @@
 \widowpenalty = 1000
 \displaywidowpenalty = 1000
 
-% \DeclareSIUnit[quantity-product = {}]{\percent}{\char`\%}
+% \DeclareSIUnit[quantity-product = {}]{\percent}{\char`\%
 
 % Cross-referencing
 % cleveref should be loaded basically last in the preamble (according to the docs)
 \usepackage[capitalise, noabbrev, nameinlink]{cleveref}
 \newcommand{\crefrangeconjunction}{--}
 % Make cross-references coloured
-\definecolor{refcolor}{HTML}{0066ba}
 \NewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{\cref{#1}}}
 \NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
 
