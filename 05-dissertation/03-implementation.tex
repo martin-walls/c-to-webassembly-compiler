@@ -135,11 +135,12 @@ Create rest of the diagrams and put in the appendix.
 \end{Comment}
 
 The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in the appendix.
-The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character (\texttt{.}) represents the literal full stop character, rather than an arbitrary character.)
-It is assumed that when no state transition is shown for a particular input, there is no further transition and the end of the current token has been reached.
+The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character \texttt{.} represents the literal full stop character, rather than an arbitrary character.)
+It is assumed that when no state transition is shown for a particular input, 
+there is an implicit transition that leads to the single `end of token' state of the machine.
 Transition arrows without a prior state are the initial transitions for the first input character.
 
-The finite state machine consumes the source code one character at a time, until there is no further possible transition.
+The finite state machine consumes the source code one character at a time, until the `end of token' state is reached.
 Then, the token corresponding to the current state is emitted to the parser.
 For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition, and when the token is complete, the string is stored inside the token.
 This gives the parser access to the necessary data about the token, for example the name of the literal.
