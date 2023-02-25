@@ -1,4 +1,4 @@
-\documentclass[12pt, a4paper]{report}
+\documentclass[12pt, a4paper, oneside, openany]{book}
 
 \usepackage[nogeometry, MintedNumberingByChapter]{mrw}
 
@@ -99,6 +99,8 @@
 
 %TC:ignore
 
+\frontmatter
+
 \subfile{01-frontmatter/00-titlepage.tex}
 
 \pagestyle{plain}
@@ -112,6 +114,8 @@
 \tableofcontents
 
 %TC:endignore
+
+\mainmatter
 
 \subfile{10-introduction}
 
