@@ -24,6 +24,12 @@ Describe any design strategies that looked ahead to the testing phase, to demons
 \newcommand{\DTfile}[1]{#1}
 \newcommand{\DTdir}[1]{\textbf{#1}/}
 
+\begin{Comment}
+%TC:ignore
+Don't put github repo url -- it's got my name in it
+%TC:endignore
+\end{Comment}
+
 I developed my project in a GitHub repository\footnote{\url{https://github.com/martin-walls/cam-part-ii-c-webassembly-compiler}}, ensuring to regularly push to the cloud for backup purposes.
 This repository is a monorepo containing both my research and documentation along with my source code.
 
@@ -96,7 +102,7 @@ Compiler Pipeline overview
 
 \begin{figure}[H]
   \centering
-  \tikzfig{20-figures/01-overview-flowchart}
+  \tikzfig{70-figures/01-overview-flowchart}
   \caption{Project structure, highlighting the \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end}.}
   \label{fig:project flowchart}
 \end{figure}
@@ -152,7 +158,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
 
 \begin{figure}[ht]
   \centering
-  \tikzfig{20-figures/10-lexer-fsm/00-numbers}
+  \tikzfig{70-figures/10-lexer-fsm/00-numbers}
   \caption{Finite state machine for lexing number literals.}
   \label{fig:lexing numbers fsm}
 \end{figure}
@@ -166,7 +172,7 @@ When we reach the end of the token, the three states will emit the corresponding
 
 \begin{figure}[ht]
   \centering
-  \tikzfig{20-figures/10-lexer-fsm/01-identifiers}
+  \tikzfig{70-figures/10-lexer-fsm/01-identifiers}
   \caption{Finite state machine for lexing identifiers.}
   \label{fig:lexing identifiers fsm}
 \end{figure}

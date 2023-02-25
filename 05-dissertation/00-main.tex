@@ -2,14 +2,11 @@
 
 \usepackage[nogeometry, MintedNumberingByChapter]{mrw}
 
-\input{91-metadata.tex}
-%TC:ignore
-\input{80-title-styling.tex}
-%TC:endignore
+\input{03-metadata.tex}
+\input{02-styling/00-title-styling.tex}
+\input{02-styling/01-colours.tex}
 
-\input{81-colours.tex}
-
-\graphicspath{{20-figures/}{21-plots/}}
+\graphicspath{{70-figures/}{71-plots/}}
 
 \input{92.tikzdefs}
 \input{92.tikzstyles}
@@ -102,13 +99,13 @@
 
 %TC:ignore
 
-\subfile{10-titlepage.tex}
+\subfile{01-frontmatter/00-titlepage.tex}
 
 \pagestyle{plain}
 
-\subfile{11-declaration-of-originality.tex}
+\subfile{01-frontmatter/10-declaration-of-originality.tex}
 
-\subfile{12-proforma.tex}
+\subfile{01-frontmatter/20-proforma.tex}
 
 \pagestyle{fancy}
 
@@ -116,15 +113,15 @@
 
 %TC:endignore
 
-\subfile{01-introduction}
+\subfile{10-introduction}
 
-\subfile{02-preparation}
+\subfile{20-preparation}
 
-\subfile{03-implementation}
+\subfile{30-implementation}
 
-\subfile{04-evaluation}
+\subfile{40-evaluation}
 
-\subfile{05-conclusions}
+\subfile{50-conclusions}
 
 %TC:ignore
 
@@ -153,7 +150,9 @@ References:
 % Show "Appendix X" instead of just "X"
 \renewcommand{\ChapterNumber}{\colorbox{white}{\hspace{\ChapterNumberPadding}Appendix \thechapter\hspace{\ChapterNumberPadding}}}
 
-\subfile{13-original-proposal.tex}
+\subfile{60-appendices/10-lexer-fsm.tex}
+
+\subfile{60-appendices/00-original-proposal.tex}
 
 %TC:endignore
 
