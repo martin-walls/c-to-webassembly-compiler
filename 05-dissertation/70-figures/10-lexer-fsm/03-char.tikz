@@ -3,9 +3,9 @@
 		\node [style=FSM node] (0) at (-8, -4) {};
 		\node [style=FSM node] (1) at (-8, 2) {};
 		\node [style=FSM node] (2) at (-2, 6) {};
-		\node [style=FSM node long] (3) at (10, 0) {Char};
+		\node [style=FSM node long] (3) at (11, 0) {Char};
 		\node [style=FSM node] (4) at (-4, 2) {};
-		\node [style=FSM node] (5) at (2, 2) {};
+		\node [style=FSM node] (5) at (2.5, 2) {};
 		\node [style=FSM node] (6) at (-4, -2) {};
 		\node [style=FSM node] (7) at (0.5, -2) {};
 		\node [style=FSM node] (8) at (5, -2) {};
