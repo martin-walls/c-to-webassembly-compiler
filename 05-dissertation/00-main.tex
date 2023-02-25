@@ -16,7 +16,7 @@
 % For the bibliography
 \usepackage[sorting=none]{biblatex}
 \addbibresource{90-references.bib}
-\NewDocumentCommand{\ccite}{m}{\textcolor{citecolor}{\cite{#1}}}
+\NewDocumentCommand{\ccite}{O{}m}{\textcolor{citecolor}{\cite[#1]{#2}}}
 
 % To generate the index
 \usepackage{imakeidx}
@@ -39,6 +39,9 @@
 \usepackage[font=small,
             labelfont=bf,
             format=hang]{caption}
+\usepackage{subcaption}
+% Allow listings in subfigure
+\DeclareCaptionSubType{listing}
 
 % Figure references
 \NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
@@ -56,7 +59,7 @@
 % Minted environments
 \newminted[CListing]{c}{}
 \newmintedfile[CInputListing]{c}{}
-\newmintinline[CInlineCode]{c}{}
+\newmintinline[CInline]{c}{}
 \newmintinline[JSInlineCode]{JavaScript}{}
 
 % For showing a directory tree in the repository overview

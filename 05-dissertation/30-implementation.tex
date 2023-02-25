@@ -134,11 +134,11 @@ Give an overview of the front end
 
 \subsection{Lexer}
 
-The grammar of the C language is mostly context-free, however the presence of typedef definitions make it context-sensitive \cite[Section 5.10.3, p.\ 151]{c-reference-manual}.
+The grammar of the C language is mostly context-free, however the presence of typedef definitions make it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
 For example, the statement in \ccref{lst:typedef name ambiguity example} can be interpreted in two ways:
 \begin{itemize}
-\item As a variable declaration, if \CInlineCode{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
-\item As a function call, if \CInlineCode{foo} is the name of a function.
+\item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
+\item As a function call, if \CInline{foo} is the name of a function.
 \end{itemize}
 
 \begin{listing}[H]
@@ -207,6 +207,77 @@ Talk about my \texttt{interpret\_string} implementation, to handle string escapi
 Talk about structure of my AST
 
 Talk about how I parsed type specifiers into a standard type representation. Used a bitfield to parse arithmetic types, cos they can be declared in any order.
+%TC:endignore
+\end{Comment}
+
+I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
+The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
+My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the AST that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
+
+A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[Section 8.5.2]{c-reference-manual}.
+C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
+If we have nested \CInline{if}/\CInline{else} statements that don't use curly brackets, if can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem.
+
+\begin{listing}[!ht]
+\begin{minted}{abnf}
+if-statement = "if" "(" expression ")" statement
+if-else-statement = "if" "(" expr ")" stmt "else" stmt
+\end{minted}
+\caption{Ambigious \CInline{if}/\CInline{else} grammar.}
+\label{lst:ambiguous if-else grammar}
+\end{listing}
+
+An example of the dangling else problem is shown in \ccref{lst:dangling else}.
+According to the grammar in \ccref{lst:ambiguous if-else grammar}, there are two possible parses of this program.
+Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref{lst:dangling else possible parsings}).
+
+\begin{listing}[!ht]
+  \begin{CListing}
+    if (x)
+      if (y)
+        stmt1;
+    else
+      stmt2;
+  \end{CListing}
+  \caption{Example of the dangling else problem.}
+  \label{lst:dangling else}
+\end{listing}
+
+\begin{listing}[!ht]
+  \begin{subfigure}[t]{0.5\textwidth}
+    \begin{CListing}
+      if (x) {
+        if (y) {
+          stmt1;
+        } else {
+          stmt2;
+        }
+      }
+    \end{CListing}
+    \caption{\CInline{else} belongs to inner \CInline{if}.}
+  \end{subfigure}
+  \begin{subfigure}[t]{0.5\textwidth}
+    \begin{CListing}
+      if (x) {
+        if (y) {
+          stmt1;
+        }
+      } else {
+        stmt2;
+      }
+    \end{CListing}
+    \caption{\CInline{else} belongs to outer \CInline{if}.}
+  \end{subfigure}
+  \caption{Possible parsings of \ccref{lst:dangling else}.}
+  \label{lst:dangling else possible parsings}
+\end{listing}
+
+C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
+We can encode this into the grammar with the concept of `open' and `closed' statements \ccite{final-solution-to-dangling-else}.
+
+\begin{Comment}
+%TC:ignore
+TODO finish this -- put grammar of open/closed statements.
 %TC:endignore
 \end{Comment}
 
