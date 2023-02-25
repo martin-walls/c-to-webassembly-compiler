@@ -17,6 +17,15 @@ Describe what was actually produced.
 Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
 %TC:endignore
 \end{Comment}
+\begin{Comment}
+%TC:ignore
+Describe high-level structure of codebase.
+
+Say that I wrote it from scratch.
+
+-> mention LALRPOP parser generator used for .lalrpop files
+%TC:endignore
+\end{Comment}
 
 \section{Repository Overview}
 
@@ -108,7 +117,9 @@ Compiler Pipeline overview
 \end{figure}
 
 Each solid box represents a module of the project, transforming the input data representation into the output representation.
-The data representations are represented by the dashed boxes.
+The data representations are shown as dashed boxes.
+
+I created my own Abstract Syntax Tree (AST) representation and Intermediate Representation (IR), which are used as the main data representations in the compiler.
 
 % The optimisations I implemented in the middle end were unreachable procedure elimination, and tail-call optimisation.
 % As an extension to the project, I implemented a more optimal stack allocation policy, as part of the target code generation module.
@@ -123,32 +134,35 @@ Give an overview of the front end
 
 \subsection{Lexer}
 
-\begin{Comment}
-%TC:ignore
-C is context-sensitive bcos of typedef defns
+The grammar of the C language is mostly context-free, however the presence of typedef definitions make it context-sensitive \cite[Section 5.10.3, p.\ 151]{c-reference-manual}.
+For example, the statement in \ccref{lst:typedef name ambiguity example} can be interpreted in two ways:
+\begin{itemize}
+\item As a variable declaration, if \CInlineCode{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
+\item As a function call, if \CInlineCode{foo} is the name of a function.
+\end{itemize}
 
-Wrote custom lexer to handle this
+\begin{listing}[H]
+  \begin{CListing}
+  foo (bar);
+  \end{CListing}
+  \caption{An example of typedef name ambiguity in C.}
+  \label{lst:typedef name ambiguity example}
+\end{listing}
 
-Implemented as FSM - defined all state transitions
+This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the typedef names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
+Therefore, I implemented a custom lexer that is aware of the type names that have already been defined the current point in the program.
 
-Include FSM diagrams here (main ones here, and put rest in appendix?)
-%TC:endignore
-\end{Comment}
-\begin{Comment}
-%TC:ignore
-Create rest of the diagrams and put in the appendix.
-%TC:endignore
-\end{Comment}
-
-The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in the appendix.
-The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character \texttt{.} represents the literal full stop character, rather than an arbitrary character.)
-It is assumed that when no state transition is shown for a particular input,
-there is an implicit transition that leads to the single `end of token' state of the machine.
+The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in \ccref{app:lexer fsm}.
+The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character `\texttt{.}' represents a literal full stop character, and the backslash character `\texttt{\char`\\}' represents a literal backslash.)
+It is assumed that when no state transition is shown for a particular input, the end of the current token has been reached.
 Transition arrows without a prior state are the initial transitions for the first input character.
+Node labels represent the token that will be emitted when we finish in that state.
 
-The finite state machine consumes the source code one character at a time, until the `end of token' state is reached.
+The finite state machine consumes the source code one character at a time, until the end of the token is reached (i.e.\ there is no transition for the next input character).
 Then, the token corresponding to the current state is emitted to the parser.
-For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition, and when the token is complete, the string is stored inside the token.
+Some states have no corresponding token to emit, because they occur part-way through parsing a token; if the machine finishes in one of these states, this raises a lex error.
+(In other words, every state labelled with a token is an accepting state of the machine.)
+For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition, and when the token is complete, the string is stored inside the emitted token.
 This gives the parser access to the necessary data about the token, for example the name of the literal.
 
 If, when starting to lex a new token, there is no initial transition corresponding to the input character, then there is no valid token for this input. This raises a lex error, and the compiler will exit.
@@ -196,15 +210,6 @@ Talk about how I parsed type specifiers into a standard type representation. Use
 %TC:endignore
 \end{Comment}
 
-\begin{Comment}
-%TC:ignore
-Describe high-level structure of codebase.
-
-Say that I wrote it from scratch.
-
--> mention LALRPOP parser generator used for .lalrpop files
-%TC:endignore
-\end{Comment}
 
 \section{Middle End}
 

@@ -1,19 +1,19 @@
 \begin{tikzpicture}
 	\begin{pgfonlayer}{nodelayer}
 		\node [style=FSM node] (0) at (-8.25, 5) {.};
-		\node [style=FSM node, draw=gray, text=gray] (1) at (-8.25, 2) {..};
+		\node [style=FSM node, draw=gray, text=gray] (1) at (-8.25, 2) {};
 		\node [style=FSM node, draw=gray, text=gray] (2) at (-8.25, -1) {...};
 		\node [style=FSM node] (3) at (-3.25, 5) {FP};
 		\node [style=FSM node] (4) at (-3.25, 9) {Dec};
 		\node [style=none] (5) at (-8.25, 9) {};
-		\node [style=FSM node] (6) at (1.75, 5) {FP};
-		\node [style=FSM node] (7) at (5.75, 8) {FP};
+		\node [style=FSM node] (6) at (1.75, 5) {};
+		\node [style=FSM node] (7) at (5.75, 8) {};
 		\node [style=FSM node] (8) at (8.75, 5) {FP};
 		\node [style=FSM node] (9) at (-3.25, -4) {Oct};
 		\node [style=FSM node] (10) at (1.75, -4) {Oct};
-		\node [style=FSM node] (11) at (-0.25, -8) {Bin};
+		\node [style=FSM node] (11) at (-0.25, -8) {};
 		\node [style=FSM node] (12) at (4.75, -8) {Bin};
-		\node [style=FSM node] (13) at (-3.25, -11) {Hex};
+		\node [style=FSM node] (13) at (-3.25, -11) {};
 		\node [style=FSM node] (14) at (3.75, -11) {Hex};
 		\node [style=none] (15) at (-8.25, -4) {};
 		\node [style=none] (16) at (-11.25, 5) {};
