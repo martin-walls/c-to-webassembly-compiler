@@ -133,13 +133,13 @@ I used a parser generator to convert the tokens emitted by the lexer into an AST
 
 \subsection{Preprocessor}
 
-\begin{Comment}
-%TC:ignore
-Say how I called gcc's preprocessor, to handle preprocessor directives.
+I used the GNU C preprocessor (\mintinline{bash}{cpp}) \ccite{gnu-c-preprocessor} to handle any preprocessor directives in the source code, for example macro definitions.
+However, since I am not supporting linking, I removed any \CInline{#include} directives before running the preprocessor, and handled them myself.
 
-Say how I modified it to handle \#includes.
-%TC:endignore
-\end{Comment}
+For each \CInline{#include <name.h>} directive that is removed, if it is one of the standard library headers that I support, the appropriate library code is copied into the source code from \Filename{headers/<name>.h}.
+One exception is when the name of the header file matches the name of the source program, in which case the contents of the program's header file are inserted to the source code, rather than finding a matching library.
+
+After processing \CInline{#include} directives, the compiler spawns \mintinline{bash}{cpp} as a child process, writes the source code to its stdin, and reads the processed source code back from its stdout.
 
 \subsection{Lexer}
 
