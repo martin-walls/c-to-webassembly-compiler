@@ -1,0 +1,15 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=Flowchart data structure] (0) at (0, 4) {C source code};
+		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (11) at (0, 0) {Lexer};
+		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (12) at (0, -4) {Token stream};
+		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (7) at (0, -8) {Parser};
+		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (13) at (0, -12) {AST};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=Arrow] (0) to (11);
+		\draw [style=Arrow, draw=frontendcolor] (11) to (12);
+		\draw [style=Arrow, draw=frontendcolor] (12) to (7);
+		\draw [style=Arrow, draw=frontendcolor] (7) to (13);
+	\end{pgfonlayer}
+\end{tikzpicture}

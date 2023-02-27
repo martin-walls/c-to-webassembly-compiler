@@ -101,12 +101,6 @@ Finish this. Will have to see if it'll be better to have comments on the right o
 
 \section{System Architecture}
 
-\begin{Comment}
-%TC:ignore
-Compiler Pipeline overview
-%TC:endignore
-\end{Comment}
-
 \Ccref{fig:project flowchart} describes the high-level structure of the project. The \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end} are denoted by colour.
 
 \begin{figure}[H]
@@ -126,15 +120,30 @@ I created my own Abstract Syntax Tree (AST) representation and Intermediate Repr
 
 \section{Front End}
 
+% \begin{figure}[H]
+%   \centering
+%   \tikzfig{70-figures/02-front-end-overview-flowchart}
+%   \caption{Structure of the compiler front end.}
+%   \label{fig:front end flowchart}
+% \end{figure}
+
+The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
+I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
+I used a parser generator to convert the tokens emitted by the lexer into an AST\@.
+
+\subsection{Preprocessor}
+
 \begin{Comment}
 %TC:ignore
-Give an overview of the front end
+Say how I called gcc's preprocessor, to handle preprocessor directives.
+
+Say how I modified it to handle \#includes.
 %TC:endignore
 \end{Comment}
 
 \subsection{Lexer}
 
-The grammar of the C language is mostly context-free, however the presence of typedef definitions make it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
+The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions make it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
 For example, the statement in \ccref{lst:typedef name ambiguity example} can be interpreted in two ways:
 \begin{itemize}
 \item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
@@ -145,11 +154,11 @@ For example, the statement in \ccref{lst:typedef name ambiguity example} can be 
   \begin{CListing}
   foo (bar);
   \end{CListing}
-  \caption{An example of typedef name ambiguity in C.}
+  \caption{An example of \CInline{typedef} name ambiguity in C.}
   \label{lst:typedef name ambiguity example}
 \end{listing}
 
-This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the typedef names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
+This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
 Therefore, I implemented a custom lexer that is aware of the type names that have already been defined the current point in the program.
 
 The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in \ccref{app:lexer fsm}.
@@ -177,12 +186,13 @@ If, when starting to lex a new token, there is no initial transition correspondi
   \label{fig:lexing numbers fsm}
 \end{figure}
 
-\Ccref{fig:lexing identifiers fsm} shows the finite state machine for lexing identifiers and typedef names.
-This is where we handle the ambiguity introduced into the language by typedef names.
-  Every time we consume another character of an identifier, we check whether the current name (which we have stored in the string buffer) matches either a keyword of the language of a typedef name we have encountered this far.
+\Ccref{fig:lexing identifiers fsm} shows the finite state machine for lexing identifiers and \CInline{typedef} names.
+This is where we handle the ambiguity introduced into the language.
+  Every time we consume another character of an identifier, we check whether the current name (which we have stored in the string buffer) matches either a keyword of the language of a \CInline{typedef} name we have encountered this far.
 (Keywords are given a higher priority of matching.)
   If a match is found, we move to the corresponding state, represented by the $\epsilon$ transitions (since no input is consumed along these transitions).
-When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or typedef name token respectively.
+When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or \CInline{typedef} name token respectively.
+When we emit a \CInline{typedef} name token, the lexer pushes it to an array of all the type names that have been declared this far in the program, so we can match future identifiers against it.
 
 \begin{figure}[ht]
   \centering
@@ -219,12 +229,12 @@ C permits the bodies of conditional statements to be written without curly brack
 If we have nested \CInline{if}/\CInline{else} statements that don't use curly brackets, if can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem.
 
 \begin{listing}[!ht]
-\begin{minted}{abnf}
-if-statement = "if" "(" expression ")" statement
-if-else-statement = "if" "(" expr ")" stmt "else" stmt
-\end{minted}
-\caption{Ambigious \CInline{if}/\CInline{else} grammar.}
-\label{lst:ambiguous if-else grammar}
+  \begin{GrammarListing}
+    if-stmt      ::= "if" "(" expr ")" stmt
+    if-else-stmt ::= "if" "(" expr ")" stmt "else" stmt
+  \end{GrammarListing}
+  \caption{Ambigious \CInline{if}/\CInline{else} grammar.}
+  \label{lst:ambiguous if-else grammar}
 \end{listing}
 
 An example of the dangling else problem is shown in \ccref{lst:dangling else}.
@@ -244,7 +254,7 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 \end{listing}
 
 \begin{listing}[!ht]
-  \begin{subfigure}[t]{0.5\textwidth}
+  \begin{subfigure}[t]{0.49\textwidth}
     \begin{CListing}
       if (x) {
         if (y) {
@@ -256,7 +266,8 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
     \end{CListing}
     \caption{\CInline{else} belongs to inner \CInline{if}.}
   \end{subfigure}
-  \begin{subfigure}[t]{0.5\textwidth}
+  \hfill
+  \begin{subfigure}[t]{0.49\textwidth}
     \begin{CListing}
       if (x) {
         if (y) {
@@ -274,13 +285,84 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 
 C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
 We can encode this into the grammar with the concept of `open' and `closed' statements \ccite{final-solution-to-dangling-else}.
+\Ccref{lst:open/closed statement grammar} shows how we introduce this into our grammar for \CInline{if}/\CInline{else} statements.
+All other forms of statement must also be converted to the new structure.
+Any basic statements, i.e.\ statements that have no sub-statements, are added to \GrammarInline{closed-stmt}.
+All other statements that have sub-statements, such as \CInline{while}, \CInline{for}, and \CInline{switch} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.
 
-\begin{Comment}
-%TC:ignore
-TODO finish this -- put grammar of open/closed statements.
-%TC:endignore
-\end{Comment}
 
+\begin{listing}[!ht]
+  \begin{GrammarListing}
+    stmt        ::= open-stmt | closed-stmt
+
+    open-stmt   ::= "if" "(" expr ")" stmt
+                  | "if" "(" expr ")" closed-stmt "else" open-stmt
+                  | ...
+
+    closed-stmt ::= "if" "(" expr ")" closed-stmt "else" closed-stmt
+                  | ...
+  \end{GrammarListing}
+  \caption{Using open and closed statements to solve the dangling else problem}
+  \label{lst:open/closed statement grammar}
+\end{listing}
+
+A closed statement always has the same number of \CInline{if} and \CInline{else} keywords (excluding anything between a pair of brackets, because bracket matching is unambiguous).
+Thus, in the second alternative of an \GrammarInline{open-stmt}, the \CInline{else} terminal can be found by counting the number of \CInline{if}s and \CInline{else}s we encounter since the start of the \GrammarInline{closed-stmt}; the \CInline{else} belonging to the \GrammarInline{open-stmt} is the first \CInline{else} once we have more \CInline{else}s than \CInline{if}s.
+
+If we allowed open statements inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then \GrammarInline{open-stmt} and \GrammarInline{closed-stmt} would no longer be disjoint, and the grammar would be ambiguous. This is because we wouldn't be able to use the above method for finding the \CInline{else} that belongs to the outer \GrammarInline{open-stmt}.
+
+I chose the LALRPOP parser generator because it builds up the AST as it parses the grammar.
+This is in contrast to some of the other available libraries, which separate the grammar code and the code that generates the AST\@.
+LALRPOP provides an intuitive and powerful approach.
+Each grammar rule contains both the grammar specification and code to generate the corresponding AST node.
+
+\Ccref{lst:AST generation code example} is an example of the LALRPOP syntax for addition expressions.
+The left-hand side of the~\RustInline{=>} describes the grammar rule, and the right-hand side is the code to generate an \RustInline{Expression} node.
+Terminals are represented in double quotes; these are defined to map to the tokens emitted by the lexer.
+Non-terminals are represented inside angle brackets, with their type and a variable name to use in the AST generation code.
+
+\begin{listing}[!ht]
+  \begin{subfigure}[t]{\textwidth}
+    \begin{GrammarListing}
+      additive-expression ::= additive-expression "+" multiplicative-expression
+    \end{GrammarListing}
+    \caption{The grammar rule for addition expressions.}
+  \end{subfigure}
+  \par\medskip % vertical space between subfigures
+  \begin{subfigure}[t]{\textwidth}
+    \begin{RustListing}
+      AdditiveExpression: ast::Expression = {
+          <e1:AdditiveExpression> "+" <e2:MultiplicativeExpression>
+              => ast::Expression::BinaryOp(
+                  ast::BinaryOperator::Add,
+                  Box::new(e1),
+                  Box::new(e2)
+              ),
+          ...
+      };
+    \end{RustListing}
+    \caption{The LALRPOP syntax for the addition grammar rule.}
+  \end{subfigure}
+  \caption{In LALRPOP, the AST generation and grammar code are combined.}
+  \label{lst:AST generation code example}
+\end{listing}
+
+LALRPOP also allows macros to be defined, which allow the grammar to be written in a more intuitive way.
+For example, I defined a macro to represent a comma-separated list of non-terminals (\ccref{lst:parser macro for comma-separated list}).
+The macro has a generic type \RustInline{T}, and automatically collects the list items into a \RustInline{Vec<T>}, which can be used by the rules that use the macro.
+
+\begin{listing}[!ht]
+  \begin{RustListing}
+    CommaSepList<T>: Vec<T> = {
+        <mut v:(<T> ",")*> <e:T> => {
+            v.push(e);
+            v
+        }
+    };
+  \end{RustListing}
+  \caption{LALRPOP macro to parse a comma-separated list of non-terminals.}
+  \label{lst:parser macro for comma-separated list}
+\end{listing}
 
 \section{Middle End}
 
