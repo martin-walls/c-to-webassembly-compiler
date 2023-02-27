@@ -2,9 +2,17 @@
 
 \usepackage[nogeometry, MintedNumberingByChapter]{mrw}
 
+%TC:envir CListing [] ignore
+%TC:envir CInputListing [] ignore
+%TC:envir GrammarListing [] ignore
+%TC:envir RustListing [] ignore
+%TC:envir RustInputListing [] ignore
+%TC:envir Comment [] ignore
+
 \input{03-metadata.tex}
 \input{02-styling/00-title-styling.tex}
 \input{02-styling/01-colours.tex}
+\input{02-styling/02-minted.tex}
 
 \graphicspath{{70-figures/}{71-plots/}}
 
@@ -51,26 +59,8 @@
 % Section references
 \NewDocumentCommand{\secref}{m}{\textbf{Section~\ref{#1}}}
 
-% code highlighting
-\setminted{frame=lines,
-           framerule=0.5pt,
-           framesep=6pt,
-           autogobble}
-% Minted environments
-\newminted[CListing]{c}{}
-\newmintedfile[CInputListing]{c}{}
-\newmintinline[CInline]{c}{}
-\newmintinline[JSInlineCode]{JavaScript}{}
-\newminted[GrammarListing]{abnf}{}
-\newmintinline[GrammarInline]{abnf}{}
-\newminted[RustListing]{rust}{}
-\newmintedfile[RustInputListing]{rust}{}
-\newmintinline[RustInline]{rust}{}
-
 % For showing a directory tree in the repository overview
 \usepackage{dirtree}
-
-\NewDocumentCommand{\Filename}{m}{\texttt{#1}}
 
 % Comment box for working on the dissertation
 \usepackage{tcolorbox}

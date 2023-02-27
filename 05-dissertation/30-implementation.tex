@@ -206,10 +206,6 @@ When we emit a \CInline{typedef} name token, the lexer pushes it to an array of 
 
 \begin{Comment}
 %TC:ignore
-- wrote parser grammar
-
-Talk about avoiding ambiguities - eg. dangling else - by using Open/Closed statement in grammar
-
 Talk about my \texttt{interpret\_string} implementation, to handle string escaping. Implemented using an iterator.
 
 - created AST representation
@@ -393,6 +389,47 @@ Give an overview of the middle end
 - Talk about the Context design pattern I used throughout -- maybe research this and see if it's been done before?
 %TC:endignore
 \end{Comment}
+
+I defined a custom three-address code intermediate representation (IR).
+The IR contains both the program instructions and necessary metadata, such as variable type information.
+The instructions and metadata are contained in separate sub-structs within the main IR struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
+
+Many objects in the IR require unique IDs, such as variables and labels.
+I created a \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct (\ccref{lst:Id and IdGenerator implementation}).
+The ID generator internally tracks the highest ID that has been generated so far, so that the IR can create IDs as necessary without needing to know anything about their implementation.
+IDs are generated inductively: each ID knows how to generate the next one.
+
+\begin{listing}[!ht]
+  \begin{RustListing}
+    pub trait Id {
+        fn initial_id() -> Self;
+        fn next_id(&self) -> Self;
+    }
+
+    pub struct IdGenerator<T: Id + Clone> {
+        max_id: Option<T>,
+    }
+
+    impl<T: Id + Clone> IdGenerator<T> {
+        pub fn new() -> Self {
+            IdGenerator { max_id: None }
+        }
+
+        pub fn new_id(&mut self) -> T {
+            let new_id = match &self.max_id {
+                None => T::initial_id(),
+                Some(id) => id.next_id(),
+            };
+            self.max_id = Some(new_id.to_owned());
+            new_id
+        }
+    }
+  \end{RustListing}
+  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator}.}
+  \label{lst:Id and IdGenerator implementation}
+\end{listing}
+
+Throughout the middle and back ends, I used the `context' design pattern.
 
 \subsection{The Relooper Algorithm}
 
