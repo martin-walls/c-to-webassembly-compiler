@@ -2,12 +2,12 @@
 
 \usepackage[nogeometry, MintedNumberingByChapter]{mrw}
 
-%TC:envir CListing [] ignore
-%TC:envir CInputListing [] ignore
-%TC:envir GrammarListing [] ignore
-%TC:envir RustListing [] ignore
-%TC:envir RustInputListing [] ignore
-%TC:envir Comment [] ignore
+% Flag to exclude environments for word count pdf
+\newif\ifCompileForWordCount
+\CompileForWordCountfalse
+% Flag to hide comments
+\newif\ifHideComments
+\HideCommentsfalse
 
 \input{03-metadata.tex}
 \input{02-styling/00-title-styling.tex}
@@ -33,10 +33,12 @@
 % For including the original project proposal
 \usepackage{pdfpages}
 
+\pagestyle{fancy}
 \fancyhead[L]{\nouppercase\leftmark}
 \fancyhead[R]{\nouppercase\rightmark}
 \setlength{\headheight}{14.49998pt}
 \addtolength{\topmargin}{-2.49998pt}
+\renewcommand{\headrulewidth}{0.3pt}
 
 \setlength{\parindent}{0pt}
 \addtolength{\parskip}{1ex}
@@ -64,16 +66,11 @@
 
 % Comment box for working on the dissertation
 \usepackage{tcolorbox}
-\usepackage{environ}
-\newif\ifshowcomments
-% set to true/false to show/hide comments
-\showcommentstrue
-\NewEnviron{Comment}{%
-  \ifshowcomments
-  \begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]
-  \BODY
-  \end{tcolorbox}
-  \fi}
+\NewDocumentEnvironment{Comment}{}{%
+  \begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]%
+}{%
+  \end{tcolorbox}%
+}
 
 % try to avoid widows and orphans
 \clubpenalty = 1000
@@ -90,13 +87,40 @@
 \NewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{\cref{#1}}}
 \NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
 
+\usepackage{comment}
+\ifCompileForWordCount
+  % exclude figures
+  \excludecomment{figure}
+  \let\endfigure\relax
+  % exclude listings
+  \excludecomment{listing}
+  \let\endlisting\relax
+  % exclude comments
+  \excludecomment{Comment}
+  % remove headers and footers
+  \pagestyle{empty}
+  % make 1st page of chapter also be `empty' pagestyle instead of `plain'
+  \makeatletter
+  \renewcommand\chapter{\if@openright\cleardoublepage\else\clearpage\fi
+                      \thispagestyle{empty}% original style: plain
+                      \global\@topnum\z@
+                      \@afterindentfalse
+                      \secdef\@chapter\@schapter}
+  \makeatother
+  % disable chapter and section numbering
+  \setcounter{secnumdepth}{-1}
+\fi
+
+\ifHideComments
+  \excludecomment{Comment}
+\fi
+
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
 \usepackage{subfiles}
 
 \begin{document}
 
-%TC:ignore
-
+\unless\ifCompileForWordCount
 \frontmatter
 
 \subfile{01-frontmatter/00-titlepage.tex}
@@ -111,7 +135,7 @@
 
 \tableofcontents
 
-%TC:endignore
+\fi % ifCompileForWordCount
 
 \mainmatter
 
@@ -125,7 +149,7 @@
 
 \subfile{50-conclusions}
 
-%TC:ignore
+\unless\ifCompileForWordCount
 
 \begin{Comment}
 References:
@@ -156,7 +180,7 @@ References:
 
 \subfile{60-appendices/00-original-proposal.tex}
 
-%TC:endignore
+\fi % ifCompileForWordCount
 
 \end{document}
 

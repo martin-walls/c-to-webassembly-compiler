@@ -121,7 +121,7 @@ If I were to implement more of the standard library, this optimisation would bec
 The standard library header with the most functions that I implemented was \Filename{ctype.h}.
 This header contains 13 functions, of which a program might normally use two or three.
 This is where I saw the biggest improvement from the optimisation.
-Programs that used the \CInlineCode{ctype} library saw an average file-size reduction of \SI{4.7}{\kilo\byte}.
+Programs that used the \CInline{ctype} library saw an average file-size reduction of \SI{4.7}{\kilo\byte}.
 
 The other standard library headers I implemented only contained a few functions, so the impact of this optimisation was much more limited. However, as mentioned above, if I implemented more of the standard library, I would see much more of an improvement.
 
@@ -212,31 +212,31 @@ Since the main stack allocations and deallocations occur on function calls and r
   \label{fig:comparing stack usage for case.c}
 \end{figure}
 
-The program in turn calls \CInlineCode{case_upper()}, \CInlineCode{case_lower()}, and \CInlineCode{case_camel()}, which corresponds to the three distinct sections of the plot.
+The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \CInline{case_camel()}, which corresponds to the three distinct sections of the plot.
 
-\CInlineCode{case_upper()} and \CInlineCode{case_lower()} each make repeated calls to \CInlineCode{toupper()} and \CInlineCode{tolower()}, which corresponds to the many short spikes on the plot (one for each character in the string).
-Other than a \CInlineCode{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
+\CInline{case_upper()} and \CInline{case_lower()} each make repeated calls to \CInline{toupper()} and \CInline{tolower()}, which corresponds to the many short spikes on the plot (one for each character in the string).
+Other than a \CInline{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
 
 
-In contrast, \CInlineCode{case_camel()} performs many more operations iteratively in the body of the function.
+In contrast, \CInline{case_camel()} performs many more operations iteratively in the body of the function.
 \Ccref{lst:section of casecamel body code} shows an extract of its body code.
-Even in this short section, more temporary variables are created than in the entire body of \CInlineCode{case_upper()}.
+Even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()}.
 This results in the large spike at the end of \ccref{fig:comparing stack usage for case.c}.
 
 \begin{listing}[!ht]
   \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
-  \caption{The entire body of \CInlineCode{case_upper()}.}
+  \caption{The entire body of \CInline{case_upper()}.}
   \label{lst:caseupper body code}
 \end{listing}
 
 \begin{listing}[!ht]
   \CInputListing[firstline=39, lastline=43]{../02-test-programs/12-single-source-programs/case.c}
-  \caption{A short section of the body of \CInlineCode{case_camel()}.}
+  \caption{A short section of the body of \CInline{case_camel()}.}
   \label{lst:section of casecamel body code}
 \end{listing}
 
-Due to the differences in temporary variables described above, the compiler is able to optimise \CInlineCode{case_camel()} much more than the other functions.
-This parallels the fact that \CInlineCode{case_camel()} had the largest stack frame initially.
+Due to the differences in temporary variables described above, the compiler is able to optimise \CInline{case_camel()} much more than the other functions.
+This parallels the fact that \CInline{case_camel()} had the largest stack frame initially.
 
 
 Another area that this optimisation has a large impact is for recursive functions.
