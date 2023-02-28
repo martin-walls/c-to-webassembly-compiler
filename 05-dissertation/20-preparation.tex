@@ -130,21 +130,48 @@ A module is a unit of compilation and loading for a WebAssembly program.
 There is no distinction between a `library' and a `program', such as there are in other languages; there are only modules which export functions to the instantiator.
 Modules are split up into different sections.
 Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
-Each of the sections is described below.
+Each of the sections is described in turn below.
 
-The types section defines any types of functions used in the module, including imported functions.
+The \emph{type section} defines any function types used in the module, including imported functions.
 Each type has a type index, allowing the same type to be used by multiple functions.
 
-The imports section defines everything that is imported to the module from the runtime environment.
+The \emph{import section} defines everything that is imported to the module from the runtime environment.
 This includes imported functions as well as memories, tables, and globals.
 
-The functions section is a map from function indexes to type indexes.
-This is separate from the actual body code of the functions, because this allows modules to be decoded in a single pass.
-The type of all functions will be known before any of the code is read.
+The \emph{function section} is a map from function indexes to type indexes.
+This comes before the actual body code of the functions, because this allows the module to be decoded in a single pass.
+The type signature of all functions will be known before any of the code is read, so all function calls will be able to be properly typed without needing multiple passes.
 
-\begin{Comment}
-TODO rest of module sections
-\end{Comment}
+A table is an array of function pointers, which can be called indirectly with \WasmInstr{call_indirect}.
+It is necessary for WebAssembly to have a separate data structure for this, because functions live outside of the memory visible to the program; tables keep the function addresses opaque to the program, keeping the execution sandboxed.
+The \emph{table section} stores the size limits of each table; any elements to initialise the tables with are stored in the element section.
+
+The \emph{memory section} is similar to the table section; is specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of page size.
+
+The \emph{global section} defines any global variables used in the program, including an expression to initialise them. Global variables can be either mutable or immutable.
+
+The \emph{export section} defines everything exported from the module to the runtime environment.
+Normally this is mainly function exports, however it can also include tables, memories, and global variables.
+
+The \emph{start section} optionally specifies a function that should automatically be run when the module is initialised.
+This could be used to initialise a global variable to a non-constant expression.
+
+The \emph{element section} is used to statically initialise the contents of tables with function addresses.
+Each element segment within this section starts with a flag that specifies the mode of the segment.
+For example, one mode is to automatically initialise the elements to table 0 upon module initialisation.
+
+The \emph{data count section} is an optional additional section used to allow validators to use only a single pass.
+It specifies how many data segments are in the data section.
+If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but because this comes after the code section, it would require multiple passes over the module.
+This section has no effect on the actual execution.
+
+The \emph{code section} contains the instructions for each function body.
+All code in a WebAssembly program is contained in a function.
+Each function body begins by declaring any local variables, followed by the code for that function.
+
+The \emph{data section} is similar to the element section; it is used to statically initialise the contents of memory.
+This can be used, for example, to load string literals into memory.
+
 
 
 \section{Project Strategy}
