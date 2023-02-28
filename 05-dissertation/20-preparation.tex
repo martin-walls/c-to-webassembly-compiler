@@ -34,6 +34,101 @@ Talk about revision control strategy, licensing of any libraries I used
 %TC:endignore
 \end{Comment}
 
+\section{WebAssembly}
+
+Before starting to write the compiler, I extensively researched the WebAssembly specification \ccite{wasm-spec}, to gain a deep understanding of the binary code the project aims to generate.
+The following sections provide a high-level overview of the instruction set architecture.
+
+\subsection{Primitive values}
+
+The primitive value types supported by WebAssembly are outlined in \ccref{tab:wasm value types}, and described in more detail below.
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Type} & \textbf{Constructor} & \textbf{Bit width} \\
+    \midrule
+    Integer   & \WasmType{i32}       & 32-bit \\
+              & \WasmType{i64}       & 64-bit \\
+    Float     & \WasmType{f32}       & 32-bit \\
+              & \WasmType{f64}       & 64-bit \\
+    Vector    & \WasmType{v128}      & 128-bit \\
+    Reference & \WasmType{funcref}   & Opaque \\
+              & \WasmType{externref} & \\
+    \bottomrule
+  \end{tabular}
+  \caption{WebAssembly primitive types.}
+  \label{tab:wasm value types}
+\end{table}
+
+Integers can be interpreted as either signed or unsigned, depending on the operations applied to them.
+They will also be used to store data such as booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc..}
+Integer literals are encoded in the program using the LEB128 variable-length encoding scheme \ccite{leb128-encoding}.
+\Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
+The algorithm is almost the same for signed integers (encoded in two's complement); the only difference is that we sign-extend to a multiple of 7 bits, rather than zero-extend.
+When decoding, the decoder needs to know if the number is signed or unsigned, to know whether to decode it as a two's complement number or not.
+This is why WebAssembly has signed and unsigned variants of some instructions.
+
+\begin{listing}[ht]
+  \begin{minted}{text}
+    fn leb128_encode_unsigned(n) {
+        Zero-extend n to a multiple of 7 bits
+        Split n into groups of 7 bits
+        Add a 0 bit to the front of the most significant group
+        Add a 1 bit to the front of every other group
+        Return bytes in little-endian order
+    }
+  \end{minted}
+  \caption{Pseudocode for the LEB128 encoding scheme (for unsigned integers).}
+  \label{lst:leb128 pseudocode}
+\end{listing}
+
+Floating-point numbers are encoded using the IEEE 754-2019 standard \ccite{ieee-754-2019}.
+This is the same standard used by many programming languages, including Rust, so the byte representation will not need to be converted between the compiler and the WebAssembly binary.
+
+WebAssembly also provides vector types and reference types.
+Vectors can store either integers or floats: in either case, the vector is split into a number of evenly-sized numbers.
+Vector instructions exist to operate on these values.
+\WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
+This project does not have a need for using either of these types; C does not have any concept of vector types, and I am not supporting function references.
+I will only use the four main integer and float types.
+
+\subsection{Instructions}
+
+WebAssembly is a stack-based architecture; all instructions operate on the stack.
+For binary instructions that take their operands from the stack, the first operand is the one that was pushed to the stack first, and the second operand is the one pushed to the stack most recently (see \ccref{lst:wasm example sub instr}).
+
+\begin{listing}[ht]
+  \begin{WasmListing}
+    i32.const 10 ;; first operand
+    i32.const 2  ;; second operand
+    i32.sub
+  \end{WasmListing}
+  \caption{WebAssembly instructions to calculate \CInline{10 - 2}.}
+  \label{lst:wasm example sub instr}
+\end{listing}
+
+All arithmetic instructions specify the type of value that they expect. In \ccref{lst:wasm example sub instr}, we put two \WasmType{i32} values on the stack, and use the \WasmType{i32} variant of the \WasmInstr{sub} instruction.
+The module would fail to instantiate if the types did not match.
+Some arithmetic instructions have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_u} and \WasmInstr{i32.lt_s}.
+This is the case for all instructions where the signedness of a number would make a difference to the result.
+
+WebAssembly only supports structured control flow, in contrast to the unstructured control flow found in most instruction sets that feature arbitrary jump instructions.
+There are three types of block: \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if}.
+The only difference between \WasmInline{block} and \WasmInline{loop} is the semantics of branch instructions.
+When referring to a \WasmInline{block}, \WasmInstr{br} will jump to the end of it, and when referring to a \WasmInline{loop}, \WasmInstr{br} will jump back to the start.
+This is analogous to \CInline{break} and \CInline{continue} in C, respectively.
+It is worth noting that \WasmInline{loop} doesn't loop back to the start implicitly; an explicit \WasmInstr{br} instruction is required.
+\WasmInline{if} blocks, which may optionally have an \WasmInline{else} block, conditionally execute depending on the value on top of the stack.
+With regard to \WasmInstr{br} instructions, they behave like \WasmInline{block}.
+
+
+\subsection{Modules}
+
+A module is a unit of compilation and loading for a WebAssembly program.
+There is no distinction between a `library' and a `program', such as there are in other languages; there are only modules which export functions to the instantiator.
+
 \section{Project Strategy}
 
 \subsection{Requirements Analysis}
