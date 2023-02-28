@@ -128,6 +128,24 @@ With regard to \WasmInstr{br} instructions, they behave like \WasmInline{block}.
 
 A module is a unit of compilation and loading for a WebAssembly program.
 There is no distinction between a `library' and a `program', such as there are in other languages; there are only modules which export functions to the instantiator.
+Modules are split up into different sections.
+Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
+Each of the sections is described below.
+
+The types section defines any types of functions used in the module, including imported functions.
+Each type has a type index, allowing the same type to be used by multiple functions.
+
+The imports section defines everything that is imported to the module from the runtime environment.
+This includes imported functions as well as memories, tables, and globals.
+
+The functions section is a map from function indexes to type indexes.
+This is separate from the actual body code of the functions, because this allows modules to be decoded in a single pass.
+The type of all functions will be known before any of the code is read.
+
+\begin{Comment}
+TODO rest of module sections
+\end{Comment}
+
 
 \section{Project Strategy}
 
