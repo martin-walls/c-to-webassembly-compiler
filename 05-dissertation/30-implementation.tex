@@ -33,13 +33,7 @@ Say that I wrote it from scratch.
 \newcommand{\DTfile}[1]{#1}
 \newcommand{\DTdir}[1]{\textbf{#1}/}
 
-\begin{Comment}
-%TC:ignore
-Don't put github repo url -- it's got my name in it
-%TC:endignore
-\end{Comment}
-
-I developed my project in a GitHub repository\footnote{\url{https://github.com/martin-walls/cam-part-ii-c-webassembly-compiler}}, ensuring to regularly push to the cloud for backup purposes.
+I developed my project in a GitHub repository, ensuring to regularly push to the cloud for backup purposes.
 This repository is a monorepo containing both my research and documentation along with my source code.
 
 % - horizontal offset of vertical lines to the right
@@ -393,6 +387,7 @@ Give an overview of the middle end
 I defined a custom three-address code intermediate representation (IR).
 The IR contains both the program instructions and necessary metadata, such as variable type information.
 The instructions and metadata are contained in separate sub-structs within the main IR struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
+In the stage of converting the AST to IR code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
 
 Many objects in the IR require unique IDs, such as variables and labels.
 I created a \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct (\ccref{lst:Id and IdGenerator implementation}).
@@ -429,7 +424,67 @@ IDs are generated inductively: each ID knows how to generate the next one.
   \label{lst:Id and IdGenerator implementation}
 \end{listing}
 
-Throughout the middle and back ends, I used the `context' design pattern.
+Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
+For example, when traversing the AST to generate IR code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
+For example, it tracks the stack of nested loops and switch statements, so that when we convert a \CInline{break} or \CInline{continue} statement, we know where to branch to.
+
+\begin{listing}[!ht]
+  \begin{RustListing}
+    pub struct Context {
+        loop_stack: Vec<LoopOrSwitchContext>,
+        scope_stack: Vec<Scope>,
+        pub in_function_name_expr: bool,
+        function_names: HashMap<String, FunId>,
+        pub directly_on_lhs_of_assignment: bool,
+    }
+  \end{RustListing}
+  \caption{The context datatype used when converting the AST to IR code.}
+  \label{lst:AST to IR context struct}
+\end{listing}
+
+In an object-oriented language, this would be achieved by encapsulating the methods in an object and using private state inside the object.
+Rust, however, is not object oriented, and I believe this approach also offers more modularity and flexibility.
+Firstly, the context information itself is encapsulated inside its own data structure, allowing methods to be implemented on it that gives calling functions access to exactly the context information they need.
+Also, it allows separation of the different functions in the middle end, rather than constraining them to all needing to be within one class.
+
+To convert the AST to IR code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
+At the highest level, the AST contains a list of statements.
+For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
+\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the AST is traversed.
+\RustInline{context} is the context object described above, which makes gets passes through the functions recursively so the compiler always has access to relevant contextual information.
+
+The core of converting statements and expressions to IR code is matching the type of AST node, and generating IR instructions according to the structure of the statement, recursing into sub-statements and -expressions.
+The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
+Other control-flow structures are similar.
+
+\begin{listing}[!ht]
+  \begin{minted}[escapeinside=||]{text}
+    fn |\textbf{convert\_statement\_to\_ir}|(stmt, program, context) {
+        instrs = []
+        match stmt {
+            |\textbf{While}|(condition, body) => {
+                Create new labels for start and end of loop
+                Push new loop context to |\textbf{Context}| object
+                instrs += start of loop label
+                instrs += |\textbf{convert\_expression\_to\_ir}|(condition, program, context)
+                instrs += |\textbf{BranchIf}|(condition false, branch to end of loop)
+                instrs += |\textbf{convert\_statement\_to\_ir}|(body, program, context)
+                instrs += |\textbf{Branch}|(start of loop label)
+                instrs += end of loop label
+                Pop loop context from |\textbf{Context}| object
+            }
+            ... other AST statement nodes ...
+        }
+        return instrs
+    }
+  \end{minted}
+  \caption{Pseudocode for the \RustInline{convert_statement_to_ir()} function.}
+  \label{lst:convert while stmt to IR pseudocode}
+\end{listing}
+
+\begin{Comment}
+TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
+\end{Comment}
 
 \subsection{The Relooper Algorithm}
 
