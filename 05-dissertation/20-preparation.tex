@@ -84,7 +84,7 @@ This is why WebAssembly has signed and unsigned variants of some instructions.
   \label{lst:leb128 pseudocode}
 \end{listing}
 
-Floating-point numbers are encoded using the IEEE 754-2019 standard \ccite{ieee-754-2019}.
+Floating-point literals are encoded using the IEEE 754-2019 standard \ccite{ieee-754-2019}.
 This is the same standard used by many programming languages, including Rust, so the byte representation will not need to be converted between the compiler and the WebAssembly binary.
 
 WebAssembly also provides vector types and reference types.
@@ -173,6 +173,29 @@ The \emph{data section} is similar to the element section; it is used to statica
 This can be used, for example, to load string literals into memory.
 
 
+\section{The Relooper Algorithm}
+
+C allows arbitrary control flow, because it has \CInline{goto} statements.
+However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs as described above.
+Therefore, once the intermediate code has been generated, it needs to be transformed to only have structured control flow.
+
+There are several algorithms that achieve this.
+The most naive solution would be to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next. However, this is very inefficient.
+
+The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript \ccite{emscripten}.
+In today's WebAssembly compiler
+
+\ccite{solving-structured-control-flow-problem}
+
+\ccite{wasm-control-flow-restructuring-thread}
+
+
+\begin{Comment}
+current Binaryen implementation of relooper has optimisations since the original paper.
+\end{Comment}
+
+\section{Rust}
+
 
 \section{Project Strategy}
 
@@ -206,4 +229,6 @@ This can be used, for example, to load string literals into memory.
 %TC:endignore
 \end{Comment}
 
+
+\printbibliography
 \end{document}

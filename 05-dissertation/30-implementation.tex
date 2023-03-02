@@ -30,8 +30,8 @@ Say that I wrote it from scratch.
 \section{Repository Overview}
 
 % formatting commands for files/directories in tree
-\newcommand{\DTfile}[1]{#1}
-\newcommand{\DTdir}[1]{\textbf{#1}/}
+\newcommand{\DTfile}[1]{\texttt{#1}}
+\newcommand{\DTdir}[1]{\textbf{\texttt{#1}}/}
 
 I developed my project in a GitHub repository, ensuring to regularly push to the cloud for backup purposes.
 This repository is a monorepo containing both my research and documentation along with my source code.
@@ -44,53 +44,140 @@ This repository is a monorepo containing both my research and documentation alon
 \DTsetlength{0.2em}{1em}{0.2em}{0.4pt}{2pt}
 
 \makeatletter
-\newcommand \Dotfill {\leavevmode \cleaders \hb@xt@ .7em{\hss .\hss }\hfill \kern \z@}
+\newcommand{\DTdotfill}{\leavevmode \cleaders \hb@xt@ .7em{\hss .\hss }\hfill \kern \z@}
 \makeatother
-\renewcommand{\DTcomment}[1]{%
-\Dotfill
+\definecolor{DTdotfillColor}{HTML}{878787}
+\renewcommand{\DTcomment}[2][8cm]{%
+\textcolor{DTdotfillColor}{\DTdotfill}
 \rmfamily
-\begin{minipage}[t]{8cm}
-#1
+\begin{minipage}[t]{#1}
+#2
 \end{minipage}
+\vspace{0.5ex}
 }
+% extra space after multi-line comment
+\newcommand{\DTcommentMl}[2][8cm]{\DTcomment[#1]{#2}\vspace{0.5ex}}
+
+The high-level structure of the codebase is shown below.
+All the code for the compiler is in the \DTdir{src} directory.
+The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
 
 \dirtree{%
 .1 .
-.2 \DTdir{headers} \DTcomment{Header files for the standard library functions I implemented}.
+.2 \DTdir{headers} \DTcomment{Header files for the standard library functions I implemented.}.
 .3 \DTfile{stdio.h}.
 .3 {...}.
-.2 \DTdir{runtime} \DTcomment{NodeJS runtime environment}.
-.3 \DTdir{stdlib} \DTcomment{Implementations of standard library functions in JS}.
+.2 \DTdir{runtime} \DTcomment{NodeJS runtime environment.}.
+.3 \DTdir{stdlib} \DTcomment{Implementations of standard library functions in JavaScript.}.
+.3 \DTfile{profiler.mjs}.
 .3 \DTfile{run.mjs}.
 .3 {...}.
-.2 \DTdir{src} \DTcomment{The source code for the compiler, explained below}.
-.3 {...}.
-.2 \DTdir{tests} \DTcomment{Test specification files}.
-.3 {...}.
+.2 \DTdir{src} \DTcomment{The source code for the compiler.}.
+.2 \DTdir{tests} \DTcomment{Test specification files.}.
 .2 \DTdir{tools}.
-.3 \DTfile{profiler.py} \DTcomment{Code to plot stack usage profiles}.
-.3 \DTfile{testsuite.py} \DTcomment{Test runner}.
+.3 \DTfile{profiler.py} \DTcomment{Code to plot stack usage profiles.}.
+.3 \DTfile{testsuite.py} \DTcomment{Test runner script.}.
 }
+
+The compiler code is mainly split into the front, middle, and back end.
+The structure of each stage is described in more detail below.
 
 \dirtree{%
 .1 \DTdir{src}.
-.2 \DTdir{back\_end}.
-.2 \DTdir{data\_structures}.
+.2 \DTdir{program\_config}.
+.3 \DTfile{program\_constants.rs} \DTcommentMl{Stores global constants, such as the name of imports to the WebAssembly module.}.
+.3 \DTfile{enabled\_optimisations.rs} \DTcomment{Data structures to store which optimisations and profiling are enabled, depending on command-line arguments.}.
+.3 \DTfile{enabled\_profiling.rs}.
 .2 \DTdir{front\_end}.
 .2 \DTdir{middle\_end}.
-.2 \DTdir{program\_config}.
 .2 \DTdir{relooper}.
-.2 \DTfile{fmt\_indented.rs}.
-.2 \DTfile{id.rs}.
-.2 \DTfile{lib.rs}.
-.2 \DTfile{main.rs}.
-.2 \DTfile{preprocessor.rs}.
+.2 \DTdir{back\_end}.
+.2 \DTdir{data\_structures}.
+.3 \DTfile{interval\_tree.rs} \DTcommentMl{Interval tree data structure, that turned out to be unsuitable for the task.}.
+.2 \DTfile{main.rs} \DTcomment{Entry-point to the program. Calls \RustInline{lib::run()}}.
+.2 \DTfile{lib.rs} \DTcommentMl{Top-level \RustInline{run()} function. Defines command-line arguments, and runs each stage of the compiler pipeline.}.
+.2 \DTfile{id.rs} \DTcommentMl{Trait for generating IDs in the middle and back ends.}.
+.2 \DTfile{fmt\_indented.rs} \DTcomment{Trait for printing data structures with indents.}.
+.2 \DTfile{preprocessor.rs} \DTcomment{Preprocessor stage of the compiler.}.
+}
+
+The front end contains the lexer and the parser.
+
+\dirtree{%
+.1 \DTdir{front\_end}.
+.2 \DTfile{lexer.rs}.
+.2 \DTfile{c\_parser.lalrpop} \DTcomment{Input grammar to the parser generator.}.
+.2 \DTfile{parser.rs} \DTcomment{Wrapper around the parser generator.}.
+.2 \DTfile{ast.rs} \DTcomment{Abstract Syntax Tree data structure.}.
+.2 \DTfile{interpret\_string.rs} \DTcomment{Function to handle escape characters when parsing string literals.}.
+}
+
+The middle end contains all the code to transform the abstract syntax tree to the intermediate representation.
+This includes the intermediate representation instructions and program data structure.
+The code for the optimisations to the intermediate representation is also here.
+
+\dirtree{%
+.1 \DTdir{middle\_end}.
+.2 \DTdir{middle\_end\_optimiser}.
+.3 \DTfile{ir\_optimiser.rs} \DTcommentMl{Runs the optimisations on the intermediate representation.}.
+.3 \DTfile{remove\_redundancy.rs} \DTcommentMl{Function to remove unused labels from the instructions.}.
+.3 \DTfile{tail\_call\_optimise.rs} \DTcomment{Tail-call optimisation implementation.}.
+.3 \DTfile{unreachable\_procedure\_elimination.rs} \DTcommentMl[6.5cm]{Unreachable procedure elimination implementation.}.
+.2 \DTfile{ast\_to\_ir.rs} \DTcommentMl{Code to transform the abstract syntax tree to intermediate code.}.
+.2 \DTfile{ir.rs} \DTcomment{Intermediate representation data structure.}.
+.2 \DTfile{instructions.rs} \DTcomment{Definition of three-address instructions.}.
+.2 \DTfile{ir\_types.rs} \DTcommentMl{Data structures to store type information of variables and functions.}.
+.2 \DTfile{ids.rs} \DTcommentMl{Types for IDs across the middle end, such as variable IDs.}.
+.2 \DTfile{context.rs} \DTcommentMl{Data structure for sharing contextual information throughout the middle end transformation.}.
+.2 \DTfile{compile\_time\_eval.rs} \DTcommentMl{Function to evaluate expressions at compile time.}.
+.2 \DTfile{type\_conversions.rs} \DTcommentMl{Functions to generate instructions to convert between types.}.
+.2 {...}.
+}
+
+The code for the Relooper algorithm is self-contained in its own module.
+
+\dirtree{%
+.1 \DTdir{relooper}.
+.2 \DTfile{relooper.rs} \DTcomment{The main Relooper algorithm implementation.}.
+.2 \DTfile{soupify.rs} \DTcomment{Turns a list of instructions into a `soup of blocks'}.
+.2 \DTfile{blocks.rs} \DTcomment{Data structures for Relooper blocks.}.
+}
+
+The back end contains data structures representing a WebAssembly module, the code to transform the intermediate representation to target code, and optimisations that apply to the target code.
+
+\dirtree{%
+.1 \DTdir{back\_end}.
+.2 \DTdir{dataflow\_analysis}.
+.3 \DTfile{clash\_graph.rs} \DTcommentMl{Clash graph data structure, and the function to generate it.}.
+.3 \DTfile{dead\_code\_analysis.rs} \DTcomment{Removes dead variables from the code.}.
+.3 \DTfile{flowgraph.rs} \DTcommentMl{Flow graph data structure, and the functions to generate it.}.
+.3 \DTfile{instruction\_def\_ref.rs} \DTcommentMl{Functions to return the $\mathit{def}(n)$ and $\mathit{ref}(n)$ sets for an instruction (used in Live Variable Analysis).}.
+.3 \DTfile{live\_variable\_analysis.rs} \DTcomment{Live Variable Analysis implementation.}.
+.2 \DTdir{stack\_allocation} \DTcommentMl{Contains the different stack allocation policies.}.
+.3 \DTfile{allocate\_vars.rs}.
+.3 \DTfile{naive\_allocation.rs} \DTcommentMl{Naive implementation of stack allocation policy.}.
+.3 \DTfile{optimised\_allocation.rs} \DTcommentMl{Optimised implementation of stack allocation policy.}.
+.3 {...}.
+.2 \DTdir{wasm\_module} \DTcommentMl{Contains data structures representing Web\-Assembly modules.}.
+.3 \DTfile{module.rs}.
+.3 \DTfile{code\_section.rs}.
+.3 {...}.
+.2 \DTfile{target\_code\_generation.rs} \DTcomment{Code to transform the intermediate representation to target code.}.
+.2 \DTfile{wasm\_instructions.rs} \DTcomment{Definition of target code instructions.}.
+.2 \DTfile{wasm\_types.rs} \DTcomment{Definition of WebAssembly types.}.
+.2 \DTfile{to\_bytes.rs} \DTcomment{Trait to get the byte representation from a data structure.}.
+.2 \DTfile{integer\_encoding.rs} \DTcomment{Function to encode integer literals using LEB128 encoding.}.
+.2 \DTfile{vector\_encoding.rs} \DTcomment{Function to encode a vector of items.}.
+.2 \DTfile{wasm\_indices.rs} \DTcomment{Types for indices used across the back end.}.
+.2 \DTfile{initialise\_memory.rs} \DTcomment{Function to initialise the contents of memory.}.
+.2 \DTfile{memory\_operations.rs} \DTcomment{Functions to generate instructions to load from and store to memory.}.
+.2 \DTfile{stack\_frame\_operations.rs} \DTcomment{Functions to push and pop stack frames.}.
+.2 \DTfile{profiler.rs} \DTcomment{Inserts profiling code to the program.}.
+.2 {...}.
 }
 
 \begin{Comment}
-%TC:ignore
 Finish this. Will have to see if it'll be better to have comments on the right of dirs, or to highlight the main structure below
-%TC:endignore
 \end{Comment}
 
 \section{System Architecture}

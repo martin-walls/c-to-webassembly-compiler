@@ -11,14 +11,14 @@ Project Title: & \ProjectTitle \\
 Examination: & \Examination \\
 Year: & \Year \\
 Dissertation Word Count: & \DissertationWordCount\footnotemark[1] \\
-Code Line Count: & \CodeLineCount\footnotemark[2] (excluding comments and blank lines) \\
+Code Line Count: & \CodeLineCount\footnotemark[2] \\
 Project Originator: & \ProjectOriginator \\
 Supervisor: & \ProjectSupervisor \\
 \bottomrule
 \end{tabular}
 
 \footnotetext[1]{Excluding figures and listings.}
-\footnotetext[2]{Code line count computed with cloc
+\footnotetext[2]{Excluding comments and blank lines. Code line count computed with cloc
 % \mintinline{bash}{cloc . --by-file --force-lang=Rust,lalrpop --list-file=.cloc}
 (\url{https://github.com/AlDanial/cloc}).}
 
