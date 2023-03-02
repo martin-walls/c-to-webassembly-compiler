@@ -8,6 +8,8 @@
 \newminted[CListing]{c}{fontsize=\small}
 \newmintedfile[CInputListing]{c}{fontsize=\small}
 \newmintinline[CInline]{c}{}
+\definecolor{CKeywordHighlight}{HTML}{008700}
+\NewDocumentCommand{\CKeyword}{m}{\textcolor{CKeywordHighlight}{\textbf{\texttt{#1}}}}
 
 % JavaScript
 \newmintinline[JSInlineCode]{JavaScript}{}

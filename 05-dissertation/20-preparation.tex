@@ -205,7 +205,7 @@ To avoid overloading the term \emph{block}, these input blocks are referred to a
 \end{figure}
 
 The algorithm generates a set of structured blocks, recursively nested to represent the control flow (\ccref{fig:relooper output blocks structure}).
-\emph{Simple} blocks represent linear control flow; they contain an internal label, which contains the actual program instructions.
+\emph{Simple} blocks represent linear control flow; they contain an \emph{internal} label, which contains the actual program instructions.
 \emph{Loop} blocks contain an \emph{inner} block, which contains all the labels that can possibly loop back to the start of the loop, along some execution path.
 \emph{Multiple} blocks represent conditional execution, where execution can flow along one of several paths.
 They contain \emph{handled} blocks to which execution can pass when we enter the block.
@@ -225,66 +225,64 @@ Before describing the algorithm, we define the terms we used.
 Each label has a set of \emph{possible branch targets}, which are the labels it directly branches to.
 It also has a set of labels it can \emph{reach}, known as the \emph{reachability} of the label.
 This is the transitive closure of the possible branch targets; i.e.\ all labels that can be reached along some execution path.
+Labels can always reach themselves.
+
+Given a set of labels, and set of entries, the algorithm to create a block is as follows:
 
 \begin{enumerate}[label=\boxed{\arabic*}]
 \item % (1)
 Calculate the reachability of each label.
 \item % (2)
-If there is only one entry, and execution cannot return to it, create a simple block.
+If there is only one entry, and execution cannot return to it, create a simple block with the entry as the internal label.
+\begin{itemize}
+\item
+Construct the next block from the remaining labels; the entries for the next block are the possible branch targets of the internal label.
+\end{itemize}
 \item % (3)
 \label[algstep]{alg:relooper:create a loop block}
-If execution can return to all entries, create a loop block.
+If execution can return to every entry along some path, create a loop block.
+\begin{itemize}
+\item
+Construct the inner block from all labels that can reach at least one of the entries.
+\item
+Construct the next block from the remaining labels; the entries for the next block are all the labels in the next block that are possible branch targets of labels in the inner block.
+\end{itemize}
+
 \item % (4)
 \label[algstep]{alg:relooper:attempt to create multiple block}
 If there is more than one entry, attempt to create a multiple block. (This may not be possible.)
+\begin{itemize}
+\item
+For each entry, find any labels that it reaches that no other entry reaches.
+If any entry has such labels, it is possible to create a multiple block.
+If not, go to \ccref{alg:relooper:create loop block after multiple block failed}.
+\item
+Create a handled block for each entry that uniquely reaches labels, containing all those labels.
+\item
+Construct the next block from the remaining labels. The entries are the remaining entries we didn't create handled blocks from, plus any other possible branch targets out of the handled blocks.
+\end{itemize}
+
 \item % (5)
+\label[algstep]{alg:relooper:create loop block after multiple block failed}
 If \ccref{alg:relooper:attempt to create multiple block} fails, create a loop block in the same way as \ccref{alg:relooper:create a loop block}.
 \end{enumerate}
 
-\begin{listing}[H]
-  \begin{PseudocodeListing}
-    \Function{Reloop}{\textit{labels}, \textit{entries}}
-      \For {$\ell \in \mathit{labels}$}
-        \State Calculate \Call{Reachability}{$\ell$}
-      \EndFor
-      \If {$|\mathit{entries}| = 1$ and execution cannot return to the entry}
-        \State \Return \Call{CreateSimpleBlock}{\textit{labels}, the single entry}
-      \EndIf
-      \If {execution can return to all \textit{entries}}
-        \State \Return \Call{CreateLoopBlock}{\textit{labels}, \textit{entries}}
-      \EndIf
-      \If {$|\mathit{entries}| > 1$}
-        \State \Call{AttemptToCreateMultipleBlock}{\textit{labels}, \textit{entries}}
-      \EndIf
-    \EndFunction
+The Emscripten paper outlines a proof that this greedy approach will always succeed \ccite[p. 10]{emscripten}.
+The core idea is that we can show that (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
+Point (3) lies in the observation that if we reach \ccref{alg:relooper:create loop block after multiple block failed}, we must be able to create a loop block.
+This holds because if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
 
-    \vspace{1.5ex}
-    \Function{CreateSimpleBlock}{\textit{labels}, \textit{entry}}
-      \State $\mathit{internal} \gets \mathit{entry}$
-      \State $\mathit{next} \gets$ \Call{Reloop}{all other labels}
-      \State \Return Simple(\textit{internal}, \textit{next})
-    \EndFunction
+The algorithm replaces the branch instructions in the labels as it processes them.
+When creating a loop block, branch instructions to the start of the loop are replaced with a \CInline{continue}, and any branches to outside the loop are replaced with a \CInline{break} (all the branch targets outside the loop will be in the next block).
+When creating a handled block, branch instructions into the next block are replaced with an \CKeyword{endHandled} instruction.
+Each of these instructions is annotated with the ID of the block they act on, because block may be nested.
+Note that functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep the two distinct because they store IDs of different block types.
 
-    \vspace{1.5ex}
-    \Function{CreateLoopBlock}{\textit{labels}, \textit{entries}}
-      \State $\mathit{inner} \gets $ \Call{Reloop}{all labels that can reach at least one entry}
-      \State $\mathit{next} \gets $ \Call{Reloop}{all other labels}
-      \State \Return Loop(\textit{inner}, \textit{next})
-    \EndFunction
-
-    \vspace{1.5ex}
-    \Function{AttemptToCreateMultipleBlock}{\textit{labels}, \textit{entries}}
-      \For{$e \in \mathit{entries}$}
-        \State See if $e$ reaches any labels that no other entry does
-      \EndFor
-      \If {any $e$ uniquely reaches labels}
-        \For {each $e$ that uniquely reaches labels}
-          \State Construct a Handled block
-        \EndFor
-      \EndIf
-    \EndFunction
-  \end{PseudocodeListing}
-\end{listing}
+To direct control flow when execution enters a multiple block, Relooper makes use of a label variable.
+Whenever a branch instruction is replaced, an instruction is inserted to set the label variable to the label ID of the branch target.
+Handled blocks are executed conditional on the value of the label variable.
+This will generate some overhead of unnecessary instructions, since most of the time the label variable is set, it will not be checked.
+However, later stages of the compiler pipeline are able to optimise this away.
 
 
 \section{Rust}
