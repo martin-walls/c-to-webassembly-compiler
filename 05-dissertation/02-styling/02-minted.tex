@@ -31,3 +31,18 @@
 \NewDocumentCommand{\WasmInstr}{m}{\textcolor{WasmInstrHighlight}{\mintinline{text}{#1}}}
 
 \NewDocumentCommand{\Filename}{m}{\texttt{#1}}
+
+% pseudocode environment
+\NewDocumentEnvironment{PseudocodeListing}{}
+  {%
+    \rule{\textwidth}{0.5pt}%
+    \vspace{-2pt}%
+    \begin{adjustwidth}{-1em}{0pt}%
+    \begin{algorithmic}[0]%
+  }{%
+    \end{algorithmic}%
+    \end{adjustwidth}%
+    \vspace{-8pt}%
+    \rule{\textwidth}{0.5pt}%
+  }
+

@@ -21,6 +21,8 @@
 
 \usepackage[margin=2cm]{geometry}
 
+\usepackage{changepage}
+
 % For the bibliography
 \usepackage[sorting=none]{biblatex}
 \addbibresource{90-references.bib}
@@ -32,6 +34,11 @@
 
 % For including the original project proposal
 \usepackage{pdfpages}
+
+% pseudocode environment
+\usepackage{algpseudocode}
+% floating algorithm environment
+\usepackage{algorithm}
 
 \pagestyle{fancy}
 \fancyhead[L]{\nouppercase\leftmark}
@@ -54,19 +61,19 @@
 \DeclareCaptionSubType{listing}
 
 % Figure references
-\NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
-\NewDocumentCommand{\figrefrange}{mm}{\textbf{\figurename s~\ref{#1}--\ref{#2}}}
-% Code references
-\NewDocumentCommand{\lstref}{m}{\textbf{\listingscaption~\ref{#1}}}
-% Section references
-\NewDocumentCommand{\secref}{m}{\textbf{Section~\ref{#1}}}
+% \NewDocumentCommand{\figref}{m}{\textbf{\figurename~\ref{#1}}}
+% \NewDocumentCommand{\figrefrange}{mm}{\textbf{\figurename s~\ref{#1}--\ref{#2}}}
+% % Code references
+% \NewDocumentCommand{\lstref}{m}{\textbf{\listingscaption~\ref{#1}}}
+% % Section references
+% \NewDocumentCommand{\secref}{m}{\textbf{Section~\ref{#1}}}
 
 % For showing a directory tree in the repository overview
 \usepackage{dirtree}
 
 % Comment box for working on the dissertation
 \usepackage{tcolorbox}
-\NewDocumentEnvironment{Comment}{}{%
+\NewDocumentEnvironment{mrwComment}{}{%
   \begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black]%
 }{%
   \end{tcolorbox}%
@@ -86,6 +93,7 @@
 % Make cross-references coloured
 \NewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{\cref{#1}}}
 \NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
+\crefname{algstep}{Step}{Step}
 
 \usepackage{comment}
 \ifCompileForWordCount
@@ -96,7 +104,7 @@
   \excludecomment{listing}
   \let\endlisting\relax
   % exclude comments
-  \excludecomment{Comment}
+  \excludecomment{mrwComment}
   % remove headers and footers
   \pagestyle{empty}
   % make 1st page of chapter also be `empty' pagestyle instead of `plain'
@@ -112,7 +120,7 @@
 \fi
 
 \ifHideComments
-  \excludecomment{Comment}
+  \excludecomment{mrwComment}
 \fi
 
 % best loaded last in the preamble (according to https://www.overleaf.com/learn/latex/Multi-file_LaTeX_projects)
@@ -151,7 +159,7 @@
 
 \unless\ifCompileForWordCount
 
-\begin{Comment}
+\begin{mrwComment}
 References:
 
 \begin{itemize}
@@ -165,7 +173,7 @@ References:
 \item WebAssembly memory guide: \cite{wasm-definitive-guide-memory}
 \item Addressing Wasm memory: \cite{wasm-addressing-memory}
 \end{itemize}
-\end{Comment}
+\end{mrwComment}
 
 \printbibliography[heading=bibintoc]
 

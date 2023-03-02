@@ -4,20 +4,20 @@
 
 \chapter{Implementation}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 Word budget: \textasciitilde 4500--5400 words
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 Describe what was actually produced.
 
 Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
 %TC:endignore
-\end{Comment}
-\begin{Comment}
+\end{mrwComment}
+\begin{mrwComment}
 %TC:ignore
 Describe high-level structure of codebase.
 
@@ -25,7 +25,7 @@ Say that I wrote it from scratch.
 
 -> mention LALRPOP parser generator used for .lalrpop files
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 \section{Repository Overview}
 
@@ -176,9 +176,9 @@ The back end contains data structures representing a WebAssembly module, the cod
 .2 {...}.
 }
 
-\begin{Comment}
+\begin{mrwComment}
 Finish this. Will have to see if it'll be better to have comments on the right of dirs, or to highlight the main structure below
-\end{Comment}
+\end{mrwComment}
 
 \section{System Architecture}
 
@@ -285,7 +285,7 @@ When we emit a \CInline{typedef} name token, the lexer pushes it to an array of 
 
 \subsection{Parser}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 Talk about my \texttt{interpret\_string} implementation, to handle string escaping. Implemented using an iterator.
 
@@ -295,7 +295,7 @@ Talk about structure of my AST
 
 Talk about how I parsed type specifiers into a standard type representation. Used a bitfield to parse arithmetic types, cos they can be declared in any order.
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
 The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
@@ -443,15 +443,15 @@ The macro has a generic type \RustInline{T}, and automatically collects the list
 
 \section{Middle End}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 Give an overview of the middle end
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 \subsection{Intermediate Code Generation}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 - Defined my own three-address code representation
 
@@ -469,7 +469,7 @@ Give an overview of the middle end
 
 - Talk about the Context design pattern I used throughout -- maybe research this and see if it's been done before?
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 I defined a custom three-address code intermediate representation (IR).
 The IR contains both the program instructions and necessary metadata, such as variable type information.
@@ -569,24 +569,24 @@ Other control-flow structures are similar.
   \label{lst:convert while stmt to IR pseudocode}
 \end{listing}
 
-\begin{Comment}
+\begin{mrwComment}
 TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
-\end{Comment}
+\end{mrwComment}
 
 \subsection{The Relooper Algorithm}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 cite Emscripten \cite{emscripten}
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 \section{Back End: Target Code Generation}
 
 
 \section{Runtime Environment}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 - Instantiating wasm module
 
@@ -594,7 +594,7 @@ cite Emscripten \cite{emscripten}
 
 - arg passing + memory initialisation
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 \section{Optimisations}
 
@@ -602,13 +602,13 @@ cite Emscripten \cite{emscripten}
 
 \subsection{Tail-Call Optimisation}
 
-\begin{Comment}
+\begin{mrwComment}
 %TC:ignore
 Defn of tail-call optimisation
 
 Why do the optimisation
 %TC:endignore
-\end{Comment}
+\end{mrwComment}
 
 \section{Summary}
 
