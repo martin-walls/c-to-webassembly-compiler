@@ -36,6 +36,14 @@ Say that I wrote it from scratch.
 I developed my project in a GitHub repository, ensuring to regularly push to the cloud for backup purposes.
 This repository is a monorepo containing both my research and documentation along with my source code.
 
+The high-level structure of the codebase is shown below.
+All the code for the compiler is in the \Dirname{src} directory.
+The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
+
+\begin{mrwComment}
+TODO make this a compact table instead
+\end{mrwComment}
+
 % - horizontal offset of vertical lines to the right
 % - width of horizontal lines sticking out
 % - separation between horizontal lines and start of text
@@ -58,9 +66,6 @@ This repository is a monorepo containing both my research and documentation alon
 % extra space after multi-line comment
 \newcommand{\DTcommentMl}[2][8cm]{\DTcomment[#1]{#2}\vspace{0.5ex}}
 
-The high-level structure of the codebase is shown below.
-All the code for the compiler is in the \DTdir{src} directory.
-The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
 
 \dirtree{%
 .1 .

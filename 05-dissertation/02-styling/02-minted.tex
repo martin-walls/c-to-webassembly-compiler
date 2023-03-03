@@ -30,9 +30,10 @@
 \definecolor{WasmTypeHighlight}{HTML}{333399}
 \NewDocumentCommand{\WasmType}{m}{\texttt{\textbf{\textcolor{WasmTypeHighlight}{#1}}}}
 \definecolor{WasmInstrHighlight}{HTML}{007021}
-\NewDocumentCommand{\WasmInstr}{m}{\textcolor{WasmInstrHighlight}{\mintinline{text}{#1}}}
+\NewDocumentCommand{\WasmInstr}{m}{\textcolor{WasmInstrHighlight}{\texttt{#1}}}
 
 \NewDocumentCommand{\Filename}{m}{\texttt{#1}}
+\NewDocumentCommand{\Dirname}{m}{\textbf{\texttt{#1/}}}
 
 % pseudocode environment
 \NewDocumentEnvironment{PseudocodeListing}{}
