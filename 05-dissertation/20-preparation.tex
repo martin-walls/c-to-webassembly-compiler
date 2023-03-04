@@ -286,44 +286,79 @@ However, later stages of the compiler pipeline are able to optimise this away.
 
 
 \section{Rust}
+\label{sec:prep:rust}
 
 I learned the Rust programming language \ccite{rust-lang} for this project.
+I chose Rust because it is performant and memory efficient.
+It has a rich type system with pattern matching, which is well suited to writing a compiler.
+It uses the concept of a borrow checker rather than a garbage collector or other memory management system, which eliminates runtime overhead while guaranteeing memory safety at compile time.
 
-\begin{mrwComment}
-Say why I chose rust
-\end{mrwComment}
+I made use of Rust's excellent online documentation \ccite{rust-by-example, rust-book}, using it to become familiar with the language.
+The borrow checker was the main new feature of the language to learn.
+At its core are the concepts of \emph{ownership} and \emph{borrowing}.
+The main rule is that every value has exactly one owner at any time.
+When the owner goes out of scope, the value is automatically deallocated; this takes the place of the garbage collector found in other languages.
+When using a value, it can either be \emph{moved} or \emph{borrowed}.
+A move will make the new variable the owner of the value, and invalidate the old variable.
+Borrowing, on the other hand, allows a value to be used without taking ownership; it creates a reference that points to the owned value.
+There can either be many immutable borrows of a value, or a single mutable borrow.
+When the borrower is done with the value, it is given back to the owner.
+
 
 \section{Project Strategy}
 
+\begin{mrwComment}
+TODO put short para here
+\end{mrwComment}
+
 \subsection{Requirements Analysis}
 
+The requirements for this project were clear from the project description.
+A C to WebAssembly compiler takes C source code as input, and generates WebAssembly binary code that can be instantiated and executed from JavaScript.
+
+The compiler consists of a pipeline of stages: a front end, middle end, and back end.
+The front end takes C source code, and outputs an \gls{ast}.
+The middle end takes the \gls{ast} and transforms it to an \gls{ir}, in this case three-address code.
+The back end takes the \gls{ir} and generates WebAssembly instructions, writing them to a binary file.
+Each stage of the compiler pipeline is distinct, with defined data models connecting them.
+
+The stages described are the core requirements of the project.
+Optimisations to the compiler were set as extensions to the project, once the core objectives had been completed.
+These fall within the middle and back ends, transforming the \gls{ir} and the target code.
+
 \subsection{Software Engineering Methodology}
+
+\begin{mrwComment}
+Waterfall model: sequential process, each phase completed before starting the next phase
+\end{mrwComment}
 
 \subsection{Testing}
 
 \section{Starting Point}
 
+\begin{mrwComment}
+TODO put short para here
+\end{mrwComment}
+
 \subsection{Knowledge and experience}
 
-\begin{mrwComment}
-%TC:ignore
-- IB Compilers Course
+The \emph{Compiler Construction} course of the Tripos was my starting point for my knowledge of compilers.
+The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though the optimisations I implemented were not all included in the course.
 
-- Experience with JavaScript + Python (cos I used those for runtime/testing)
-
-- Experience writing C, my source language
-%TC:endignore
-\end{mrwComment}
+I had familiarity with the C language from the \emph{Programming in C and C++} course, as well as from previous personal projects.
+Additionally, I had experience writing JavaScript and Python from personal projects.
+I gained all my knowledge of WebAssembly and Rust through independent research.
 
 \subsection{Tools Used}
 
-\begin{mrwComment}
-%TC:ignore
-- Say here that I learned Rust for this project -- talk about the borrow checker and memory safety
+The code for the body of the compiler was written in Rust (see \ccref{sec:prep:rust}).
+I wrote the runtime environment in JavaScript \ccite{javascript}, using Node.js \ccite{nodejs}, which is necessary to interface with the WebAssembly binary.
+Additional development scripts, for automated testing and profiling, were written in Python \ccite{python}, because of the ease of use, and my familiarity with libraries such as Matplotlib \ccite{matplotlib}.
+I used the LALRPOP parser generator library \ccite{lalrpop-docs} to generate parsing code from the abstract grammar of C.
 
-- Also used JavaScript for runtime + Python for testing
-%TC:endignore
-\end{mrwComment}
+I used Git \ccite{git} for version control, regularly pushing the repository to GitHub \ccite{github} as an off-site backup.
+I used the CLion IDE as my development environment, using the Intellij Rust plugin \ccite{intellij-rust-plugin}.
+CLion has excellent support for C, and the plugin enables native Rust support, including code analysis and debugging.
 
 
 \end{document}

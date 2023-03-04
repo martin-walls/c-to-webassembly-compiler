@@ -46,8 +46,8 @@ The other directories contain the runtime environment code, skeleton standard li
 \hline
 \Dirname{src} & Compiler source code. \\\hline
 \Indent{1}\Dirname{program_config} & Compiler constants and runtime options data structures. \\\hline
-\Indent{1}\Dirname{front_end} & Lexer, parser grammar, AST data structure. \\\hline
-\Indent{1}\Dirname{middle_end} & IR data structures, definition of intermediate instructions. Converting AST to IR. \\\hline
+\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline
+\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline
 \Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline
 \Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline
 \Indent{1}\Dirname{back_end} & Target code generation stage. \\\hline
@@ -81,7 +81,7 @@ The other directories contain the runtime environment code, skeleton standard li
 Each solid box represents a module of the project, transforming the input data representation into the output representation.
 The data representations are shown as dashed boxes.
 
-I created my own Abstract Syntax Tree (AST) representation and Intermediate Representation (IR), which are used as the main data representations in the compiler.
+I created my own \gls{ast} representation and \gls{ir}, which are used as the main data representations in the compiler.
 
 % The optimisations I implemented in the middle end were unreachable procedure elimination, and tail-call optimisation.
 % As an extension to the project, I implemented a more optimal stack allocation policy, as part of the target code generation module.
@@ -97,7 +97,7 @@ I created my own Abstract Syntax Tree (AST) representation and Intermediate Repr
 
 The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
 I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
-I used a parser generator to convert the tokens emitted by the lexer into an AST\@.
+I used a parser generator to convert the tokens emitted by the lexer into an \gls{ast}\@.
 
 \subsection{Preprocessor}
 
@@ -186,7 +186,7 @@ Talk about how I parsed type specifiers into a standard type representation. Use
 
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
 The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
-My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the AST that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
+My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
 
 A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[Section 8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
@@ -275,15 +275,15 @@ Thus, in the second alternative of an \GrammarInline{open-stmt}, the \CInline{el
 
 If we allowed open statements inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then \GrammarInline{open-stmt} and \GrammarInline{closed-stmt} would no longer be disjoint, and the grammar would be ambiguous. This is because we wouldn't be able to use the above method for finding the \CInline{else} that belongs to the outer \GrammarInline{open-stmt}.
 
-I chose the LALRPOP parser generator because it builds up the AST as it parses the grammar.
-This is in contrast to some of the other available libraries, which separate the grammar code and the code that generates the AST\@.
+I chose the LALRPOP parser generator because it builds up the \gls{ast} as it parses the grammar.
+This is in contrast to some of the other available libraries, which separate the grammar code and the code that generates the \gls{ast}\@.
 LALRPOP provides an intuitive and powerful approach.
-Each grammar rule contains both the grammar specification and code to generate the corresponding AST node.
+Each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
 
 \Ccref{lst:AST generation code example} is an example of the LALRPOP syntax for addition expressions.
 The left-hand side of the~\RustInline{=>} describes the grammar rule, and the right-hand side is the code to generate an \RustInline{Expression} node.
 Terminals are represented in double quotes; these are defined to map to the tokens emitted by the lexer.
-Non-terminals are represented inside angle brackets, with their type and a variable name to use in the AST generation code.
+Non-terminals are represented inside angle brackets, with their type and a variable name to use in the \gls{ast} generation code.
 
 \begin{listing}[!ht]
   \begin{subfigure}[t]{\textwidth}
@@ -307,7 +307,7 @@ Non-terminals are represented inside angle brackets, with their type and a varia
     \end{RustListing}
     \caption{The LALRPOP syntax for the addition grammar rule.}
   \end{subfigure}
-  \caption{In LALRPOP, the AST generation and grammar code are combined.}
+  \caption{In LALRPOP, the \gls{ast} generation and grammar code are combined.}
   \label{lst:AST generation code example}
 \end{listing}
 
@@ -358,14 +358,14 @@ Give an overview of the middle end
 %TC:endignore
 \end{mrwComment}
 
-I defined a custom three-address code intermediate representation (IR).
-The IR contains both the program instructions and necessary metadata, such as variable type information.
-The instructions and metadata are contained in separate sub-structs within the main IR struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
-In the stage of converting the AST to IR code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
+I defined a custom three-address code \gls{ir}.
+The \gls{ir} contains both the program instructions and necessary metadata, such as variable type information.
+The instructions and metadata are contained in separate sub-structs within the main \gls{ir} struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
+In the stage of converting the \gls{ast} to \gls{ir} code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
 
-Many objects in the IR require unique IDs, such as variables and labels.
+Many objects in the \gls{ir} require unique IDs, such as variables and labels.
 I created a \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct (\ccref{lst:Id and IdGenerator implementation}).
-The ID generator internally tracks the highest ID that has been generated so far, so that the IR can create IDs as necessary without needing to know anything about their implementation.
+The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create IDs as necessary without needing to know anything about their implementation.
 IDs are generated inductively: each ID knows how to generate the next one.
 
 \begin{listing}[!ht]
@@ -399,7 +399,7 @@ IDs are generated inductively: each ID knows how to generate the next one.
 \end{listing}
 
 Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
-For example, when traversing the AST to generate IR code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
+For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
 For example, it tracks the stack of nested loops and switch statements, so that when we convert a \CInline{break} or \CInline{continue} statement, we know where to branch to.
 
 \begin{listing}[!ht]
@@ -412,7 +412,7 @@ For example, it tracks the stack of nested loops and switch statements, so that 
         pub directly_on_lhs_of_assignment: bool,
     }
   \end{RustListing}
-  \caption{The context datatype used when converting the AST to IR code.}
+  \caption{The context datatype used when converting the \gls{ast} to \gls{ir} code.}
   \label{lst:AST to IR context struct}
 \end{listing}
 
@@ -421,13 +421,13 @@ Rust, however, is not object oriented, and I believe this approach also offers m
 Firstly, the context information itself is encapsulated inside its own data structure, allowing methods to be implemented on it that gives calling functions access to exactly the context information they need.
 Also, it allows separation of the different functions in the middle end, rather than constraining them to all needing to be within one class.
 
-To convert the AST to IR code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
-At the highest level, the AST contains a list of statements.
+To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
+At the highest level, the \gls{ast} contains a list of statements.
 For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
-\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the AST is traversed.
+\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
 \RustInline{context} is the context object described above, which makes gets passes through the functions recursively so the compiler always has access to relevant contextual information.
 
-The core of converting statements and expressions to IR code is matching the type of AST node, and generating IR instructions according to the structure of the statement, recursing into sub-statements and -expressions.
+The core of converting statements and expressions to \gls{ir} code is matching the type of \gls{ast} node, and generating \gls{ir} instructions according to the structure of the statement, recursing into sub-statements and -expressions.
 The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
 Other control-flow structures are similar.
 
