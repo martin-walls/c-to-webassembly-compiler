@@ -169,6 +169,8 @@ It generates an \gls{ast} that I defined the structure of.
 The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
 My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
 
+\subsubsection{Dangling Else Ambiguity}
+
 A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[Section 8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that don't use curly brackets, if can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem.
@@ -256,6 +258,8 @@ Thus, in the second alternative of an \GrammarInline{open-stmt}, the \CInline{el
 
 If we allowed open statements inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then \GrammarInline{open-stmt} and \GrammarInline{closed-stmt} would no longer be disjoint, and the grammar would be ambiguous. This is because we wouldn't be able to use the above method for finding the \CInline{else} that belongs to the outer \GrammarInline{open-stmt}.
 
+\subsubsection{LALRPOP Parser Generator}
+
 I chose the LALRPOP parser generator because it builds up the \gls{ast} as it parses the grammar.
 This is in contrast to some of the other available libraries, which separate the grammar code and the code that generates the \gls{ast}\@.
 LALRPOP provides an intuitive and powerful approach.
@@ -309,11 +313,14 @@ The macro has a generic type \RustInline{T}, and automatically collects the list
   \label{lst:parser macro for comma-separated list}
 \end{listing}
 
+\subsubsection{String Escape Sequences}
+
 The parser had to handle escape sequences in strings.
 I implemented this by first creating an iterator over the characters of a string, which replaces escape sequences by the character they represent as it emits each character.
 When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
 I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
 
+\subsubsection{Parsing Type Specifiers}
 
 Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
 For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
@@ -395,6 +402,55 @@ IDs are generated inductively: each ID knows how to generate the next one.
   \label{lst:Id and IdGenerator implementation}
 \end{listing}
 
+
+To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
+At the highest level, the \gls{ast} contains a list of statements.
+For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
+\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
+\RustInline{context} is the context object described above, which makes gets passes through the functions recursively so the compiler always has access to relevant contextual information.
+
+The core of converting statements and expressions to \gls{ir} code is matching the type of \gls{ast} node, and generating \gls{ir} instructions according to the structure of the statement, recursing into sub-statements and -expressions.
+The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
+Other control-flow structures are similar.
+
+\algblockdefx[Match]{Match}{EndMatch}%
+  [1]{\textbf{match} #1}%
+  {\textbf{end match}}
+\algblockdefx[MatchCase]{MatchCase}{EndMatchCase}
+  [1]{\textbf{case} #1}
+  {\textbf{end case}}
+
+\begin{listing}[!ht]
+  \begin{PseudocodeListing}
+    \Function{ConvertStatementToIR}{\textit{stmt}, \textit{program}, \textit{context}}
+      \State \textit{instrs} $\gets []$
+      \Match {\textit{stmt}}
+        \MatchCase {While(\textit{condition}, \textit{body})}
+          \State \textit{startLabel}, \textit{endLabel} $\gets$ create new labels for start and end of loop
+          \State Push new loop context to Context object
+          \State \textit{instrs} += \textit{startLabel}
+          \State \textit{instrs} += \Call{ConvertExpressionToIR}{\textit{condition}, \textit{program}, \textit{context}}
+          \State \textit{instrs} += BranchIf(\textit{condition} is false, branch to end of loop)
+          \State \textit{instrs} += \Call{ConvertStatementToIR}{\textit{body}, \textit{program}, \textit{context}}
+          \State \textit{instrs} += Branch(\textit{startLabel})
+          \State \textit{instrs} += \textit{endLabel}
+          \State Pop loop context from Context object
+        \EndMatchCase
+        \State \ldots\ other AST statement nodes \ldots
+      \EndMatch
+      \Return \textit{instrs}
+    \EndFunction
+  \end{PseudocodeListing}
+  \caption{Pseudocode for the \RustInline{convert_statement_to_ir()} function.}
+  \label{lst:convert while stmt to IR pseudocode}
+\end{listing}
+
+\begin{mrwComment}
+TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
+\end{mrwComment}
+
+\subsection{Context Object Design Pattern}
+
 Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
 For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
 For example, it tracks the stack of nested loops and switch statements, so that when we convert a \CInline{break} or \CInline{continue} statement, we know where to branch to.
@@ -417,45 +473,6 @@ In an object-oriented language, this would be achieved by encapsulating the meth
 Rust, however, is not object oriented, and I believe this approach also offers more modularity and flexibility.
 Firstly, the context information itself is encapsulated inside its own data structure, allowing methods to be implemented on it that gives calling functions access to exactly the context information they need.
 Also, it allows separation of the different functions in the middle end, rather than constraining them to all needing to be within one class.
-
-To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
-At the highest level, the \gls{ast} contains a list of statements.
-For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
-\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
-\RustInline{context} is the context object described above, which makes gets passes through the functions recursively so the compiler always has access to relevant contextual information.
-
-The core of converting statements and expressions to \gls{ir} code is matching the type of \gls{ast} node, and generating \gls{ir} instructions according to the structure of the statement, recursing into sub-statements and -expressions.
-The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
-Other control-flow structures are similar.
-
-\begin{listing}[!ht]
-  \begin{minted}[escapeinside=||]{text}
-    fn |\textbf{convert\_statement\_to\_ir}|(stmt, program, context) {
-        instrs = []
-        match stmt {
-            |\textbf{While}|(condition, body) => {
-                Create new labels for start and end of loop
-                Push new loop context to |\textbf{Context}| object
-                instrs += start of loop label
-                instrs += |\textbf{convert\_expression\_to\_ir}|(condition, program, context)
-                instrs += |\textbf{BranchIf}|(condition false, branch to end of loop)
-                instrs += |\textbf{convert\_statement\_to\_ir}|(body, program, context)
-                instrs += |\textbf{Branch}|(start of loop label)
-                instrs += end of loop label
-                Pop loop context from |\textbf{Context}| object
-            }
-            ... other AST statement nodes ...
-        }
-        return instrs
-    }
-  \end{minted}
-  \caption{Pseudocode for the \RustInline{convert_statement_to_ir()} function.}
-  \label{lst:convert while stmt to IR pseudocode}
-\end{listing}
-
-\begin{mrwComment}
-TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
-\end{mrwComment}
 
 \subsection{The Relooper Algorithm}
 
