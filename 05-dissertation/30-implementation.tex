@@ -71,9 +71,9 @@ The other directories contain the runtime environment code, skeleton standard li
 
 \Ccref{fig:project flowchart} describes the high-level structure of the project. The \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end} are denoted by colour.
 
-\begin{figure}[H]
+\begin{figure}[!ht]
   \centering
-  \tikzfig{70-figures/01-overview-flowchart}
+  \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
   \caption{Project structure, highlighting the \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end}.}
   \label{fig:project flowchart}
 \end{figure}
@@ -112,19 +112,11 @@ After processing \CInline{#include} directives, the compiler spawns \mintinline{
 \subsection{Lexer}
 
 The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions make it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
-For example, the statement in \ccref{lst:typedef name ambiguity example} can be interpreted in two ways:
+For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
 \begin{itemize}
 \item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
 \item As a function call, if \CInline{foo} is the name of a function.
 \end{itemize}
-
-\begin{listing}[H]
-  \begin{CListing}
-  foo (bar);
-  \end{CListing}
-  \caption{An example of \CInline{typedef} name ambiguity in C.}
-  \label{lst:typedef name ambiguity example}
-\end{listing}
 
 This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
 Therefore, I implemented a custom lexer that is aware of the type names that have already been defined the current point in the program.
@@ -147,7 +139,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
 \Ccref{fig:lexing numbers fsm} shows the finite state machine for lexing number literals. This handles all the different forms of number that C supports: decimal, binary, octal, hexadecimal, and floating point.
 (Note: the states leading to the ellipsis token are shown for completeness, even though the token is not a number literal, since they share the starting dot state.)
 
-\begin{figure}[ht]
+\begin{figure}[!htb]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/00-numbers}
   \caption{Finite state machine for lexing number literals.}
@@ -162,7 +154,7 @@ This is where we handle the ambiguity introduced into the language.
 When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or \CInline{typedef} name token respectively.
 When we emit a \CInline{typedef} name token, the lexer pushes it to an array of all the type names that have been declared this far in the program, so we can match future identifiers against it.
 
-\begin{figure}[ht]
+\begin{figure}[!htb]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/01-identifiers}
   \caption{Finite state machine for lexing identifiers.}
@@ -172,19 +164,8 @@ When we emit a \CInline{typedef} name token, the lexer pushes it to an array of 
 
 \subsection{Parser}
 
-\begin{mrwComment}
-%TC:ignore
-Talk about my \texttt{interpret\_string} implementation, to handle string escaping. Implemented using an iterator.
-
-- created AST representation
-
-Talk about structure of my AST
-
-Talk about how I parsed type specifiers into a standard type representation. Used a bitfield to parse arithmetic types, cos they can be declared in any order.
-%TC:endignore
-\end{mrwComment}
-
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
+It generates an \gls{ast} that I defined the structure of.
 The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
 My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
 
@@ -327,6 +308,22 @@ The macro has a generic type \RustInline{T}, and automatically collects the list
   \caption{LALRPOP macro to parse a comma-separated list of non-terminals.}
   \label{lst:parser macro for comma-separated list}
 \end{listing}
+
+The parser had to handle escape sequences in strings.
+I implemented this by first creating an iterator over the characters of a string, which replaces escape sequences by the character they represent as it emits each character.
+When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
+I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
+
+
+Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
+For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
+To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
+It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
+The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
+The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
+For each type specifier, the corresponding bit is set.
+Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
+
 
 \section{Middle End}
 
