@@ -1,0 +1,117 @@
+\documentclass[../00-main.tex]{subfiles}
+
+\begin{document}
+
+\chapter{Intermediate Code}
+\label{app:intermediate code}
+
+\texttt{x} and \texttt{y} can either be variables or constants, used as operands to instructions.
+\texttt{t} is a destination variable.
+
+\begin{xltabular}{\textwidth}{>{\ttfamily}lX}
+\toprule
+t = x & Simple Assignment \\
+\midrule
+t = load from x & Load from and store to memory \\
+store x to addr y &  \\
+\midrule
+declare var t & Declare a new variable \texttt{t}. \\
+allocate x bytes for var y & Allocate memory for \texttt{y} (used for allocating aggregate data structures e.g.\ arrays). \\
+\midrule
+reference var x & A non-executable instruction used internally to mark a variable as live at this program point. \\
+\midrule
+t = \&x & Address-of operator \\
+t = ~x & Bitwise \textsc{not} \\
+t = !x & Logical \textsc{not} \\
+\midrule
+t = x * y & Multiplication \\
+t = x / y & Division \\
+t = x \% y & Modulus \\
+t = x + y & Addition \\
+t = x - y & Subtraction \\
+t = x << y & Left-shift \\
+t = x >> y & Right-shift (signed-extending for signed \texttt{x}, zero-filling for unsigned \texttt{x}) \\
+t = x \& y & Bitwise \textsc{and} \\
+t = x | y & Bitwise \textsc{or} \\
+t = x \char`\^\ y & Bitwise \textsc{xor} \\
+t = x \&\& y & Logical \textsc{and} \\
+t = x || y & Logical \textsc{or} \\
+t = x < y & Less-than comparison \\
+t = x > y & Greater-than comparison \\
+t = x <= y & Less-than or equal comparison \\
+t = x >= y & Greater-than or equal comparison \\
+t = x == y & Equality comparison \\
+t = x != y & Not equal comparison \\
+\midrule
+t = call f(p\textsubscript{1}, p\textsubscript{2}, ...) & Call function \texttt{f} with parameters \texttt{p\textsubscript{i}} (either variables or constants) \\
+tail-call f(p\textsubscript{1}, p\textsubscript{2}, ...) & Call function \texttt{f} and return the result from the current function \\
+return [x] & Return from the current function. The return value \texttt{x} is optional. \\
+\midrule
+label <l> & Attach a label to the current program point (immediately before the next instruction). \\
+br <l> & Unconditional branch \\
+br <l> if x == y & Conditional branch; executed if operands are equal. \\
+br <l> if x != y & Conditional branch; executed if operands are not equal. \\
+\midrule
+t = \&<sid> & Static address of the string literal with id <sid> \\
+\midrule
+t = (i8 $\to$ i16) x & Char promotions \\
+t = (i8 $\to$ u16) x &  \\
+t = (u8 $\to$ u16) x &  \\
+t = (u8 $\to$ u16) x &  \\
+\midrule
+t = (i16 $\to$ i32) x & Promotions to signed integer \\
+t = (u16 $\to$ i32) x &  \\
+\midrule
+t = (i16 $\to$ u32) x & Promotions to unsigned integer \\
+t = (u16 $\to$ u32) x &  \\
+t = (i32 $\to$ u32) x &  \\
+\midrule
+t = (i32 $\to$ i64) x & Promotions to signed long \\
+t = (u32 $\to$ i64) x &  \\
+\midrule
+t = (i32 $\to$ u64) x & Promotions to unsigned long \\
+t = (u32 $\to$ u64) x &  \\
+t = (i64 $\to$ u64) x &  \\
+\midrule
+t = (u32 $\to$ f32) x & Integer to float conversions \\
+t = (i32 $\to$ f32) x & \\
+t = (u64 $\to$ f32) x & \\
+t = (i64 $\to$ f32) x & \\
+\midrule
+t = (u32 $\to$ f64) x & Integer to double conversions \\
+t = (i32 $\to$ f64) x & \\
+t = (u64 $\to$ f64) x & \\
+t = (i64 $\to$ f64) x & \\
+\midrule
+t = (f32 $\to$ f64) x & Float to double promotion \\
+\midrule
+t = (f64 $\to$ i32) x & Double to int conversion \\
+\midrule
+t = (i32 $\to$ i8) x & Integer truncation \\
+t = (u32 $\to$ i8) x & \\
+t = (i64 $\to$ i8) x & \\
+t = (u64 $\to$ i8) x & \\
+t = (i32 $\to$ u8) x & \\
+t = (u32 $\to$ u8) x & \\
+t = (i64 $\to$ u8) x & \\
+t = (u64 $\to$ u8) x & \\
+t = (i64 $\to$ i32) x & \\
+t = (u64 $\to$ i32) x & \\
+\midrule
+t = (u32 $\to$ *) x & Conversions between integer and pointer \\
+t = (i32 $\to$ *) x & \\
+t = (* $\to$ i32) x & \\
+\midrule
+nop & No-op \\
+\midrule
+break <loop_block_id> & \multirow[t]{3}{=}{Control-flow instructions inserted by the Relooper algorithm as it processes branch instructions.} \\
+continue <loop_block_id> &  \\
+end handled <multiple_block_id> &  \\
+\midrule
+if x == y \{\} else \{\} & \multirow[t]{5}{=}{Conditional control flow instructions with nested instructions for each branch. These are only inserted by the Relooper algorithm, to replace a conditional branch with conditionally setting the label variable and then branching.} \\
+if x != y \{\} else \{\} &  \\
+\\\\\\
+\bottomrule
+\end{xltabular}
+
+\end{document}

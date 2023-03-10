@@ -36,6 +36,11 @@
 \NewDocumentCommand{\Dirname}{m}{\textbf{\texttt{#1/}}}
 
 % pseudocode environment
+\usepackage{algpseudocode}
+% floating algorithm environment
+\usepackage{algorithm}
+
+% pseudocode environment
 \NewDocumentEnvironment{PseudocodeListing}{}
   {%
     \rule{\textwidth}{0.5pt}%
@@ -48,4 +53,12 @@
     \vspace{-8pt}%
     \rule{\textwidth}{0.5pt}%
   }
+
+% match x ... end match block for pseudocode
+\algblockdefx[Match]{Match}{EndMatch}%
+  [1]{\textbf{match} #1}%
+  {\textbf{end match}}
+\algblockdefx[MatchCase]{MatchCase}{EndMatchCase}
+  [1]{\textbf{case} #1}
+  {\textbf{end case}}
 

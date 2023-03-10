@@ -21,11 +21,15 @@
 \tikzstyle{FSM node mono}=[fill=white, draw=black, shape=circle, tikzit fill=white, tikzit draw=black, text width=0.6cm, text centered, font={\small\ttfamily}]
 \tikzstyle{FSM input transition}=[font={\ttfamily}]
 
+\tikzstyle{Code block}=[fill=white, draw=black, shape=rectangle, minimum width=4.2cm, text width=4cm, font={\ttfamily}]
+
 % Edge styles
 \tikzstyle{line}=[-]
 \tikzstyle{line thick}=[-, thick]
 \tikzstyle{Dashed}=[-, thick, dashed]
 \tikzstyle{Arrow}=[->, thick, >={Stealth[scale=1.15]}]
+\tikzstyle{Arrow shaft}=[-, thick]
 \tikzstyle{Two headed arrow}=[->, thick, >={{to}{to}}]
 \tikzstyle{Dashed arrow}=[->, thick, dashed, >=Stealth]
 \tikzstyle{Fill black}=[-, fill=black]
+

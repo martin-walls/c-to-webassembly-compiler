@@ -201,6 +201,9 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 \end{listing}
 
 \begin{listing}[!ht]
+  \begin{mrwComment}
+  Make this an AST diagram instead?
+  \end{mrwComment}
   \begin{subfigure}[t]{0.49\textwidth}
     \begin{CListing}
       if (x) {
@@ -342,34 +345,14 @@ Give an overview of the middle end
 
 \subsection{Intermediate Code Generation}
 
-\begin{mrwComment}
-%TC:ignore
-- Defined my own three-address code representation
-
-- for every ast node, defined transformation to 3AC instructions
-
-- created IR data structure to hold instructions + all necessary metadata
-
-- Talk about auto-incrementing IDs - abstraction of the Id trait and generic IdGenerator struct
-
-- handled type information - created data structure to represent possible types
-
-- making sure instructions are type-safe, type converting where necessary - talk about unary/binary conversions, cite the C reference book
-
-- Compile-time evaluation of expressions, eg. for array sizes
-
-- Talk about the Context design pattern I used throughout -- maybe research this and see if it's been done before?
-%TC:endignore
-\end{mrwComment}
-
-I defined a custom three-address code \gls{ir}.
-The \gls{ir} contains both the program instructions and necessary metadata, such as variable type information.
+I defined a custom three-address code \gls{ir} (the instructions are listed in \ccref{app:intermediate code}).
+The \gls{ir} contains both the program instructions and necessary metadata, such as variable type information, the mapping of variable and function names to their IDs, etc.
 The instructions and metadata are contained in separate sub-structs within the main \gls{ir} struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
 In the stage of converting the \gls{ast} to \gls{ir} code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
 
 Many objects in the \gls{ir} require unique IDs, such as variables and labels.
 I created a \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct (\ccref{lst:Id and IdGenerator implementation}).
-The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create IDs as necessary without needing to know anything about their implementation.
+The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
 IDs are generated inductively: each ID knows how to generate the next one.
 
 \begin{listing}[!ht]
@@ -407,18 +390,11 @@ To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses th
 At the highest level, the \gls{ast} contains a list of statements.
 For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
 \RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
-\RustInline{context} is the context object described above, which makes gets passes through the functions recursively so the compiler always has access to relevant contextual information.
+\RustInline{context} is the context object described in \ccref{sec:impl:context object design pattern}, which passes relevant contextual information through the functions recursively.
 
-The core of converting statements and expressions to \gls{ir} code is matching the type of \gls{ast} node, and generating \gls{ir} instructions according to the structure of the statement, recursing into sub-statements and -expressions.
+The core of converting a statement or expressions to \gls{ir} code is pattern matching the \gls{ast} node, and generating \gls{ir} instructions according to its structure, recursing into sub-statements and expressions.
 The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
 Other control-flow structures are similar.
-
-\algblockdefx[Match]{Match}{EndMatch}%
-  [1]{\textbf{match} #1}%
-  {\textbf{end match}}
-\algblockdefx[MatchCase]{MatchCase}{EndMatchCase}
-  [1]{\textbf{case} #1}
-  {\textbf{end case}}
 
 \begin{listing}[!ht]
   \begin{PseudocodeListing}
@@ -428,28 +404,54 @@ Other control-flow structures are similar.
         \MatchCase {While(\textit{condition}, \textit{body})}
           \State \textit{startLabel}, \textit{endLabel} $\gets$ create new labels for start and end of loop
           \State Push new loop context to Context object
-          \State \textit{instrs} += \textit{startLabel}
+          \State \textit{instrs} += \texttt{label <\textrm{\textit{startLabel}}>}
           \State \textit{instrs} += \Call{ConvertExpressionToIR}{\textit{condition}, \textit{program}, \textit{context}}
-          \State \textit{instrs} += BranchIf(\textit{condition} is false, branch to end of loop)
+          \State \textit{instrs} += \texttt{branch <\textrm{\textit{endLabel}}> if \textrm{\textit{condition}} == 0}
           \State \textit{instrs} += \Call{ConvertStatementToIR}{\textit{body}, \textit{program}, \textit{context}}
-          \State \textit{instrs} += Branch(\textit{startLabel})
-          \State \textit{instrs} += \textit{endLabel}
+          \State \textit{instrs} += \texttt{branch <\textrm{\textit{startLabel}}>}
+          \State \textit{instrs} += \texttt{label <\textrm{\textit{endLabel}}>}
           \State Pop loop context from Context object
         \EndMatchCase
         \State \ldots\ other AST statement nodes \ldots
       \EndMatch
-      \Return \textit{instrs}
+      \State \Return \textit{instrs}
     \EndFunction
   \end{PseudocodeListing}
   \caption{Pseudocode for the \RustInline{convert_statement_to_ir()} function.}
   \label{lst:convert while stmt to IR pseudocode}
 \end{listing}
 
+Some statements took a little more care to ensure the semantic meaning of the program is preserved.
+For example, \CInline{switch} statements can contain \CInline{case} blocks in any order.
+Some blocks may fall-through to the next block, and there may be a \CInline{default} block.
+I handled this by first generating instructions for each case block, and storing them in a switch context until all blocks have been seen.
+We then put conditional branches to each case block at the start of the switch statement, followed by each of the block instructions.
+By doing this, there is no direct fall-through between any blocks; instead, a block that falls through to the next block will end in a branch instruction to the start of that block.
+This also allows \CInline{default} blocks to be easily handled; we just add an unconditional branch to the default block after all the conditional branches.
+If there is no \CInline{default} block, the conditional branches are followed by an unconditional branch to the end of the \CInline{switch} statement.
+
+\begin{figure}[ht]
+  \centering
+  \tikzfig{70-figures/05-switch-case-handling}
+  \caption{}
+  \label{fig:}
+\end{figure}
+
+\begin{mrwComment}
+TODO finish section on switch statements
+\end{mrwComment}
+
 \begin{mrwComment}
 TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
 \end{mrwComment}
 
+
+\begin{mrwComment}
+Compile-time evaluation of expressions eg. for array sizes
+\end{mrwComment}
+
 \subsection{Context Object Design Pattern}
+\label{sec:impl:context object design pattern}
 
 Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
 For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
@@ -473,6 +475,14 @@ In an object-oriented language, this would be achieved by encapsulating the meth
 Rust, however, is not object oriented, and I believe this approach also offers more modularity and flexibility.
 Firstly, the context information itself is encapsulated inside its own data structure, allowing methods to be implemented on it that gives calling functions access to exactly the context information they need.
 Also, it allows separation of the different functions in the middle end, rather than constraining them to all needing to be within one class.
+
+\subsection{Types}
+
+\begin{mrwComment}
+- handled type information - created data structure to represent possible types
+
+- making sure instructions are type-safe, type converting where necessary - talk about unary/binary conversions, cite the C reference book
+\end{mrwComment}
 
 \subsection{The Relooper Algorithm}
 
