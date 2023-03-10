@@ -3,10 +3,12 @@
 		\node [style=Code block] (0) at (0, 14.55) {br <c1> if (x == 1)};
 		\node [style=Code block] (1) at (0, 13.15) {br <c2> if (x == 2)};
 		\node [style=Code block] (5) at (0, 11.8) {br <default>};
-		\node [style=Code block] (2) at (0, 9.4) {c1:\\...\\br <end>};
-		\node [style=Code block] (3) at (0, 5.9) {c2:\\...\\br <end>};
-		\node [style=Code block] (4) at (0, 2.4) {default:\\...\\br <end>};
-		\node [style=Code block] (6) at (0, 0) {end:};
+		\node [style=Code block] (2) at (0, 9.4) {label <c1>\\...\\br <end>};
+		\node [style=Code block] (3) at (0, 5.9) {label <c2>\\...\\br <end>};
+		\node [style=Code block] (4) at (0, 2.4) {label <default>\\...\\br <end>};
+		\node [style=Code block] (6) at (0, 0) {label <end>};
+		\node (7) at (10, 0) {};
+		\node (7) at (-10, 0) {};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=Arrow] (0) to +(-6, 0) |- ($(2.north west) + (0, -0.6)$);

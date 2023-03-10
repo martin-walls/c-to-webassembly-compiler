@@ -429,26 +429,36 @@ We then put conditional branches to each case block at the start of the switch s
 By doing this, there is no direct fall-through between any blocks; instead, a block that falls through to the next block will end in a branch instruction to the start of that block.
 This also allows \CInline{default} blocks to be easily handled; we just add an unconditional branch to the default block after all the conditional branches.
 If there is no \CInline{default} block, the conditional branches are followed by an unconditional branch to the end of the \CInline{switch} statement.
+\Ccref{fig:instr structure for switch statements} shows the structure of the generated instructions for \CInline{switch} statements.
 
 \begin{figure}[ht]
   \centering
-  \tikzfig{70-figures/05-switch-case-handling}
-  \caption{}
-  \label{fig:}
+  \scalebox{0.8}{\tikzfig{70-figures/05-switch-case-handling}}
+  \caption{\gls{ir} instructions generated for \CInline{switch} statements.}
+  \label{fig:instr structure for switch statements}
 \end{figure}
-
-\begin{mrwComment}
-TODO finish section on switch statements
-\end{mrwComment}
 
 \begin{mrwComment}
 TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
 \end{mrwComment}
 
+Declaration statements have a lot of different cases, each of which I had to handle separately.
+For example, variables may be declared without being initialised with a value.
 
-\begin{mrwComment}
-Compile-time evaluation of expressions eg. for array sizes
-\end{mrwComment}
+Function declarations only differ syntactically from other declarations by the type of the identifier; so we have to handle them in the same place.
+For function definitions (i.e.\ declarations plus body), we transform the body code and add a new function to the \gls{ir}.
+
+Arrays are complicated because there are multiple ways their length can be specified.
+It can be given explicitly in the declaration, or implicitly inferred from the length of the initialiser.
+To further complicate them, an explicit size can either be a static value or a variable that is only known at runtime (creating a variable-length array).
+To handle variable length arrays, an instruction is inserted to allocate space on the stack for it at runtime.
+Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
+
+
+Some expressions can be evaluated by the compiler ahead-of-time, for example array length expressions.
+I implemented a compile-time expression evaluation function that can handle arithmetic expressions and ternaries.
+Expressions are converted according to their structure, recursing into sub-expressions.
+
 
 \subsection{Context Object Design Pattern}
 \label{sec:impl:context object design pattern}
@@ -467,14 +477,17 @@ For example, it tracks the stack of nested loops and switch statements, so that 
         pub directly_on_lhs_of_assignment: bool,
     }
   \end{RustListing}
-  \caption{The context datatype used when converting the \gls{ast} to \gls{ir} code.}
+  \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
   \label{lst:AST to IR context struct}
 \end{listing}
 
-In an object-oriented language, this would be achieved by encapsulating the methods in an object and using private state inside the object.
-Rust, however, is not object oriented, and I believe this approach also offers more modularity and flexibility.
+In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
+Rust, however, is not object oriented, and I found this approach to offer more modularity and flexibility.
 Firstly, the context information itself is encapsulated inside its own data structure, allowing methods to be implemented on it that gives calling functions access to exactly the context information they need.
-Also, it allows separation of the different functions in the middle end, rather than constraining them to all needing to be within one class.
+It also allows creating different context objects for different purposes.
+In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
+The \RustInline{FunctionContext} lives for a shorter lifetime than the \RustInline{ModuleContext}, so being able to separate the data structures is ideal.
+
 
 \subsection{Types}
 
@@ -484,13 +497,29 @@ Also, it allows separation of the different functions in the middle end, rather 
 - making sure instructions are type-safe, type converting where necessary - talk about unary/binary conversions, cite the C reference book
 \end{mrwComment}
 
-\subsection{The Relooper Algorithm}
+The following types are supported by the \gls{ir}, mirroring the types supported by the C language \ccite[Chapter 5]{c-reference-manual}.
+\IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
+Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
+I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification doesn't specify the exact bit widths, only the minimum size.}.
+%
+\begin{align*}
+\textit{T} &= \IrType{I8} \vertpad \IrType{U8} \vertpad \IrType{I16} \vertpad \IrType{U16} \vertpad \IrType{I32} \vertpad \IrType{U32} \vertpad \IrType{I64} \vertpad \IrType{U64} \vertpad \IrType{F32} \vertpad \IrType{F64} \vertpad \IrType{Void} \\
+&\ \vertpad \IrType{Struct}(T[]) \vertpad \IrType{Union}(T[]) \\
+&\ \vertpad \IrType{Pointer}(T) \vertpad \IrType{Array}(T, size) \\
+&\ \vertpad \IrType{Function}(T, T[], is\_variadic) \\
+\end{align*}
+%
+I created a data structure to represent these types, along with methods for operations on those types.
 
-\begin{mrwComment}
-%TC:ignore
-cite Emscripten \cite{emscripten}
-%TC:endignore
-\end{mrwComment}
+I implemented the ISO C unary and binary conversions for types \ccite[pp.\ 174--176]{c-reference-manual}.
+They are applied before unary and binary operations respectively.
+Unary conversion reduces the number of types an operand can be. Smaller integer types are promoted to \IrType{I32}/\IrType{U32} appropriately, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
+Binary conversions make sure that both operands to a binary operation are of the same type.
+First, the unary conversions are applied to each operand individually.
+Then, if both operands are an arithmetic type, and one operand is a smaller type than the other, the smaller type is converted to the larger type.
+This includes integer types being promoted to float types.
+
+\subsection{The Relooper Algorithm}
 
 \section{Back End: Target Code Generation}
 
