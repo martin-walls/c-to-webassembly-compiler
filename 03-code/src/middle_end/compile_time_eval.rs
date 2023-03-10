@@ -28,39 +28,21 @@ enum ConstantExpressionType {
 
 fn eval(expr: Expression) -> Result<ConstantExpressionType, MiddleEndError> {
     match expr {
-        Expression::Identifier(_) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
+        Expression::Identifier(_) => Err(MiddleEndError::CantEvaluateAtCompileTime),
         Expression::Constant(c) => match c {
             AstConstant::Int(i) => Ok(ConstantExpressionType::Int(i as i128)),
             AstConstant::Float(f) => Ok(ConstantExpressionType::Float(f)),
             AstConstant::Char(c) => Ok(ConstantExpressionType::Int(c as i128)),
         },
         Expression::StringLiteral(_) => Err(MiddleEndError::InvalidConstantExpression),
-        Expression::Index(_, _) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
-        Expression::DirectMemberSelection(_, _) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
-        Expression::IndirectMemberSelection(_, _) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
+        Expression::Index(_, _) => Err(MiddleEndError::CantEvaluateAtCompileTime),
+        Expression::DirectMemberSelection(_, _) => Err(MiddleEndError::CantEvaluateAtCompileTime),
+        Expression::IndirectMemberSelection(_, _) => Err(MiddleEndError::CantEvaluateAtCompileTime),
         Expression::UnaryOp(op, expr) => {
             let expr_result = eval(*expr)?;
             match op {
-                UnaryOperator::AddressOf => {
-                    // todo
-                    Err(MiddleEndError::CantEvaluateAtCompileTime)
-                }
-                UnaryOperator::Dereference => {
-                    // todo
-                    Err(MiddleEndError::CantEvaluateAtCompileTime)
-                }
+                UnaryOperator::AddressOf => Err(MiddleEndError::CantEvaluateAtCompileTime),
+                UnaryOperator::Dereference => Err(MiddleEndError::CantEvaluateAtCompileTime),
                 UnaryOperator::Plus => match expr_result {
                     ConstantExpressionType::Int(_) | ConstantExpressionType::Float(_) => {
                         Ok(expr_result)
@@ -84,14 +66,8 @@ fn eval(expr: Expression) -> Result<ConstantExpressionType, MiddleEndError> {
                 },
             }
         }
-        Expression::SizeOfExpr(_) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
-        Expression::SizeOfType(_) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
+        Expression::SizeOfExpr(_) => Err(MiddleEndError::CantEvaluateAtCompileTime),
+        Expression::SizeOfType(_) => Err(MiddleEndError::CantEvaluateAtCompileTime),
         Expression::BinaryOp(op, left, right) => {
             let left_result = eval(*left)?;
             let right_result = eval(*right)?;
@@ -294,10 +270,7 @@ fn eval(expr: Expression) -> Result<ConstantExpressionType, MiddleEndError> {
                 eval(*false_expr)
             }
         }
-        Expression::Cast(_, _) => {
-            // todo
-            Err(MiddleEndError::CantEvaluateAtCompileTime)
-        }
+        Expression::Cast(_, _) => Err(MiddleEndError::CantEvaluateAtCompileTime),
 
         Expression::ExpressionList(_, _)
         | Expression::FunctionCall(_, _)
