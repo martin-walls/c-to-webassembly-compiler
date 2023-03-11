@@ -175,7 +175,7 @@ My grammar is able to parse all of the core features of the C language, omitting
 
 \subsubsection{Dangling Else Ambiguity}
 
-A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[Section 8.5.2]{c-reference-manual}.
+A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[sec.~8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem \ccite{dangling-else-wiki}.
 
@@ -495,13 +495,7 @@ The \RustInline{FunctionContext} lives for a shorter lifetime than the \RustInli
 
 \subsection{Types}
 
-\begin{mrwComment}
-- handled type information - created data structure to represent possible types
-
-- making sure instructions are type-safe, type converting where necessary - talk about unary/binary conversions, cite the C reference book
-\end{mrwComment}
-
-The following types are supported by the \gls{ir}, mirroring the types supported by the C language \ccite[Chapter 5]{c-reference-manual}.
+The following types are supported by the \gls{ir}, mirroring the types supported by the C language \ccite[ch.~5]{c-reference-manual}.
 \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
 I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification doesn't specify the exact bit widths, only the minimum size.}.
@@ -515,7 +509,7 @@ I followed the standard implementation convention for the bit size of \CInline{c
 %
 I created a data structure to represent these types, along with methods for operations on those types.
 
-I implemented the ISO C unary and binary conversions for types \ccite[pp.\ 174--176]{c-reference-manual}.
+I implemented the ISO C unary and binary conversions for types \ccite[pp.~174--176]{c-reference-manual}.
 They are applied before unary and binary operations respectively.
 Unary conversion reduces the number of types an operand can be. Smaller integer types are promoted to \IrType{I32}/\IrType{U32} appropriately, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
 Binary conversions make sure that both operands to a binary operation are of the same type.
@@ -523,7 +517,64 @@ First, the unary conversions are applied to each operand individually.
 Then, if both operands are an arithmetic type, and one operand is a smaller type than the other, the smaller type is converted to the larger type.
 This includes integer types being promoted to float types.
 
+When transforming each \gls{ast} node to intermediate code, the compiler checks that the types of the operands are valid (after unary/binary conversion) and stores the corresponding type of the result variable.
+For example, before generating a \IrCode{t = a < b} instruction, the compiler checks whether \IrCode{a} and \IrCode{b} are comparable arithmetic types---if not, a compile error is thrown---and sets the type of \IrCode{t} to \IrType{I32}\footnote{\IrType{I32} is used to represent booleans.}.
+This ensures that the \gls{ir} passed to the back end is type safe.
+
 \subsection{The Relooper Algorithm}
+
+The Relooper algorithm is described in \ccref{sec:prep:relooper}. In this section I describe my implementation.
+The Relooper stage takes the \gls{ir} as input, and transforming the instructions to a structure of Relooper blocks, but preserving the program metadata.
+
+First, the intermediate code is `soupified'.
+This is the process of taking the linear sequence of instructions and producing a set of basic blocks, which are the input to the Relooper algorithm itself.
+Each label starts with a \IrCode{label} instruction and ends in a \IrCode{branch}.
+The process of soupifying is as follows:
+
+\begin{EnumerateAlgorithm}
+\item \label[algstep]{alg:soupify:remove label fall-through}
+Remove any label fall-through.
+By this I mean any label that is not preceded by a branch, where control will flow to directly from the previous instruction.
+This is removed by inserting a \IrCode{branch} instruction before each label, if one does not already exist, branching to that label.
+
+This will generate many redundant branch instructions, however they get removed when the Relooper blocks are transformed to target code.
+
+\item
+Insert an unconditional branch after each conditional branch, to ensure that conditional branches do not occur in the middle of a block.
+
+\begin{center}
+\small
+\pbox[t]{.5\textwidth}{
+\IrCode{br <l1> if ...} \\
+\IrCode{br <l2>} \\
+\IrCode{label <l2>} \\
+\IrCode{...}
+}
+\hspace{1em}
+\pbox[t]{.5\textwidth}{
+\CodeComment{Original conditional branch} \\
+\CodeComment{New unconditional branch} \\
+\CodeComment{New label}
+}
+\end{center}
+
+\item
+If there is no label at the very start of the instructions, add one.
+
+\item \label[algstep]{alg:soupify:merge consecutive labels}
+Merge any consecutive label instructions into a single label, updating branches to the labels accordingly.
+
+\item
+Finally, divide the instructions into blocks by passing through the instructions sequentially and starting a new block at each label instruction.
+\end{EnumerateAlgorithm}
+
+\Ccrefrange{alg:soupify:remove label fall-through}{alg:soupify:merge consecutive labels} transform the instruction sequence until it can be directly split into basic blocks.
+All control flow between basic blocks is made explicit.
+
+\begin{mrwComment}
+TODO talk about the implementation of the actual relooper bit
+\end{mrwComment}
+
 
 \section{Back End: Target Code Generation}
 

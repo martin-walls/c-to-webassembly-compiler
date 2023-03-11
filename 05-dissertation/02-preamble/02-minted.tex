@@ -34,6 +34,7 @@
 
 \definecolor{IrTypeHighlight}{HTML}{333399}
 \NewDocumentCommand{\IrType}{m}{\textcolor{IrTypeHighlight}{\textbf{\texttt{#1}}}}
+\NewDocumentCommand{\IrCode}{m}{\texttt{#1}}
 
 \NewDocumentCommand{\Filename}{m}{\texttt{#1}}
 \NewDocumentCommand{\Dirname}{m}{\textbf{\texttt{#1/}}}
@@ -64,4 +65,6 @@
 \algblockdefx[MatchCase]{MatchCase}{EndMatchCase}
   [1]{\textbf{case} #1}
   {\textbf{end case}}
+
+\NewDocumentCommand{\CodeComment}{m}{\triangleright~#1}
 

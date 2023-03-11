@@ -54,6 +54,8 @@
 % slightly increase line spacing to be more readable
 \renewcommand{\baselinestretch}{1.1}
 
+\usepackage{pbox}
+
 % Caption style
 \usepackage[font=small,
             labelfont=bf,
@@ -86,11 +88,17 @@
 % Cross-referencing
 % cleveref should be loaded basically last in the preamble (according to the docs)
 \usepackage[capitalise, noabbrev, nameinlink]{cleveref}
-\newcommand{\crefrangeconjunction}{--}
+% \newcommand{\crefrangeconjunction}{--}
 % Make cross-references coloured
 \NewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{\cref{#1}}}
 \NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
-\crefname{algstep}{Step}{Step}
+\NewDocumentCommand{\ccrefrange}{mm}{\textcolor{refcolor}{\crefrange{#1}{#2}}}
+\NewDocumentCommand{\Ccrefrange}{mm}{\textcolor{refcolor}{\Crefrange{#1}{#2}}}
+\crefname{algstep}{Step}{Steps}
+
+\NewDocumentEnvironment{EnumerateAlgorithm}{}
+  {\begin{enumerate}[label=\boxed{\arabic*}]}
+  {\end{enumerate}}
 
 \usepackage{comment}
 \ifCompileForWordCount

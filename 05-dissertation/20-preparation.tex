@@ -175,6 +175,7 @@ This can be used, for example, to load string literals into memory.
 
 
 \section{The Relooper Algorithm}
+\label{sec:prep:relooper}
 
 C allows arbitrary control flow, because it has \CInline{goto} statements.
 However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs as described above.
@@ -230,7 +231,7 @@ Labels can always reach themselves.
 
 Given a set of labels, and set of entries, the algorithm to create a block is as follows:
 
-\begin{enumerate}[label=\boxed{\arabic*}]
+\begin{EnumerateAlgorithm}
 \item % (1)
 Calculate the reachability of each label.
 \item % (2)
@@ -266,7 +267,7 @@ Construct the next block from the remaining labels. The entries are the remainin
 \item % (5)
 \label[algstep]{alg:relooper:create loop block after multiple block failed}
 If \ccref{alg:relooper:attempt to create multiple block} fails, create a loop block in the same way as \ccref{alg:relooper:create a loop block}.
-\end{enumerate}
+\end{EnumerateAlgorithm}
 
 The Emscripten paper outlines a proof that this greedy approach will always succeed \ccite[p. 10]{emscripten}.
 The core idea is that we can show that (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
