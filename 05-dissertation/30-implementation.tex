@@ -27,6 +27,10 @@ Say that I wrote it from scratch.
 %TC:endignore
 \end{mrwComment}
 
+\begin{mrwComment}
+Add some intro text here between chapter heading and section title.
+\end{mrwComment}
+
 \section{Repository Overview}
 
 I developed my project in a GitHub repository, ensuring to regularly push to the cloud for backup purposes.
@@ -97,21 +101,21 @@ I created my own \gls{ast} representation and \gls{ir}, which are used as the ma
 
 The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
 I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
-I used a parser generator to convert the tokens emitted by the lexer into an \gls{ast}\@.
+I used the LALRPOP parser generator \ccite{lalrpop-docs} to convert the tokens emitted by the lexer into an \gls{ast}\@.
 
 \subsection{Preprocessor}
 
 I used the GNU C preprocessor (\mintinline{bash}{cpp}) \ccite{gnu-c-preprocessor} to handle any preprocessor directives in the source code, for example macro definitions.
-However, since I am not supporting linking, I removed any \CInline{#include} directives before running the preprocessor, and handled them myself.
+However, since I do not support linking, I removed any \CInline{#include} directives before running the preprocessor and handled them myself.
 
 For each \CInline{#include <name.h>} directive that is removed, if it is one of the standard library headers that I support, the appropriate library code is copied into the source code from \Filename{headers/<name>.h}.
-One exception is when the name of the header file matches the name of the source program, in which case the contents of the program's header file are inserted to the source code, rather than finding a matching library.
+One exception is when the name of the header file matches the name of the source program, in which case the contents of the program's header file are inserted into the source code, rather than finding a matching library.
 
 After processing \CInline{#include} directives, the compiler spawns \mintinline{bash}{cpp} as a child process, writes the source code to its stdin, and reads the processed source code back from its stdout.
 
 \subsection{Lexer}
 
-The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions make it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
+The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
 For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
 \begin{itemize}
 \item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
@@ -119,22 +123,22 @@ For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
 \end{itemize}
 
 This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
-Therefore, I implemented a custom lexer that is aware of the type names that have already been defined the current point in the program.
+Therefore, I implemented a custom lexer that is aware of the type names that have already been defined at the current point in the program.
 
 The lexer is implemented as a finite state machine. \Ccref{fig:lexing numbers fsm,fig:lexing identifiers fsm} highlight portions of the machine; the remaining state transition diagrams can be found in \ccref{app:lexer fsm}.
-The diagrams show the input character, as a regular expression, along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character `\texttt{.}' represents a literal full stop character, and the backslash character `\texttt{\char`\\}' represents a literal backslash.)
+The diagrams show the input character as a regular expression along each transition arrow. (Note: in a slight abuse of regular expression notation, the dot character `\texttt{.}' represents a literal full stop character and the backslash character `\texttt{\char`\\}' represents a literal backslash.)
 It is assumed that when no state transition is shown for a particular input, the end of the current token has been reached.
 Transition arrows without a prior state are the initial transitions for the first input character.
 Node labels represent the token that will be emitted when we finish in that state.
 
 The finite state machine consumes the source code one character at a time, until the end of the token is reached (i.e.\ there is no transition for the next input character).
 Then, the token corresponding to the current state is emitted to the parser.
-Some states have no corresponding token to emit, because they occur part-way through parsing a token; if the machine finishes in one of these states, this raises a lex error.
+Some states have no corresponding token to emit because they occur part-way through parsing a token; if the machine finishes in one of these states, this raises a lex error.
 (In other words, every state labelled with a token is an accepting state of the machine.)
-For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition, and when the token is complete, the string is stored inside the emitted token.
+For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition and when the token is complete, the string is stored inside the emitted token.
 This gives the parser access to the necessary data about the token, for example the name of the literal.
 
-If, when starting to lex a new token, there is no initial transition corresponding to the input character, then there is no valid token for this input. This raises a lex error, and the compiler will exit.
+If, when starting to lex a new token, there is no initial transition corresponding to the input character, then there is no valid token for this input. This raises a lex error and the compiler will exit.
 
 \Ccref{fig:lexing numbers fsm} shows the finite state machine for lexing number literals. This handles all the different forms of number that C supports: decimal, binary, octal, hexadecimal, and floating point.
 (Note: the states leading to the ellipsis token are shown for completeness, even though the token is not a number literal, since they share the starting dot state.)
@@ -148,11 +152,11 @@ If, when starting to lex a new token, there is no initial transition correspondi
 
 \Ccref{fig:lexing identifiers fsm} shows the finite state machine for lexing identifiers and \CInline{typedef} names.
 This is where we handle the ambiguity introduced into the language.
-  Every time we consume another character of an identifier, we check whether the current name (which we have stored in the string buffer) matches either a keyword of the language of a \CInline{typedef} name we have encountered this far.
+  Every time we consume another character of an identifier, we check whether the current name (which we have stored in the string buffer) matches either a keyword of the language or a \CInline{typedef} name we have encountered so far.
 (Keywords are given a higher priority of matching.)
   If a match is found, we move to the corresponding state, represented by the $\epsilon$ transitions (since no input is consumed along these transitions).
 When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or \CInline{typedef} name token respectively.
-When we emit a \CInline{typedef} name token, the lexer pushes it to an array of all the type names that have been declared this far in the program, so we can match future identifiers against it.
+The lexer stores the \CInline{typedef} names that have been declared so far so that it can emit the correct type of token for future names.
 
 \begin{figure}[!htb]
   \centering
@@ -166,14 +170,14 @@ When we emit a \CInline{typedef} name token, the lexer pushes it to an array of 
 
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
 It generates an \gls{ast} that I defined the structure of.
-The Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
+Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
 My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
 
 A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[Section 8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
-If we have nested \CInline{if}/\CInline{else} statements that don't use curly brackets, if can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem.
+If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem \ccite{dangling-else-wiki}.
 
 \begin{listing}[!ht]
   \begin{GrammarListing}
@@ -235,7 +239,7 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 
 C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
 We can encode this into the grammar with the concept of `open' and `closed' statements \ccite{final-solution-to-dangling-else}.
-\Ccref{lst:open/closed statement grammar} shows how we introduce this into our grammar for \CInline{if}/\CInline{else} statements.
+\Ccref{lst:open/closed statement grammar} shows how I introduce this into my grammar for \CInline{if}/\CInline{else} statements.
 All other forms of statement must also be converted to the new structure.
 Any basic statements, i.e.\ statements that have no sub-statements, are added to \GrammarInline{closed-stmt}.
 All other statements that have sub-statements, such as \CInline{while}, \CInline{for}, and \CInline{switch} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.

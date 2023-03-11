@@ -14,10 +14,6 @@ Word budget: \textasciitilde 2500-3000 words
 %TC:ignore
 Describe the work undertaken before code was written.
 
--> Wasm research -- include the stuff from the research doc I wrote.
-
--> include Relooper research here too
-
 "Requirements Analysis" section
 
 -> refer to appropriate software engineering techniques used in the diss
@@ -32,6 +28,10 @@ Researching LALRPOP - show good professional use of tools
 
 Talk about revision control strategy, licensing of any libraries I used
 %TC:endignore
+\end{mrwComment}
+
+\begin{mrwComment}
+Add some intro text here between chapter heading and section title.
 \end{mrwComment}
 
 \section{WebAssembly}
@@ -63,7 +63,7 @@ The primitive value types supported by WebAssembly are outlined in \ccref{tab:wa
 \end{table}
 
 Integers can be interpreted as either signed or unsigned, depending on the operations applied to them.
-They will also be used to store data such as booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc..}
+They will also be used to store data such as booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}
 Integer literals are encoded in the program using the LEB128 variable-length encoding scheme \ccite{leb128-encoding}.
 \Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
 The algorithm is almost the same for signed integers (encoded in two's complement); the only difference is that we sign-extend to a multiple of 7 bits, rather than zero-extend.
@@ -91,7 +91,8 @@ WebAssembly also provides vector types and reference types.
 Vectors can store either integers or floats: in either case, the vector is split into a number of evenly-sized numbers.
 Vector instructions exist to operate on these values.
 \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
-This project does not have a need for using either of these types; C does not have any concept of vector types, and I am not supporting function references.
+This project does not have a need for using either of these types; the C language doesn't have vector types, and although a compiler could create them, mine will not.
+Additionally I do not support function references in the scope of this project.
 I will only use the four main integer and float types.
 
 \subsection{Instructions}
@@ -121,13 +122,13 @@ When referring to a \WasmInline{block}, \WasmInstr{br} will jump to the end of i
 This is analogous to \CInline{break} and \CInline{continue} in C, respectively.
 It is worth noting that \WasmInline{loop} doesn't loop back to the start implicitly; an explicit \WasmInstr{br} instruction is required.
 \WasmInline{if} blocks, which may optionally have an \WasmInline{else} block, conditionally execute depending on the value on top of the stack.
-With regard to \WasmInstr{br} instructions, they behave like \WasmInline{block}.
+A \WasmInstr{br} instruction inside an \WasmInline{if} block behaves in the same way as inside a \WasmInline{block}; it will jump to the end of it.
 
 
 \subsection{Modules}
 
 A module is a unit of compilation and loading for a WebAssembly program.
-There is no distinction between a `library' and a `program', such as there are in other languages; there are only modules which export functions to the instantiator.
+There is no distinction between a `library' and a `program' such as there is in other languages; there are only modules that export functions to the instantiator (i.e.\ the runtime environment that instantiates the WebAssembly module).
 Modules are split up into different sections.
 Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
 Each of the sections is described in turn below.
@@ -146,7 +147,7 @@ A table is an array of function pointers, which can be called indirectly with \W
 It is necessary for WebAssembly to have a separate data structure for this, because functions live outside of the memory visible to the program; tables keep the function addresses opaque to the program, keeping the execution sandboxed.
 The \emph{table section} stores the size limits of each table; any elements to initialise the tables with are stored in the element section.
 
-The \emph{memory section} is similar to the table section; is specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of page size.
+The \emph{memory section} is similar to the table section; is specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
 
 The \emph{global section} defines any global variables used in the program, including an expression to initialise them. Global variables can be either mutable or immutable.
 
@@ -157,8 +158,8 @@ The \emph{start section} optionally specifies a function that should automatical
 This could be used to initialise a global variable to a non-constant expression.
 
 The \emph{element section} is used to statically initialise the contents of tables with function addresses.
-Each element segment within this section starts with a flag that specifies the mode of the segment.
-For example, one mode is to automatically initialise the elements to table 0 upon module initialisation.
+Segments can be active or passive.
+An active segment will be automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
 
 The \emph{data count section} is an optional additional section used to allow validators to use only a single pass.
 It specifies how many data segments are in the data section.
@@ -220,7 +221,7 @@ All three blocks have a \emph{next} block, where execution will continue.
 
 \subsection{Algorithm}
 
-Before describing the algorithm, we define the terms we used.
+Before describing the algorithm, I define the terms used.
 \emph{Entries} are the subset of labels that can be immediately reached when a block is entered.
 Each label has a set of \emph{possible branch targets}, which are the labels it directly branches to.
 It also has a set of labels it can \emph{reach}, known as the \emph{reachability} of the label.
@@ -275,7 +276,7 @@ This holds because if we could not create a loop block, we would not be able to 
 The algorithm replaces the branch instructions in the labels as it processes them.
 When creating a loop block, branch instructions to the start of the loop are replaced with a \CInline{continue}, and any branches to outside the loop are replaced with a \CInline{break} (all the branch targets outside the loop will be in the next block).
 When creating a handled block, branch instructions into the next block are replaced with an \CKeyword{endHandled} instruction.
-Each of these instructions is annotated with the ID of the block they act on, because block may be nested.
+Each of these instructions is annotated with the ID of the block they act on, because blocks may be nested.
 Note that functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep the two distinct because they store IDs of different block types.
 
 To direct control flow when execution enters a multiple block, Relooper makes use of a label variable.
