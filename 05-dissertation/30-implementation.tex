@@ -341,11 +341,9 @@ Then, the bitfield is matched against the possible valid types, to assign the ty
 
 \section{Middle End}
 
-\begin{mrwComment}
-%TC:ignore
-Give an overview of the middle end
-%TC:endignore
-\end{mrwComment}
+The middle end takes an \gls{ast} as input, and transforms it to intermediate code.
+It also runs the Relooper algorithm on the \gls{ir}.
+Optimisations are run on the \gls{ir} in this stage; they are described in \ccref{sec:impl:optimisations}.
 
 \subsection{Intermediate Code Generation}
 
@@ -442,10 +440,6 @@ If there is no \CInline{default} block, the conditional branches are followed by
   \label{fig:instr structure for switch statements}
 \end{figure}
 
-\begin{mrwComment}
-TODO talk about the more complex cases, eg. switch statements, variable declarations, function declarations
-\end{mrwComment}
-
 Declaration statements have a lot of different cases, each of which I had to handle separately.
 For example, variables may be declared without being initialised with a value.
 
@@ -527,15 +521,15 @@ The Relooper algorithm is described in \ccref{sec:prep:relooper}. In this sectio
 The Relooper stage takes the \gls{ir} as input, and transforming the instructions to a structure of Relooper blocks, but preserving the program metadata.
 
 First, the intermediate code is `soupified'.
-This is the process of taking the linear sequence of instructions and producing a set of basic blocks, which are the input to the Relooper algorithm itself.
+This is the process of taking the linear sequence of instructions and producing a set of \emph{labels}\footnote{The term `label' is overloaded here, though the two concepts are related; a `label instruction' refers to the intermediate code instruction, whereas a `label' is a basic block that starts with a label instruction.} (basic blocks), which are the input to the Relooper algorithm itself.
 Each label starts with a \IrCode{label} instruction and ends in a \IrCode{branch}.
 The process of soupifying is as follows:
 
 \begin{EnumerateAlgorithm}
 \item \label[algstep]{alg:soupify:remove label fall-through}
 Remove any label fall-through.
-By this I mean any label that is not preceded by a branch, where control will flow to directly from the previous instruction.
-This is removed by inserting a \IrCode{branch} instruction before each label, if one does not already exist, branching to that label.
+By this I mean any label instruction that is not preceded by a branch, where control will flow to directly from the previous instruction.
+This is removed by inserting a branch instruction before each label instruction, if one does not already exist, branching to that label.
 
 This will generate many redundant branch instructions, however they get removed when the Relooper blocks are transformed to target code.
 
@@ -554,32 +548,137 @@ Insert an unconditional branch after each conditional branch, to ensure that con
 \pbox[t]{.5\textwidth}{
 \CodeComment{Original conditional branch} \\
 \CodeComment{New unconditional branch} \\
-\CodeComment{New label}
+\CodeComment{New label \IrCode{<l2>}}
 }
 \end{center}
 
 \item
-If there is no label at the very start of the instructions, add one.
+If there is no label instruction at the very start of the instructions, add one.
 
 \item \label[algstep]{alg:soupify:merge consecutive labels}
-Merge any consecutive label instructions into a single label, updating branches to the labels accordingly.
+Merge any consecutive label instructions into a single instruction, updating branches to the labels accordingly.
 
 \item
 Finally, divide the instructions into blocks by passing through the instructions sequentially and starting a new block at each label instruction.
 \end{EnumerateAlgorithm}
 
-\Ccrefrange{alg:soupify:remove label fall-through}{alg:soupify:merge consecutive labels} transform the instruction sequence until it can be directly split into basic blocks.
-All control flow between basic blocks is made explicit.
+\Ccrefrange{alg:soupify:remove label fall-through}{alg:soupify:merge consecutive labels} transform the instruction sequence until it can be directly split into label blocks.
+All control flow between labels is made explicit.
 
+For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} is used to create a Relooper block.
+The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID.
+
+The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
+Starting with a copy of the set of possible branch targets of a label, we iteratively add the possible branch targets of each label in the set, until there are no more changes.
+(The reachability is a set so that no duplicates are added.)
+
+% As it creates blocks, the algorithm replaces branch instructions.
+% Once an inner block has been created, branches inside it are replaced recursively
 \begin{mrwComment}
-TODO talk about the implementation of the actual relooper bit
+  Maybe talk a bit more about the actual relooper implementation?
 \end{mrwComment}
-
 
 \section{Back End: Target Code Generation}
 
+In the back end, I defined data structures to directly represent a WebAssembly module with its constituent sections.
+I also defined a \RustInline{WasmInstruction} enum to represent all possible WebAssembly instructions, and data structures to represent value types.
+The back end generates a \RustInline{WasmModule} containing \RustInline{WasmInstruction}s, the byte representation of which is written out to a binary file as output of the compiler.
+
+I defined a \RustInline{ToBytes} trait that is implemented by all data structures that will be written out to the binary.
+This provides a layer of abstraction between the program data structures and the actual byte values in the binary; each structure only needs to know the byte values specific to itself, e.g.\ for a specific instruction, and nothing more.
+
+The core function of the back end is to transform \gls{ir} instructions to WebAssembly instructions.
+Since WebAssembly is a stack-based architecture, the general pattern for converting an instruction is:
+\begin{itemize}[nosep]
+\item Push the value of each operand onto the stack (loading any variables from memory).
+\item Perform the operation, which leaves the result on top of the stack.
+\item Store the result from the stack back to a variable in memory.
+\end{itemize}
+Most instructions are a variation of this pattern.
+\Ccref{lst:converting add instr to wasm code} shows the code generated for an add instruction.
+One subtlety is that \WasmInstr{store} instructions take the memory address as their first operand, and the value to store as their second operand.
+This means the address of the destination variable needs to be pushed onto the stack \emph{before} the source operands are loaded and the operation is performed.
+
+\begin{listing}[h]
+  \begin{subfigure}[b]{0.28\textwidth}
+    \begin{IrCodeListing}
+      c = a + b
+    \end{IrCodeListing}
+    \caption{Intermediate code.}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.7\textwidth}
+    \begin{WasmListing}
+      i32.const |<addr of c>|  ;; address for the store instruction
+      i32.const |<addr of a>|
+      i64.load               ;; load a onto the stack
+      i32.const |<addr of b>|
+      i64.load               ;; load b onto the stack
+      i64.add                ;; perform operation on a and b
+      i64.store              ;; store result from top of stack
+    \end{WasmListing}
+    \caption{Generated WebAssembly code.}
+  \end{subfigure}
+  \caption{Transforming an add instruction to target code, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{i64}.}
+  \label{lst:converting add instr to wasm code}
+\end{listing}
+
+\subsection{Memory Layout}
+
+One of the other main functions of the back end is to generate code that manages the memory layout.
+A large part of this is the function call stack; pushing new stack frames when functions are called, and popping them when functions return.
+\Ccref{fig:memory structure} shows the memory layout I defined for the compiler.
+
+\begin{figure}[ht]
+  \centering
+  \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
+  \caption{Memory structure, with addresses increasing to the right.}
+  \label{fig:memory structure}
+\end{figure}
+
+The first section of memory contains the \gls{fp} and \gls{sp}, as well as a temporary pointer storage location which is used in intermediate steps of manipulating stack frames.
+I chose to call this the `temporary \gls{fp}', because it is mainly used to hold the new value that the \gls{fp} will be set to once we have finished setting up a new stack frame.
+In a register architecture, these pointers would be stored in registers, however WebAssembly does not have any registers, so instead I chose to allocate them at known locations in memory.
+
+The next section of memory contains any string literals that are defined in the program.
+In C, a string literal is simply a null-terminated array of characters, which a variable accesses via a \CInline{char*}.
+My \gls{ir} has a dedicated \RustInline{PointerToStringLiteral} instruction which, in the back end, gets converted to an instruction that pushes the address of the corresponding string onto the stack.
+All string literals are allocated at compile-time and have compile-time known addresses.
+
+Space is allocated for all global variables at compile-time.
+These are allocated in the same way as local variables, which is described below.
+
+Programs may accept command-line arguments, which are stored into memory by the runtime environment.
+This is described in more detail in \ccref{sec:impl:runtime} below.
+
+The function call stack grows upwards dynamically from this point.
+I did not implement heap storage, so memory is only used from one end, unlike in standard C compilers such as GCC.
+
+\subsection{Stack Frame Operations}
+
+Whenever a function is called, a new stack frame is constructed at the top of the stack in memory.
+
+\begin{figure}[ht]
+  \centering
+  \scalebox{0.9}{\tikzfig{70-figures/07-stack-frame-layout}}
+  \caption{Stack frame layout, with addresses increasing downwards.}
+  \label{fig:}
+\end{figure}
+
+\begin{mrwComment}
+- Call stack manipulation
+
+- Memory manipulation functions -- load/store var of given type
+
+- talk about naive var allocation strategy
+
+- Int and vector encoding
+
+- Used IdGenerator pattern again
+\end{mrwComment}
 
 \section{Runtime Environment}
+\label{sec:impl:runtime}
 
 \begin{mrwComment}
 %TC:ignore
@@ -591,7 +690,24 @@ TODO talk about the implementation of the actual relooper bit
 %TC:endignore
 \end{mrwComment}
 
+Arguments are passed to the \CInline{main} function as an array of \CInline{char} pointers, plus the argument count.
+To facilitate this, the runtime first allocates space for the array of pointers, at the compile-time known address immediately after the global variables.
+After the pointer array, the actual argument values are stored (as strings), and each corresponding pointer is set (\ccref{fig:program args memory structure}).
+The runtime then sets the \gls{sp} to immediately after the last argument.
+
+\begin{figure}[ht]
+  \centering
+  \scalebox{0.9}{\tikzfig{70-figures/08-program-args-memory-layout}}
+  \caption{Memory structure of program arguments, with addresses increasing to the right.}
+  \label{fig:program args memory structure}
+\end{figure}
+
 \section{Optimisations}
+\label{sec:impl:optimisations}
+
+\begin{mrwComment}
+Added profiling code
+\end{mrwComment}
 
 \subsection{Unreachable Procedure Elimination}
 

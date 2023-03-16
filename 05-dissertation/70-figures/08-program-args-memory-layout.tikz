@@ -1,0 +1,49 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=none, anchor=base] (3) at (-6.25, -0.25) {ArgPtr\textsubscript{0}};
+		\node [style=none, anchor=base] (5) at (0.25, -0.25) {Arg\textsubscript{0}};
+		\node [style=none] (6) at (-8, 0.75) {};
+		\node [style=none] (7) at (-8, -0.75) {};
+		\node [style=none] (8) at (-4.5, -0.75) {};
+		\node [style=none] (9) at (-4.5, 0.75) {};
+		\node [style=none] (10) at (-1, 0.75) {};
+		\node [style=none] (11) at (-1, -0.75) {};
+		\node [style=none] (12) at (7, 0.75) {};
+		\node [style=none] (13) at (7, -0.75) {};
+		\node [style=none] (18) at (16, 0.75) {};
+		\node [style=none] (19) at (16, -0.75) {};
+		\node [style=none circle, inner sep=1] (22) at (16, -2.5) {\acrshort{sp}};
+		\node [style=none, anchor=base] (23) at (-2.75, -0.25) {ArgPtr\textsubscript{1}};
+		\node [style=none, anchor=base] (24) at (8.25, -0.25) {Arg\textsubscript{1}};
+		\node [style=none] (25) at (-6.25, -0.75) {};
+		\node [style=none] (27) at (-2.75, -0.75) {};
+    \node [style=none] (28) at (-11.5, 0.75) {};
+    \node [style=none] (29) at (-11.5, -0.75) {};
+    \node [style=none] (30) at (20.25, 0.75) {};
+    \node [style=none] (31) at (20.25, -0.75) {};
+    \node [style=none, anchor=base, text=tikzgrey] (32) at (-10, -0.25) {Globals};
+    \node [style=none, anchor=base, text=tikzgrey] (32) at (18.25, -0.25) {Call stack};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=line] (6.center) to (7.center);
+		\draw [style=line] (7.center) to (8.center);
+		\draw [style=line] (8.center) to (9.center);
+		\draw [style=line] (9.center) to (6.center);
+		\draw [style=line] (11.center) to (10.center);
+		\draw [style=line] (10.center) to (9.center);
+		\draw [style=line] (8.center) to (11.center);
+		\draw [style=line] (13.center) to (11.center);
+		\draw [style=line] (10.center) to (12.center);
+		\draw [style=line] (12.center) to (13.center);
+		\draw [style=line] (19.center) to (18.center);
+		\draw [style=Arrow] (22) to (19.center);
+		\draw [style=line] (19.center) to (13.center);
+		\draw [style=line] (12.center) to (18.center);
+    \draw [style=Arrow] (25.center) to +(0, -1) -| (11.center);
+		\draw [style=Arrow] (27.center) to +(0, -1.5) -| (13.center);
+    \draw [style=dashed normal, draw=tikzgrey] (28.center) to (6.center);
+    \draw [style=dashed normal, draw=tikzgrey] (29.center) to (7.center);
+    \draw [style=dashed normal, draw=tikzgrey] (30.center) to (18.center);
+    \draw [style=dashed normal, draw=tikzgrey] (31.center) to (19.center);
+	\end{pgfonlayer}
+\end{tikzpicture}

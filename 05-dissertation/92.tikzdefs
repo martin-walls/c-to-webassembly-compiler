@@ -1,2 +1,4 @@
 \usetikzlibrary{arrows.meta}
 \usetikzlibrary{calc}
+
+\definecolor{tikzgrey}{HTML}{878787}

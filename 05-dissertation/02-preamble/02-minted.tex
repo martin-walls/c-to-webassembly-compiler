@@ -35,6 +35,7 @@
 \definecolor{IrTypeHighlight}{HTML}{333399}
 \NewDocumentCommand{\IrType}{m}{\textcolor{IrTypeHighlight}{\textbf{\texttt{#1}}}}
 \NewDocumentCommand{\IrCode}{m}{\texttt{#1}}
+\newminted[IrCodeListing]{text}{escapeinside=||}
 
 \NewDocumentCommand{\Filename}{m}{\texttt{#1}}
 \NewDocumentCommand{\Dirname}{m}{\textbf{\texttt{#1/}}}

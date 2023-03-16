@@ -26,6 +26,7 @@
 % Edge styles
 \tikzstyle{line}=[-]
 \tikzstyle{line thick}=[-, thick]
+\tikzstyle{dashed normal}=[-, dashed]
 \tikzstyle{Dashed}=[-, thick, dashed]
 \tikzstyle{Arrow}=[->, thick, >={Stealth[scale=1.15]}]
 \tikzstyle{Arrow shaft}=[-, thick]
