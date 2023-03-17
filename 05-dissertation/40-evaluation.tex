@@ -102,8 +102,8 @@ For unreachable procedure elimination, I will evaluate the reduction in code siz
 For tail-call optimisation and stack allocation optimisation, I will evaluate the effectiveness at reducing memory usage.
 
 To evaluate the memory usage optimisations, I inserted profiling code when compiling the programs, to measure the size of the stack throughout program execution.
-When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInlineCode{log_stack_ptr}, a function imported from the JavaScript runtime.
-\JSInlineCode{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
+When generating instructions that move the stack pointer, the compiler additionally inserts a call to \JSInline{log_stack_ptr}, a function imported from the JavaScript runtime.
+\JSInline{log_stack_ptr} reads the current stack pointer value from memory and appends it to a log file.
 I wrote a Python script to visualise the resulting data.
 The plots show how the size of the stack grows and shrinks throughout the execution of the program.
 \Ccref{fig:tail-call optimisation stack use,fig:comparing stack usage optimisation across programs,fig:comparing stack usage for case.c,fig:comparing stack usage for fibonacci.c} are generated using this method.

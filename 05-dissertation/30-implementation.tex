@@ -62,7 +62,7 @@ The other directories contain the runtime environment code, skeleton standard li
 \Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline
 \Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline
 \Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline
-\Dirname{runtime} & NodeJS runtime environment. \\\hline
+\Dirname{runtime} & Node.js runtime environment. \\\hline
 \Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline
 \Dirname{tools} &  \\\hline
 \Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline
@@ -745,7 +745,24 @@ At runtime, a variable is accessed by first loading the \gls{fp}, then adding th
 %TC:endignore
 \end{mrwComment}
 
-Arguments are passed to the \CInline{main} function as an array of \CInline{char} pointers, plus the argument count.
+The purpose of the runtime environment is to provide an interface between the WebAssembly binary and the system, allowing it to be executed.
+I chose to use Node.js \ccite{nodejs}, because this allows the binary to be run locally.
+The other option would be to use JavaScript within a web browser, which would be the primary reason to use WebAssembly; however, for the purposes of this project that approach would have added unnecessary complexity.
+
+\begin{mrwComment}
+Reason for using Node.js maybe should go in preparation chapter
+\end{mrwComment}
+
+The runtime is responsible for instantiating the WebAssembly module.
+A module must be instantiated before any functions it contains can be executed.
+One of the main functions of the instantiation is to pass imports into the WebAssembly module.
+The runtime creates a new linear memory for the module to use, and also imports my skeleton library functions.
+The memory is created by the runtime so that the standard library functions can have access to it.
+If the memory were created by the WebAssembly module, which is the other option, then the imported functions would not be able to reference it.
+
+Once the module has been instantiated, the runtime stores the command-line program arguments into memory.
+As is standard for C programs, the first argument is always the name of the program being run (i.e.\ the name of the WebAssembly binary).
+Arguments are passed to the \CInline{main} function as an array of \CInline{char} pointers (\CInline{argv}), plus the argument count (\CInline{argc}).
 To facilitate this, the runtime first allocates space for the array of pointers, at the compile-time known address immediately after the global variables.
 After the pointer array, the actual argument values are stored (as strings), and each corresponding pointer is set (\ccref{fig:program args memory structure}).
 The runtime then sets the \gls{sp} to immediately after the last argument.
@@ -756,6 +773,8 @@ The runtime then sets the \gls{sp} to immediately after the last argument.
   \caption{Memory structure of program arguments, with addresses increasing to the right.}
   \label{fig:program args memory structure}
 \end{figure}
+
+Finally, the runtime calls the exported \JSInline{main} function, with the values of \JSInline{argc} and \JSInline{argv} as parameters.
 
 \section{Optimisations}
 \label{sec:impl:optimisations}

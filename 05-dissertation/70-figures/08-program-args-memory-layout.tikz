@@ -22,7 +22,8 @@
     \node [style=none] (30) at (20.25, 0.75) {};
     \node [style=none] (31) at (20.25, -0.75) {};
     \node [style=none, anchor=base, text=tikzgrey] (32) at (-10, -0.25) {Globals};
-    \node [style=none, anchor=base, text=tikzgrey] (32) at (18.25, -0.25) {Call stack};
+    \node [style=none, anchor=base, text=tikzgrey] (33) at (18.25, -0.25) {Call stack};
+    \node [style=none, font={\ttfamily}, inner sep=5] (34) at (-8, -2.5) {argv};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=line] (6.center) to (7.center);
@@ -45,5 +46,6 @@
     \draw [style=dashed normal, draw=tikzgrey] (29.center) to (7.center);
     \draw [style=dashed normal, draw=tikzgrey] (30.center) to (18.center);
     \draw [style=dashed normal, draw=tikzgrey] (31.center) to (19.center);
+		\draw [style=Arrow] (34) to (7.center);
 	\end{pgfonlayer}
 \end{tikzpicture}
