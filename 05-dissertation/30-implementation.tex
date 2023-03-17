@@ -580,6 +580,10 @@ Starting with a copy of the set of possible branch targets of a label, we iterat
 
 \section{Back End: Target Code Generation}
 
+\begin{mrwComment}
+- Int and vector encoding?
+\end{mrwComment}
+
 In the back end, I defined data structures to directly represent a WebAssembly module with its constituent sections.
 I also defined a \RustInline{WasmInstruction} enum to represent all possible WebAssembly instructions, and data structures to represent value types.
 The back end generates a \RustInline{WasmModule} containing \RustInline{WasmInstruction}s, the byte representation of which is written out to a binary file as output of the compiler.
@@ -623,6 +627,11 @@ This means the address of the destination variable needs to be pushed onto the s
   \label{lst:converting add instr to wasm code}
 \end{listing}
 
+I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly-typed load and store instructions respectively.
+The \RustInline{store} function encapsulates the fact that the address operand has to come before the value to store; this helps to ensure correctness as it is only defined in one place.
+
+I used the same ID generator pattern as in the middle end, to generate unique indices for items in the WebAssembly module, such as functions and types.
+
 \subsection{Memory Layout}
 
 One of the other main functions of the back end is to generate code that manages the memory layout.
@@ -657,25 +666,71 @@ I did not implement heap storage, so memory is only used from one end, unlike in
 \subsection{Stack Frame Operations}
 
 Whenever a function is called, a new stack frame is constructed at the top of the stack in memory.
+\Ccref{fig:stack frame layout} shows the structure of each stack frame.
 
 \begin{figure}[ht]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/07-stack-frame-layout}}
   \caption{Stack frame layout, with addresses increasing downwards.}
-  \label{fig:}
+  \label{fig:stack frame layout}
 \end{figure}
 
-\begin{mrwComment}
-- Call stack manipulation
+I defined callee/caller conventions for pushing and popping stack frames.
+The caller is responsible for constructing the frame with the previous \gls{fp} value, space for the return address, and any function parameters.
+The caller also deallocates the stack frame once the function returns.
+The callee is responsible for allocating space for its local variables on the stack (discussed in \ccref{sec:impl:local variable allocation} below).
 
-- Memory manipulation functions -- load/store var of given type
+The procedure for pushing a new stack frame is the following:
 
-- talk about naive var allocation strategy
+\begin{itemize}[nosep]
+\item
+Store the current \gls{fp} at the top of the stack.
+\item
+Copy the current \gls{sp} to Temp \gls{fp}: the address of the start of the stack frame.
+\item
+Allocate space for the return value on top of the stack, according to the return type.
+\item
+Store each function parameter on top of the stack.
+This is either copying a variable from the stack frame below or storing a constant.
+\item
+Set the \gls{fp} to the value held in Temp \gls{fp}.
+\end{itemize}
 
-- Int and vector encoding
+Using the temporary \gls{fp} here is necessary because if we directly wrote to the \gls{fp}, we would not be able to copy any variables in as parameters.
+(Local variables have \gls{fp}-relative addresses.)
+We also cannot wait to save the new \gls{fp} address until after we have copied the variables, because by then the \gls{sp} has been moved and no longer points to the start of the stack frame.
+(The \gls{sp} is updated every time a value is stored on top of the stack.)
 
-- Used IdGenerator pattern again
-\end{mrwComment}
+Popping a stack frame is simpler:
+
+\begin{itemize}[nosep]
+\item
+Set the \gls{sp} to the current value of the \gls{fp}.
+The new top of the stack is the top of the previous stack frame.
+\item
+Restore the previous value of the \gls{fp}.
+\item
+If the function returns a result to a variable, copy the return value from the stack frame to the destination variable.
+\end{itemize}
+
+We can pop the frame simply by moving the \gls{sp} because the data above the \gls{sp} will never be read; when the stack grows again, it will be overwritten.
+
+\subsection{Local Variable Allocation}
+\label{sec:impl:local variable allocation}
+
+Initially I implemented a naive variable allocation strategy.
+As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
+
+Variable allocation is done at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a runtime address table.
+Only in specific cases---variable-length arrays, for example---are variables allocated at runtime.
+My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction which takes the number of bytes to allocate as an operand.
+
+Each variable, including temporary variables, is allocated a dedicated byte range in memory; none of the variables overlap.
+This safely maintains the programmer's memory model, however it is an inefficient use of memory, hence the later optimisation.
+
+Local variables are stored as part of the function stack frame, the address of which is runtime-dependent.
+Therefore, variables are allocated as offsets from the \gls{fp}.
+At runtime, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
 
 \section{Runtime Environment}
 \label{sec:impl:runtime}
@@ -720,6 +775,9 @@ Defn of tail-call optimisation
 Why do the optimisation
 %TC:endignore
 \end{mrwComment}
+
+\subsection{Stack Allocation Policy}
+\label{sec:impl:optimised stack allocation}
 
 \section{Summary}
 
