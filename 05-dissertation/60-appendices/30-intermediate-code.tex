@@ -2,114 +2,113 @@
 
 \begin{document}
 
-\chapter{Intermediate Code}
-\label{app:intermediate code}
+\chapter{Intermediate Code}\label{app:intermediate code}
 
-\texttt{x} and \texttt{y} can either be variables or constants, used as operands to instructions.
-\texttt{t} is a destination variable.
+\IrCode{x} and \IrCode{y} can either be variables or constants, used as operands to instructions.
+\IrCode{t} is a destination variable.
 
-\begin{xltabular}{\textwidth}{>{\ttfamily}lX}
+\begin{xltabular}{\textwidth}{lX}
 \toprule
-t = x & Simple Assignment \\
+\IrCode{t = x} & Simple Assignment \\
 \midrule
-t = load from x & Load from and store to memory \\
-store x to addr y &  \\
+\IrCode{t = load from x} & Load from and store to memory \\
+\IrCode{store x to addr y} &  \\
 \midrule
-declare var t & Declare a new variable \texttt{t}. \\
-allocate x bytes for var y & Allocate memory for \texttt{y} (used for allocating aggregate data structures e.g.\ arrays). \\
+\IrCode{declare var t} & Declare a new variable \IrCode{t}. \\
+\IrCode{allocate x bytes for var y} & Allocate memory for \IrCode{y} (used for allocating aggregate data structures e.g.\ arrays). \\
 \midrule
-reference var x & A non-executable instruction used internally to mark a variable as live at this program point. \\
+\IrCode{reference var x} & A non-executable instruction used internally to mark a variable as live at this program point. \\
 \midrule
-t = \&x & Address-of operator \\
-t = \~x & Bitwise \textsc{not} \\
-t = !x & Logical \textsc{not} \\
+\IrCode{t = \&x} & Address-of operator \\
+\IrCode{t = \char`\~x} & Bitwise \textsc{not} \\
+\IrCode{t = !x} & Logical \textsc{not} \\
 \midrule
-t = x * y & Multiplication \\
-t = x / y & Division \\
-t = x \% y & Modulus \\
-t = x + y & Addition \\
-t = x - y & Subtraction \\
-t = x << y & Left-shift \\
-t = x >> y & Right-shift (signed-extending for signed \texttt{x}, zero-filling for unsigned \texttt{x}) \\
-t = x \& y & Bitwise \textsc{and} \\
-t = x | y & Bitwise \textsc{or} \\
-t = x \char`\^\ y & Bitwise \textsc{xor} \\
-t = x \&\& y & Logical \textsc{and} \\
-t = x || y & Logical \textsc{or} \\
-t = x < y & Less-than comparison \\
-t = x > y & Greater-than comparison \\
-t = x <= y & Less-than or equal comparison \\
-t = x >= y & Greater-than or equal comparison \\
-t = x == y & Equality comparison \\
-t = x != y & Not equal comparison \\
+\IrCode{t = x * y} & Multiplication \\
+\IrCode{t = x / y} & Division \\
+\IrCode{t = x \% y} & Modulus \\
+\IrCode{t = x + y} & Addition \\
+\IrCode{t = x - y} & Subtraction \\
+\IrCode{t = x << y} & Left-shift \\
+\IrCode{t = x >> y} & Right-shift (signed-extending for signed \IrCode{x}, zero-filling for unsigned \IrCode{x}) \\
+\IrCode{t = x \& y} & Bitwise \textsc{and} \\
+\IrCode{t = x | y} & Bitwise \textsc{or} \\
+\IrCode{t = x \char`\^\ y} & Bitwise \textsc{xor} \\
+\IrCode{t = x \&\& y} & Logical \textsc{and} \\
+\IrCode{t = x || y} & Logical \textsc{or} \\
+\IrCode{t = x < y} & Less-than comparison \\
+\IrCode{t = x > y} & Greater-than comparison \\
+\IrCode{t = x <= y} & Less-than or equal comparison \\
+\IrCode{t = x >= y} & Greater-than or equal comparison \\
+\IrCode{t = x == y} & Equality comparison \\
+\IrCode{t = x != y} & Not equal comparison \\
 \midrule
-t = call f(p\textsubscript{1}, p\textsubscript{2}, ...) & Call function \texttt{f} with parameters \texttt{p\textsubscript{i}} (either variables or constants) \\
-tail-call f(p\textsubscript{1}, p\textsubscript{2}, ...) & Call function \texttt{f} and return the result from the current function \\
-return [x] & Return from the current function. The return value \texttt{x} is optional. \\
+\IrCode{t = call f(p\textsubscript{1}, p\textsubscript{2}, ...)} & Call function \IrCode{f} with parameters \IrCode{p\textsubscript{i}} (either variables or constants) \\
+\IrCode{tail-call f(p\textsubscript{1}, p\textsubscript{2}, ...)} & Call function \IrCode{f} and return the result from the current function \\
+\IrCode{return [x]} & Return from the current function. The return value \IrCode{x} is optional. \\
 \midrule
-label <l> & Attach a label to the current program point (immediately before the next instruction). \\
-br <l> & Unconditional branch \\
-br <l> if x == y & Conditional branch; executed if operands are equal. \\
-br <l> if x != y & Conditional branch; executed if operands are not equal. \\
+\IrCode{label <l>} & Attach a label to the current program point (immediately before the next instruction). \\
+\IrCode{br <l>} & Unconditional branch \\
+\IrCode{br <l> if x == y} & Conditional branch; executed if operands are equal. \\
+\IrCode{br <l> if x != y} & Conditional branch; executed if operands are not equal. \\
 \midrule
-t = \&<sid> & Static address of the string literal with id <sid> \\
+\IrCode{t = \&<sid>} & Static address of the string literal with id <sid> \\
 \midrule
-t = (i8 $\to$ i16) x & Char promotions \\
-t = (i8 $\to$ u16) x &  \\
-t = (u8 $\to$ u16) x &  \\
-t = (u8 $\to$ u16) x &  \\
+\IrCode{t = (i8 $\to$ i16) x} & Char promotions \\
+\IrCode{t = (i8 $\to$ u16) x} &  \\
+\IrCode{t = (u8 $\to$ u16) x} &  \\
+\IrCode{t = (u8 $\to$ u16) x} &  \\
 \midrule
-t = (i16 $\to$ i32) x & Promotions to signed integer \\
-t = (u16 $\to$ i32) x &  \\
+\IrCode{t = (i16 $\to$ i32) x} & Promotions to signed integer \\
+\IrCode{t = (u16 $\to$ i32) x} &  \\
 \midrule
-t = (i16 $\to$ u32) x & Promotions to unsigned integer \\
-t = (u16 $\to$ u32) x &  \\
-t = (i32 $\to$ u32) x &  \\
+\IrCode{t = (i16 $\to$ u32) x} & Promotions to unsigned integer \\
+\IrCode{t = (u16 $\to$ u32) x} &  \\
+\IrCode{t = (i32 $\to$ u32) x} &  \\
 \midrule
-t = (i32 $\to$ i64) x & Promotions to signed long \\
-t = (u32 $\to$ i64) x &  \\
+\IrCode{t = (i32 $\to$ i64) x} & Promotions to signed long \\
+\IrCode{t = (u32 $\to$ i64) x} &  \\
 \midrule
-t = (i32 $\to$ u64) x & Promotions to unsigned long \\
-t = (u32 $\to$ u64) x &  \\
-t = (i64 $\to$ u64) x &  \\
+\IrCode{t = (i32 $\to$ u64) x} & Promotions to unsigned long \\
+\IrCode{t = (u32 $\to$ u64) x} &  \\
+\IrCode{t = (i64 $\to$ u64) x} &  \\
 \midrule
-t = (u32 $\to$ f32) x & Integer to float conversions \\
-t = (i32 $\to$ f32) x & \\
-t = (u64 $\to$ f32) x & \\
-t = (i64 $\to$ f32) x & \\
+\IrCode{t = (u32 $\to$ f32) x} & Integer to float conversions \\
+\IrCode{t = (i32 $\to$ f32) x} & \\
+\IrCode{t = (u64 $\to$ f32) x} & \\
+\IrCode{t = (i64 $\to$ f32) x} & \\
 \midrule
-t = (u32 $\to$ f64) x & Integer to double conversions \\
-t = (i32 $\to$ f64) x & \\
-t = (u64 $\to$ f64) x & \\
-t = (i64 $\to$ f64) x & \\
+\IrCode{t = (u32 $\to$ f64) x} & Integer to double conversions \\
+\IrCode{t = (i32 $\to$ f64) x} & \\
+\IrCode{t = (u64 $\to$ f64) x} & \\
+\IrCode{t = (i64 $\to$ f64) x} & \\
 \midrule
-t = (f32 $\to$ f64) x & Float to double promotion \\
+\IrCode{t = (f32 $\to$ f64) x} & Float to double promotion \\
 \midrule
-t = (f64 $\to$ i32) x & Double to int conversion \\
+\IrCode{t = (f64 $\to$ i32) x} & Double to int conversion \\
 \midrule
-t = (i32 $\to$ i8) x & Integer truncation \\
-t = (u32 $\to$ i8) x & \\
-t = (i64 $\to$ i8) x & \\
-t = (u64 $\to$ i8) x & \\
-t = (i32 $\to$ u8) x & \\
-t = (u32 $\to$ u8) x & \\
-t = (i64 $\to$ u8) x & \\
-t = (u64 $\to$ u8) x & \\
-t = (i64 $\to$ i32) x & \\
-t = (u64 $\to$ i32) x & \\
+\IrCode{t = (i32 $\to$ i8) x} & Integer truncation \\
+\IrCode{t = (u32 $\to$ i8) x} & \\
+\IrCode{t = (i64 $\to$ i8) x} & \\
+\IrCode{t = (u64 $\to$ i8) x} & \\
+\IrCode{t = (i32 $\to$ u8) x} & \\
+\IrCode{t = (u32 $\to$ u8) x} & \\
+\IrCode{t = (i64 $\to$ u8) x} & \\
+\IrCode{t = (u64 $\to$ u8) x} & \\
+\IrCode{t = (i64 $\to$ i32) x} & \\
+\IrCode{t = (u64 $\to$ i32) x} & \\
 \midrule
-t = (u32 $\to$ *) x & Conversions between integer and pointer \\
-t = (i32 $\to$ *) x & \\
-t = (* $\to$ i32) x & \\
+\IrCode{t = (u32 $\to$ *) x} & Conversions between integer and pointer \\
+\IrCode{t = (i32 $\to$ *) x} & \\
+\IrCode{t = (* $\to$ i32) x} & \\
 \midrule
-nop & No-op \\
+\IrCode{nop} & No-op \\
 \midrule
-break <loop_block_id> & \multirow[t]{3}{=}{Control-flow instructions inserted by the Relooper algorithm as it processes branch instructions.} \\
-continue <loop_block_id> &  \\
-end handled <multiple_block_id> &  \\
+\IrCode{break <loop_block_id>} & \multirow[t]{3}{=}{Control-flow instructions inserted by the Relooper algorithm as it processes branch instructions.} \\
+\IrCode{continue <loop_block_id>} &  \\
+\IrCode{end handled <multiple_block_id>} &  \\
 \midrule
-if x == y \{\} else \{\} & \multirow[t]{5}{=}{Conditional control flow instructions with nested instructions for each branch. These are only inserted by the Relooper algorithm, to replace a conditional branch with conditionally setting the label variable and then branching.} \\
-if x != y \{\} else \{\} &  \\
+\IrCode{if x == y \{\} else \{\}} & \multirow[t]{5}{=}{Conditional control flow instructions with nested instructions for each branch. These are only inserted by the Relooper algorithm, to replace a conditional branch with conditionally setting the label variable and then branching.} \\
+\IrCode{if x != y \{\} else \{\}} &  \\
 \\\\\\
 \bottomrule
 \end{xltabular}
