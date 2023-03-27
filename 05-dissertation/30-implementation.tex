@@ -6,7 +6,7 @@
 
 \begin{mrwComment}
 %TC:ignore
-Word budget: \textasciitilde 4500--5400 words
+Word budget: \textasciitilde4500--5400 words
 %TC:endignore
 \end{mrwComment}
 
@@ -23,7 +23,7 @@ Describe high-level structure of codebase.
 
 Say that I wrote it from scratch.
 
--> mention LALRPOP parser generator used for .lalrpop files
+-> mention LALRPOP parser generator used for \texttt{.lalrpop} files
 %TC:endignore
 \end{mrwComment}
 
@@ -40,34 +40,33 @@ The high-level structure of the codebase is shown below.
 All the code for the compiler is in the \Dirname{src} directory.
 The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
 
-\newlength\IndentWidth
-\setlength\IndentWidth{1em}
+\newlength\IndentWidth\setlength\IndentWidth{1em}
 \NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
 \definecolor{TableHlineColour}{HTML}{ababab}
 
 \begin{xltabular}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
-\hline
-\Dirname{src} & Compiler source code. \\\hline
-\Indent{1}\Dirname{program_config} & Compiler constants and runtime options data structures. \\\hline
-\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline
-\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline
-\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline
-\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline
-\Indent{1}\Dirname{back_end} & Target code generation stage. \\\hline
-\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline
-\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline
-\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline
-\Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline
-\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline
-\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline
-\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline
-\Dirname{runtime} & Node.js runtime environment. \\\hline
-\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline
-\Dirname{tools} &  \\\hline
-\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline
-\Indent{1}\Filename{testsuite.py} & Test runner script. \\\hline
-\Dirname{tests} & Automated test specifications. \\\hline
+\hline % chktex 44
+\Dirname{src} & Compiler source code. \\\hline % chktex 44
+\Indent{1}\Dirname{program_config} & Compiler constants and runtime options data structures. \\\hline % chktex 44
+\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline % chktex 44
+\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline % chktex 44
+\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline % chktex 44
+\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline % chktex 44
+\Indent{1}\Dirname{back_end} & Target code generation stage. \\\hline % chktex 44
+\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline % chktex 44
+\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline % chktex 44
+\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline % chktex 44
+\Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
+\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline % chktex 44
+\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline % chktex 44
+\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline % chktex 44
+\Dirname{runtime} & Node.js runtime environment. \\\hline % chktex 44
+\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline % chktex 44
+\Dirname{tools} &  \\\hline % chktex 44
+\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline % chktex 44
+\Indent{1}\Filename{testsuite.py} & Test runner script. \\\hline % chktex 44
+\Dirname{tests} & Automated test specifications. \\\hline % chktex 44
 \end{xltabular}
 
 
@@ -79,7 +78,7 @@ The other directories contain the runtime environment code, skeleton standard li
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
   \caption{Project structure, highlighting the \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end}.}
-  \label{fig:project flowchart}
+  \label{fig:project flowchart} % chktex 24
 \end{figure}
 
 Each solid box represents a module of the project, transforming the input data representation into the output representation.
@@ -147,7 +146,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
   \centering
   \tikzfig{70-figures/10-lexer-fsm/00-numbers}
   \caption{Finite state machine for lexing number literals.}
-  \label{fig:lexing numbers fsm}
+  \label{fig:lexing numbers fsm} % chktex 24
 \end{figure}
 
 \Ccref{fig:lexing identifiers fsm} shows the finite state machine for lexing identifiers and \CInline{typedef} names.
@@ -162,7 +161,7 @@ The lexer stores the \CInline{typedef} names that have been declared so far so t
   \centering
   \tikzfig{70-figures/10-lexer-fsm/01-identifiers}
   \caption{Finite state machine for lexing identifiers.}
-  \label{fig:lexing identifiers fsm}
+  \label{fig:lexing identifiers fsm} % chktex 24
 \end{figure}
 
 
@@ -170,7 +169,7 @@ The lexer stores the \CInline{typedef} names that have been declared so far so t
 
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
 It generates an \gls{ast} that I defined the structure of.
-Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar.
+Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar. % chktex 13
 My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
@@ -390,7 +389,7 @@ IDs are generated inductively: each ID knows how to generate the next one.
 
 To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
 At the highest level, the \gls{ast} contains a list of statements.
-For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}.
+For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}. % chktex 36
 \RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
 \RustInline{context} is the context object described in \ccref{sec:impl:context object design pattern}, which passes relevant contextual information through the functions recursively.
 
@@ -437,7 +436,7 @@ If there is no \CInline{default} block, the conditional branches are followed by
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/05-switch-case-handling}}
   \caption{\gls{ir} instructions generated for \CInline{switch} statements.}
-  \label{fig:instr structure for switch statements}
+  \label{fig:instr structure for switch statements} % chktex 24
 \end{figure}
 
 Declaration statements have a lot of different cases, each of which I had to handle separately.
@@ -458,8 +457,7 @@ I implemented a compile-time expression evaluation function that can handle arit
 Expressions are converted according to their structure, recursing into sub-expressions.
 
 
-\subsection{Context Object Design Pattern}
-\label{sec:impl:context object design pattern}
+\subsection{Context Object Design Pattern}\label{sec:impl:context object design pattern}
 
 Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
 For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
@@ -526,7 +524,7 @@ Each label starts with a \IrCode{label} instruction and ends in a \IrCode{branch
 The process of soupifying is as follows:
 
 \begin{EnumerateAlgorithm}
-\item \label[algstep]{alg:soupify:remove label fall-through}
+\item\label[algstep]{alg:soupify:remove label fall-through} % chktex 10
 Remove any label fall-through.
 By this I mean any label instruction that is not preceded by a branch, where control will flow to directly from the previous instruction.
 This is removed by inserting a branch instruction before each label instruction, if one does not already exist, branching to that label.
@@ -539,10 +537,10 @@ Insert an unconditional branch after each conditional branch, to ensure that con
 \begin{center}
 \small
 \pbox[t]{.5\textwidth}{
-\IrCode{br <l1> if ...} \\
+\IrCode{br <l1> if ...} \\ % chktex 26 chktex 11
 \IrCode{br <l2>} \\
 \IrCode{label <l2>} \\
-\IrCode{...}
+\IrCode{...} % chktex 11
 }
 \hspace{1em}
 \pbox[t]{.5\textwidth}{
@@ -555,7 +553,7 @@ Insert an unconditional branch after each conditional branch, to ensure that con
 \item
 If there is no label instruction at the very start of the instructions, add one.
 
-\item \label[algstep]{alg:soupify:merge consecutive labels}
+\item\label[algstep]{alg:soupify:merge consecutive labels} % chktex 10
 Merge any consecutive label instructions into a single instruction, updating branches to the labels accordingly.
 
 \item
@@ -566,7 +564,7 @@ Finally, divide the instructions into blocks by passing through the instructions
 All control flow between labels is made explicit.
 
 For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} is used to create a Relooper block.
-The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID.
+The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID\@.
 
 The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
 Starting with a copy of the set of possible branch targets of a label, we iteratively add the possible branch targets of each label in the set, until there are no more changes.
@@ -642,7 +640,7 @@ A large part of this is the function call stack; pushing new stack frames when f
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
   \caption{Memory structure, with addresses increasing to the right.}
-  \label{fig:memory structure}
+  \label{fig:memory structure} % chktex 24
 \end{figure}
 
 The first section of memory contains the \gls{fp} and \gls{sp}, as well as a temporary pointer storage location which is used in intermediate steps of manipulating stack frames.
@@ -661,7 +659,7 @@ Programs may accept command-line arguments, which are stored into memory by the 
 This is described in more detail in \ccref{sec:impl:runtime} below.
 
 The function call stack grows upwards dynamically from this point.
-I did not implement heap storage, so memory is only used from one end, unlike in standard C compilers such as GCC.
+I did not implement heap storage, so memory is only used from one end, unlike in standard C compilers such as GCC\@.
 
 \subsection{Stack Frame Operations}
 
@@ -672,7 +670,7 @@ Whenever a function is called, a new stack frame is constructed at the top of th
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/07-stack-frame-layout}}
   \caption{Stack frame layout, with addresses increasing downwards.}
-  \label{fig:stack frame layout}
+  \label{fig:stack frame layout} % chktex 24
 \end{figure}
 
 I defined callee/caller conventions for pushing and popping stack frames.
@@ -715,8 +713,7 @@ If the function returns a result to a variable, copy the return value from the s
 
 We can pop the frame simply by moving the \gls{sp} because the data above the \gls{sp} will never be read; when the stack grows again, it will be overwritten.
 
-\subsection{Local Variable Allocation}
-\label{sec:impl:local variable allocation}
+\subsection{Local Variable Allocation}\label{sec:impl:local variable allocation}
 
 Initially I implemented a naive variable allocation strategy.
 As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
@@ -732,8 +729,7 @@ Local variables are stored as part of the function stack frame, the address of w
 Therefore, variables are allocated as offsets from the \gls{fp}.
 At runtime, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
 
-\section{Runtime Environment}
-\label{sec:impl:runtime}
+\section{Runtime Environment}\label{sec:impl:runtime}
 
 \begin{mrwComment}
 %TC:ignore
@@ -770,20 +766,46 @@ The runtime then sets the \gls{sp} to immediately after the last argument.
 \begin{figure}[ht]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/08-program-args-memory-layout}}
-  \caption{Memory structure of program arguments, with addresses increasing to the right.}
-  \label{fig:program args memory structure}
+  \caption{Memory structure of program arguments, with addresses increasing to the right. Here, \CInline{argc}${} = 2$.}
+  \label{fig:program args memory structure} % chktex 24
 \end{figure}
 
 Finally, the runtime calls the exported \JSInline{main} function, with the values of \JSInline{argc} and \JSInline{argv} as parameters.
 
-\section{Optimisations}
-\label{sec:impl:optimisations}
+\section{Optimisations}\label{sec:impl:optimisations}
 
-\begin{mrwComment}
-Added profiling code
-\end{mrwComment}
+After completing the main compiler pipeline, I implemented optimisations in the middle and back ends.
+I performed unreachable procedure elimination and tail-call optimisation in the middle end, and in the back end I created a more optimal stack allocation policy for local variables.
 
 \subsection{Unreachable Procedure Elimination}
+
+Unreachable procedure elimination removes all functions that are never called.
+I do not support function pointers; all function calls are direct.
+Therefore, if no \IrCode{call} instruction references a particular function, that function is guaranteed to never be called.
+
+First, the call graph is generated.
+This is a directed graph where each node is a function in the program and each edge represents a syntactic function call.
+To maintain correctness, the constructed graph is a superset of the \emph{semantic} call graph, which contains all the function calls that can happen in actual execution.
+The semantic graph is undecidable at compile time\footnote{Due to the undecidability of arithmetic, it is not possible to decide in general which control flow path will be taken.}, so we calculate the syntactic call graph.
+
+I used an adjacency list to store the call graph, since the graph is likely to be sparse.
+(An adjacency matrix would be more suitable for densely-connected graphs.)
+The call graph data structure also has a set of entry nodes, which are functions that are called from the global scope of the program (e.g.\ \CInline{main()}). % chktex 36
+
+To generate the graph, all functions in the \gls{ir} are added as nodes, then an edge is added for every \IrCode{call} instruction.
+For a \IrCode{call y} instruction found inside function \IrCode{x}, a directed edge is added from node \IrCode{x} to node \IrCode{y}.
+Any functions that are called from the global scope, as well as the \CInline{main} function, are added to the set of entry nodes.
+
+Once the call graph is constructed, it is used to find functions that are never called.
+First mark every function as unused.
+I then implemented a \gls{bfs} over the graph, starting from each entry node.
+Each node we reach is marked as used.
+Once the search returns, all nodes still marked as unused can be safely removed from the program.
+
+The benefit of using a \gls{bfs} rather than simply looking for nodes with no incoming edges is that it can handle cycles.
+A program may contain cycles of functions that call each other but that are never called from the rest of the program, so the cycle is never entered.
+In this case, the nodes would have incoming edges, but would not be reached in a \gls{bfs}, allowing them to be removed.
+
 
 \subsection{Tail-Call Optimisation}
 
@@ -795,8 +817,9 @@ Why do the optimisation
 %TC:endignore
 \end{mrwComment}
 
-\subsection{Stack Allocation Policy}
-\label{sec:impl:optimised stack allocation}
+
+
+\subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
 \section{Summary}
 
