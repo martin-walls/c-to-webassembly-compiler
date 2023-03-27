@@ -524,7 +524,7 @@ Each label starts with a \IrCode{label} instruction and ends in a \IrCode{branch
 The process of soupifying is as follows:
 
 \begin{EnumerateAlgorithm}
-\item\label[algstep]{alg:soupify:remove label fall-through} % chktex 10
+\item\label[algstep]{alg:soupify:remove label fall-through}
 Remove any label fall-through.
 By this I mean any label instruction that is not preceded by a branch, where control will flow to directly from the previous instruction.
 This is removed by inserting a branch instruction before each label instruction, if one does not already exist, branching to that label.
@@ -553,7 +553,7 @@ Insert an unconditional branch after each conditional branch, to ensure that con
 \item
 If there is no label instruction at the very start of the instructions, add one.
 
-\item\label[algstep]{alg:soupify:merge consecutive labels} % chktex 10
+\item\label[algstep]{alg:soupify:merge consecutive labels}
 Merge any consecutive label instructions into a single instruction, updating branches to the labels accordingly.
 
 \item
@@ -817,7 +817,49 @@ Why do the optimisation
 %TC:endignore
 \end{mrwComment}
 
+When a function is called recursively, a new stack frame is pushed onto the call stack.
+A recursive tail-call is when the recursive call is the last operation of the calling function, and the result from the recursive call is directly returned from the caller.
+In these cases, the caller's stack frame is unneeded as soon as the recursive call is made; when the recursive call returns, the return value is copied to the stack frame below, but nothing more is done.
+Therefore, tail-call optimisation aims to remove the unnecessary stack frames, thereby reducing the amount of stack memory used.
+The new stack frame replaces the caller's stack frame, instead of being pushed on top of it.
 
+This can have a dramatic impact on memory usage; it turns a function's memory usage from $\bigo{n}$ to $\bigo{1}$ (where $n$ is the recursion depth).
+Not only does this make a program much more efficient, but for deep enough recursion it allows programs to run that would otherwise crash due to running out of memory.
+
+There is a distinction between general tail-calls and recursive tail-calls. In general, a tail-call is any function call that is the last action of a function\footnote{A tail-call necessarily has the same return type as the calling function, because otherwise an explicit type conversion instruction would already have been inserted before the \IrCode{return} instruction.}, whereas a recursive tail-call is specifically a recursive call.
+Recursive tail-calls are easier to optimise because the function signature is the same, and also have the greatest performance impact because many recursive calls may be made.
+
+Initially I implemented this optimisation by replacing the stack frame in the target code generation stage, however this did not actually work properly.
+Function calls are implemented using WebAssembly functions and the \WasmInstr{call} instruction, which means that the WebAssembly virtual machine has its own call stack as well as the call stack I manage in memory.
+At large recursion depths, the WebAssembly stack was still running out of memory.
+Instead, I implemented an approach of transforming the recursion into iteration in the \gls{ir} stage.
+This was much more successful.
+However, I kept the old optimisation for the cases of non-recursive tail-calls, because it does still reduce memory usage there.
+I will describe both approaches in turn below.
+
+\subsubsection{Approach 1: Replacing the Caller's Stack Frame at Runtime}
+
+My first approach was to replace the caller's stack frame at runtime rather than push a new stack frame on top whenever a tail-call is made.
+
+To do this, in the middle end we find all \IrCode{call} instructions that are directly returned from the function, and replace them with a \IrCode{tail-call} instruction.
+
+In the target code generation stage, \IrCode{tail-call} instructions are handled by re-using the current stack frame instead of pushing a new one.
+The construction of this is very similar to how a stack frame is normally pushed.
+The frame pointer and space for the return value are left as they are; they don't need to be changed for the new stack frame.
+
+To store the parameters in the new stack frame, first they are copied to a region of unused memory above the stack, then copied to their respective positions in the stack frame. This ensures the needed values in the old stack frame are not overwritten by the new stack frame before they are used.
+
+This approach works for both recursive and non-recursive tail-calls.
+However, as described above, it is not ideal for recursive tail-calls, because of WebAssembly's own function call stack.
+Therefore I implemented the second approach below.
+
+\subsubsection{Approach 2: Transforming Recursion to Iteration}
+
+\begin{EnumerateAlgorithm}
+\item Find all \IrCode{call} instructions that are directly returned from the function, that are recursive calls.
+\item For each argument to the recursive call, copy it to the variable holding the corresponding parameter in the caller's stack frame.
+\item Insert a \IrCode{br} instruction back to the start of the function.
+\end{EnumerateAlgorithm}
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
