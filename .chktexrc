@@ -1,0 +1,10 @@
+# Needs to be in the root of the Git repo, so that null-lsp will find it
+
+# Don't lint inside these environments
+VerbEnvir { mrwComment CListing GrammarListing RustListing WasmListing IrCodeListing PseudocodeListing }
+
+# Don't lint these commands' arguments
+WipeArg { \CInline:{} \GrammarInline:{} \JSInline:{} \RustInline:{} \WasmInline:{} \WasmInstr:{} \IrCode:{}
+            \label:[]{} }
+
+TeXInputs { 05-dissertation }
