@@ -54,7 +54,7 @@ The generated binary would not be correct if any of the stages had not been succ
 I used a variety of test programs to verify the success of the fifth criteria. This is described in \ccref{sec:eval:correctness testing}.
 
 
-\section{Correctness Testing} \label{sec:eval:correctness testing}
+\section{Correctness Testing}\label{sec:eval:correctness testing}
 
 I wrote a suite of test programs in C to evaluate the correctness and performance of my compiler.
 There were two types of program:
@@ -75,7 +75,7 @@ Six of the test programs I used were sourced from Clib \ccite{clib}, which conta
 The remaining five full programs and all 18 unit test programs were written by myself.
 
 For all my tests, I used GCC\footnote{GCC version 11.3.1.} as the reference for correctness.
-I deemed a program to be correct if it produced the same output as when compiled with GCC.
+I deemed a program to be correct if it produced the same output as when compiled with GCC\@.
 To facilitate this, I made liberal use of \texttt{printf}, to output the results of computations.
 
 I wrote a test runner script to ensure that I maintained correctness as I continued to develop the compiler, fix bugs, and implement optimisations.
@@ -95,7 +95,7 @@ This ensured that the version of my project in source control was always correct
 
 
 
-\section{Impacts of Optimisations} \label{sec:eval:optimisations}
+\section{Impacts of Optimisations}\label{sec:eval:optimisations}
 
 In the following sections, I will evaluate the impacts that the optimisations I implemented had.
 For unreachable procedure elimination, I will evaluate the reduction in code size.
@@ -161,8 +161,8 @@ In the non-optimised case, the stack usage is \bigo{n} in the number of iteratio
 \begin{figure}[ht]
   \centering
   \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
-  \caption{Stack usage for calling \texttt{sum(500, 0)} (see \ccref{lst:tail-recursive sum})}
-  \label{fig:tail-call optimisation stack use}
+  \caption{Stack usage for calling \CInline{sum(500, 0)} (see \ccref{lst:tail-recursive sum})}
+  \label{fig:tail-call optimisation stack use} % chktex 24
 \end{figure}
 
 When testing with large $n$, the non-optimised version quickly runs out of memory space, and throws an exception.
@@ -190,7 +190,7 @@ I did this because tail-call optimisation also affects how much memory is used, 
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
   \caption{Comparing optimised stack usage to unoptimised stack usage. Shorter bars represent greater improvement.}
-  \label{fig:comparing stack usage optimisation across programs}
+  \label{fig:comparing stack usage optimisation across programs} % chktex 24
 \end{figure}
 
 One of the main factors influencing the amount of improvement is the number of temporary variables generated.
@@ -209,7 +209,7 @@ Since the main stack allocations and deallocations occur on function calls and r
   \centering
   \IncludeStackPlot{01-case-compare.pgf}
   \caption{Comparing stack usage for \Filename{case.c}.}
-  \label{fig:comparing stack usage for case.c}
+  \label{fig:comparing stack usage for case.c} % chktex 24
 \end{figure}
 
 The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \CInline{case_camel()}, which corresponds to the three distinct sections of the plot.
@@ -249,7 +249,7 @@ In this instance, the optimised stack allocation policy reduced the stack size o
   \centering
   \IncludeStackPlot{02-fibonacci-compare.pgf}
   \caption{Comparing stack usage for \Filename{fibonacci.c}.}
-  \label{fig:comparing stack usage for fibonacci.c}
+  \label{fig:comparing stack usage for fibonacci.c} % chktex 24
 \end{figure}
 
 
@@ -257,7 +257,7 @@ In this instance, the optimised stack allocation policy reduced the stack size o
 \section{Summary}
 
 The main objective of this project was to produce a compiler that generated correct WebAssembly binary code.
-Through the range of testing described above, I have shown that this objective was achieved, with the definition of correctness being that the generated program behaves in the same was as when compiled with GCC.
+Through the range of testing described above, I have shown that this objective was achieved, with the definition of correctness being that the generated program behaves in the same was as when compiled with GCC\@.
 
 The objective of adding optimisations is to improve the performance of the compiled programs, while maintaining the semantic meaning of the program.
 The correctness of my optimisations was verified with the same test suite as was used to test the unoptimised compiler's correctness.
