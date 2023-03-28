@@ -809,14 +809,6 @@ In this case, the nodes would have incoming edges, but would not be reached in a
 
 \subsection{Tail-Call Optimisation}
 
-\begin{mrwComment}
-%TC:ignore
-Defn of tail-call optimisation
-
-Why do the optimisation
-%TC:endignore
-\end{mrwComment}
-
 When a function is called recursively, a new stack frame is pushed onto the call stack.
 A recursive tail-call is when the recursive call is the last operation of the calling function, and the result from the recursive call is directly returned from the caller.
 In these cases, the caller's stack frame is unneeded as soon as the recursive call is made; when the recursive call returns, the return value is copied to the stack frame below, but nothing more is done.
@@ -855,13 +847,45 @@ Therefore I implemented the second approach below.
 
 \subsubsection{Approach 2: Transforming Recursion to Iteration}
 
-\begin{EnumerateAlgorithm}
-\item Find all \IrCode{call} instructions that are directly returned from the function, that are recursive calls.
-\item For each argument to the recursive call, copy it to the variable holding the corresponding parameter in the caller's stack frame.
-\item Insert a \IrCode{br} instruction back to the start of the function.
-\end{EnumerateAlgorithm}
+The second approach is entirely contained in the middle end.
+It only targets recursive tail-calls; these are where the majority of the performance gains are to be found.
+It removes the recursive calls altogether, and replaces them with iteration back to the start of the function.
+Therefore, no new stack frame will be allocated.
+
+Similarly to above, we start by finding all \IrCode{call} instructions that are both recursive and are tail-calls.
+In the current function, there is a variable holding each parameter.
+For each argument to the recursive call, we copy it to the variable holding the corresponding parameter in the current function.
+Once we have done this assignment for each parameter, we add a branch instruction to the start of the function.
+
+This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
+The recursion is now contained within a single function using iteration.
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
+
+My initial variable allocation policy is described in \ccref{sec:impl:local variable allocation} above.
+Each variable is allocated a disjoint address range in memory.
+However, this is very inefficient since most variables are temporary variables that are only used once, and many of them are not used at the same time as each other (i.e.\ they never \emph{clash}).
+
+Variables that never clash can safely be allocated to the same address range.
+The challenge of this optimisation was to find a (near) optimal way of allocating variables such that as little memory is used as possible.
+
+\begin{mrwComment}
+- remove dead variables
+
+-> necessary for LVA to work properly
+
+- generate clash graph
+
+-> generate instruction flowgraph
+
+-> live variable analysis
+
+-> any vars live at same time clash
+
+- FIFI queue of smallest least clashed variables
+
+- allocate in turn from queue
+\end{mrwComment}
 
 \section{Summary}
 
