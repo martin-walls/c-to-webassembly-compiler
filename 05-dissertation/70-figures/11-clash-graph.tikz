@@ -1,0 +1,12 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=white outlined circle, font={\ttfamily}] (0) at (-2, 2) {t0};
+		\node [style=white outlined circle, font={\ttfamily}] (1) at (2, 2) {t1};
+		\node [style=white outlined circle, font={\ttfamily}] (2) at (2, -2) {t2};
+		\node [style=white outlined circle, font={\ttfamily}] (3) at (-2, -2) {t3};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=line thick] (0) to (1);
+		\draw [style=line thick] (1) to (2);
+	\end{pgfonlayer}
+\end{tikzpicture}
