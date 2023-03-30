@@ -204,9 +204,6 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 \end{listing}
 
 \begin{listing}[!ht]
-  \begin{mrwComment}
-  Make this an AST diagram instead?
-  \end{mrwComment}
   \begin{subfigure}[t]{0.49\textwidth}
     \begin{CListing}
       if (x) {
@@ -896,7 +893,7 @@ A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{s
 First, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables referenced by instruction $n$, and $\lvaref\,(n)$ is the set of all variables assigned to by $n$.
 We then define $\mathit{live}\,(n)$, the set of variables that are live immediately before instruction $n$, as follows:
 \begin{align*}
-  \mathit{live}\,(n) &= \left( \left( \bigcup_{s \in \mathit{succ}(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
+  \mathit{live}\,(n) &= \left( \left( \bigcup_{s \,\in\, \mathit{succ}(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
 \end{align*}
 We start with all variables live at successors of $n$, remove all variables that $n$ assigns to, and add any variables that $n$ references.
 When $n$ assigns to a variable, it is no longer live for previous instructions, because any previous value has been overwritten.
@@ -923,7 +920,7 @@ I made sure to keep any side-effect producing instructions (e.g.\ function calls
         while changes {
             changes = false;
             for (instr_id, instr) in &flowgraph.instrs {
-                // $\bigcup_{s \in \mathit{succ}\,(n)} \mathit{live}\,(s)$
+                // $\bigcup_{s \,\in\, \mathit{succ}\,(n)} \mathit{live}\,(s)$
                 let mut out_live: HashSet<VarId> = HashSet::new();
                 for successor in flowgraph.successors.get(instr_id).unwrap() {
                     out_live.extend(live.get(successor).unwrap_or(&HashSet::new()).to_owned());

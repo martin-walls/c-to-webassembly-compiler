@@ -4,6 +4,9 @@
 \usepackage{mrwchapters}
 
 \setmathfont{Libertinus Math}
+% Use default Latin Modern math font for symbols.
+% See https://en.wikipedia.org/wiki/Mathematical_operators_and_symbols_in_Unicode for symbol ranges.
+\setmathfont{latinmodern-math.otf}[range={"2200-"22FF,"2A00-"2AFF}] % chktex 18
 
 % Flag to exclude environments for word count pdf
 \newif\ifCompileForWordCount % chktex 1
