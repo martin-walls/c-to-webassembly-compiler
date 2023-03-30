@@ -913,7 +913,7 @@ However, the write to the variable may occur while other variable are live; and 
 To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
 I made sure to keep any side-effect producing instructions (e.g.\ function calls) while removing assignments to variables that are not subsequently accessed.
 
-\begin{listing}[htbp]
+\begin{listing}[H]
   \begin{RustListing*}{texcomments=true}
     pub type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
     pub fn live_variable_analysis(flowgraph: &Flowgraph) -> LiveVariableMap {
@@ -968,7 +968,7 @@ When a variable has its address taken, the pointer may be passed around the prog
 Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable.
 I implemented this by storing a set of `universal clashes' in the clash graph; when checking if two variables clash, if one of them is a `universal clash', they clash even if they would otherwise not.
 
-\begin{listing}[ht]
+\begin{listing}[h]
   \begin{PseudocodeListing}
   \For {instruction $n$}
     \State $\ell \gets \mathit{live}\,(n)$
@@ -989,13 +989,33 @@ I implemented this by storing a set of `universal clashes' in the clash graph; w
 
 \subsubsection{Allocating Variables from the Clash Graph}
 
-\begin{mrwComment}
-- FIFI queue of smallest least clashed vars
+In the Part II Optimising Compilers Course, a register allocation heuristic was described which allocates variables in order of most clashes to least clashes.
+When each variable is allocated, it is allocated a register that maximally overlaps with already allocated variables, while avoiding registers containing variables it clashes with.
 
-- allocate in turn from queue
+My variable allocation problem is similar in many regards, however it has some key differences.
+I am allocating variables in memory rather than to registers, so each variable occupies a byte \emph{range} rather than a single location.
+Variables can have different sizes, and are not required to be aligned, so it is possible that variables may partially overlap (e.g.\ $\texttt{t0} \mapsto [0, 4), \texttt{t1} \mapsto [2, 6)$). % chktex 9
+There is also (effectively) no limit to the amount of memory available, compared to the very limited set of registers most compilers target.
+The goal of my optimisation is to use as little memory as possible, whereas the goal of register allocation is to most efficiently use the constrained set of registers.
 
-- prefer smaller addrs
-\end{mrwComment}
+I modified the register allocation method to the following heuristic for variable allocation:
+
+\begin{EnumerateAlgorithm}
+\item\label[algstep]{alg:allocate vars:start} Choose a variable with the least number of clashes. Break ties by choosing smaller variables.
+\item Remove the variable and its edges from the clash graph.
+\item\label[algstep]{alg:allocate vars:allocate} Allocate the variable to the lowest memory address where it doesn't clash with already allocated variables.
+\item Repeat from \ccref{alg:allocate vars:start} until the clash graph is empty.
+\end{EnumerateAlgorithm}
+
+In \ccref{alg:allocate vars:allocate}, variables are always allocated to the lowest position on the stack possible (satisfying clash constraints).
+This prioritises overlapping non-clashing variables at lower addresses; only variables that clash lots will be pushed to higher addresses.
+We want to do this to keep the stack size as small as possible.
+
+I tested allocating variables in both orders: least clashes first and most clashes first.
+I found that contrary to register allocation, allocating variables with least clashes first resulted in more efficient memory use.
+I think this is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
+In my heuristic, it is beneficial to have variables with less clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
+
 
 \Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
 In the top left is the intermediate code for which memory is being allocated.
@@ -1003,6 +1023,8 @@ The live variables at each instruction---calculated by \gls{lva}---are shows to 
 In the top right is the clash graph, showing which variables cannot be allocated to the same memory.
 The bottom left shows how the naive allocation policy would allocate the variables in memory; sequentially and non-overlapping.
 In the bottom right is the result of the optimised allocation policy: variables \texttt{t0}, \texttt{t2}, and \texttt{t3} all use the same memory location because they are never live at the same time.
+Notice how all three variables use the lowest location, rather than, for example, \texttt{t3} overlapping with \texttt{t1}.
+This is due to the heuristic of always allocating to the lowest valid address.
 
 \begin{figure}[ht]
   \begin{subfigure}[b]{0.5\textwidth}
@@ -1031,7 +1053,5 @@ In the bottom right is the result of the optimised allocation policy: variables 
   \caption{Example of optimised stack allocation policy.}
   \label{fig:optimised var allocation example} % chktex 24
 \end{figure}
-
-\section{Summary}
 
 \end{document}
