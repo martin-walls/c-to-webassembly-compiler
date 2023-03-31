@@ -11,34 +11,26 @@ Word budget: \textasciitilde4500--5400 words
 \end{mrwComment}
 
 \begin{mrwComment}
-%TC:ignore
-Describe what was actually produced.
-
 Describe any design strategies that looked ahead to the testing phase, to demonstrate professional approach
-%TC:endignore
 \end{mrwComment}
 \begin{mrwComment}
-%TC:ignore
-Describe high-level structure of codebase.
-
-Say that I wrote it from scratch.
-
--> mention LALRPOP parser generator used for \texttt{.lalrpop} files
-%TC:endignore
+  Talk about the interval tree data structure I wrote but didn't end up using?
 \end{mrwComment}
 
-\begin{mrwComment}
-Add some intro text here between chapter heading and section title.
-\end{mrwComment}
+This chapter describes the implementation of each stage of the compiler.
+\Ccref{sec:impl:system architecture} gives an overview of the project structure, and subsequent sections explain in more detail.
+
+Code snippets and figures are presented to supplement my explanations.
+Where code is given, it is simplified to highlight the implementation details being explained.
+This includes removing boilerplate code, error handling, and other features that are necessary for implementation but unhelpful for clarity.
 
 \section{Repository Overview}
 
-I developed my project in a GitHub repository, ensuring to regularly push to the cloud for backup purposes.
-This repository is a monorepo containing both my research and documentation along with my source code.
-
+I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
 The high-level structure of the codebase is shown below.
 All the code for the compiler is in the \Dirname{src} directory.
 The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
+All code was written by me.
 
 \newlength\IndentWidth\setlength\IndentWidth{1em}
 \NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
@@ -57,7 +49,7 @@ The other directories contain the runtime environment code, skeleton standard li
 \Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline % chktex 44
 \Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline % chktex 44
 \Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline % chktex 44
-\Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
+% \Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
 \Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline % chktex 44
 \Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline % chktex 44
 \Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline % chktex 44
@@ -72,7 +64,7 @@ The other directories contain the runtime environment code, skeleton standard li
 \end{xltabular}
 
 
-\section{System Architecture}
+\section{System Architecture}\label{sec:impl:system architecture}
 
 \Ccref{fig:project flowchart} describes the high-level structure of the project. The \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end} are denoted by colour.
 
@@ -289,8 +281,8 @@ Non-terminals are represented inside angle brackets, with their type and a varia
           <e1:AdditiveExpression> "+" <e2:MultiplicativeExpression>
               => ast::Expression::BinaryOp(
                   ast::BinaryOperator::Add,
-                  Box::new(e1),
-                  Box::new(e2)
+                  e1,
+                  e2
               ),
           ...
       };
@@ -303,7 +295,7 @@ Non-terminals are represented inside angle brackets, with their type and a varia
 
 LALRPOP also allows macros to be defined, which allow the grammar to be written in a more intuitive way.
 For example, I defined a macro to represent a comma-separated list of non-terminals (\ccref{lst:parser macro for comma-separated list}).
-The macro has a generic type \RustInline{T}, and automatically collects the list items into a \RustInline{Vec<T>}, which can be used by the rules that use the macro.
+The macro has a generic type \RustInline{T}, and collects the list items into a \RustInline{Vec<T>}, which can be used by the rules that use the macro.
 
 \begin{listing}[!ht]
   \begin{RustListing}
@@ -357,31 +349,32 @@ IDs are generated inductively: each ID knows how to generate the next one.
 
 \begin{listing}[!ht]
   \begin{RustListing}
-    pub trait Id {
-        fn initial_id() -> Self;
-        fn next_id(&self) -> Self;
+    trait Id {
+        fn initial_id() -> Self;   // Base case
+        fn next_id(&self) -> Self; // Generate next ID inductively
     }
 
-    pub struct IdGenerator<T: Id + Clone> {
-        max_id: Option<T>,
+    struct IdGenerator<T: Id + Clone> {
+        max_id: Option<T>,         // Internally tract the highest ID used so far
     }
 
     impl<T: Id + Clone> IdGenerator<T> {
-        pub fn new() -> Self {
+        // Static method to initialise an IdGenerator
+        fn new() -> Self {
             IdGenerator { max_id: None }
         }
-
-        pub fn new_id(&mut self) -> T {
+        // Use the IdGenerator to get a new ID
+        fn new_id(&mut self) -> T {
             let new_id = match &self.max_id {
                 None => T::initial_id(),
                 Some(id) => id.next_id(),
             };
-            self.max_id = Some(new_id.to_owned());
+            self.max_id = Some(new_id.to_owned()); // Update the stored highest ID
             new_id
         }
     }
   \end{RustListing}
-  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator}.}
+  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator} struct.}
   \label{lst:Id and IdGenerator implementation}
 \end{listing}
 
@@ -397,27 +390,36 @@ The case for a \CInline{while} statement is shown in \ccref{lst:convert while st
 Other control-flow structures are similar.
 
 \begin{listing}[!ht]
-  \begin{PseudocodeListing}
-    \Function{ConvertStatementToIR}{\textit{stmt}, \textit{program}, \textit{context}}
-      \State \textit{instrs} $\gets []$
-      \Match {\textit{stmt}}
-        \MatchCase {While(\textit{condition}, \textit{body})}
-          \State \textit{startLabel}, \textit{endLabel} $\gets$ create new labels for start and end of loop
-          \State Push new loop context to Context object
-          \State \textit{instrs} += \texttt{label <\textrm{\textit{startLabel}}>}
-          \State \textit{instrs} += \Call{ConvertExpressionToIR}{\textit{condition}, \textit{program}, \textit{context}}
-          \State \textit{instrs} += \texttt{branch <\textrm{\textit{endLabel}}> if \textrm{\textit{condition}} == 0}
-          \State \textit{instrs} += \Call{ConvertStatementToIR}{\textit{body}, \textit{program}, \textit{context}}
-          \State \textit{instrs} += \texttt{branch <\textrm{\textit{startLabel}}>}
-          \State \textit{instrs} += \texttt{label <\textrm{\textit{endLabel}}>}
-          \State Pop loop context from Context object
-        \EndMatchCase
-        \State \ldots\ other AST statement nodes \ldots
-      \EndMatch
-      \State \Return \textit{instrs}
-    \EndFunction
-  \end{PseudocodeListing}
-  \caption{Pseudocode for the \RustInline{convert_statement_to_ir()} function.}
+  \begin{RustListing}
+    fn convert_statement_to_ir(stmt: Statement, prog: &mut Program, context: &mut Context)
+            -> Vec<Instruction> {
+        let mut instrs = Vec::new();
+        match stmt {
+            Statement::While(cond, body) => {
+                let loop_start_label = prog.new_label(); // Create labels for start/end of loop
+                let loop_end_label = prog.new_label();
+                // Create a new loop context
+                context.push_loop(LoopContext::while_loop(loop_start_label, loop_end_label));
+                instrs.push(Instruction::Label(loop_start_label));
+                // Evaluate loop condition
+                let (cond_instrs, cond_var) = convert_expression_to_ir(cond, prog, context);
+                instrs.append(cond_instrs);
+                // Branch out of loop if condition is false
+                instrs.push(Instruction::BrIfEq(cond_var, Constant::Int(0), loop_end_label));
+                // Recursively convert loop body
+                instrs.append(convert_statement_to_ir(body, prog, context));
+                // Branch back to the start of the loop
+                instrs.push(Instruction::Br(loop_start_label));
+                instrs.push(Instruction::Label(loop_end_label));
+                // Remove the loop context we added
+                context.pop_loop();
+            }
+            // ... other AST statement nodes ...
+        }
+        instrs
+    }
+  \end{RustListing}
+  \caption{Generating \gls{ir} code for a \CInline{while} statement.}
   \label{lst:convert while stmt to IR pseudocode}
 \end{listing}
 
@@ -464,12 +466,12 @@ For example, it tracks the stack of nested loops and switch statements, so that 
 
 \begin{listing}[!ht]
   \begin{RustListing}
-    pub struct Context {
+    struct Context {
         loop_stack: Vec<LoopOrSwitchContext>,
         scope_stack: Vec<Scope>,
-        pub in_function_name_expr: bool,
+        in_function_name_expr: bool,
         function_names: HashMap<String, FunId>,
-        pub directly_on_lhs_of_assignment: bool,
+        directly_on_lhs_of_assignment: bool,
     }
   \end{RustListing}
   \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
@@ -509,12 +511,12 @@ Then, if both operands are an arithmetic type, and one operand is a smaller type
 This includes integer types being promoted to float types.
 
 When transforming each \gls{ast} node to intermediate code, the compiler checks that the types of the operands are valid (after unary/binary conversion) and stores the corresponding type of the result variable.
-For example, before generating a \IrCode{t = a < b} instruction, the compiler checks whether \IrCode{a} and \IrCode{b} are comparable arithmetic types---if not, a compile error is thrown---and sets the type of \IrCode{t} to \IrType{I32}\footnote{\IrType{I32} is used to represent booleans.}.
+For example, before generating the instruction \IrCode{t = a < b}, the compiler checks whether \IrCode{a} and \IrCode{b} are comparable arithmetic types---if not, a compile error is thrown---and sets the type of \IrCode{t} to \IrType{I32}\footnote{\IrType{I32} is used to represent booleans.}.
 This ensures that the \gls{ir} passed to the back end is type safe.
 
 \subsection{The Relooper Algorithm}\label{sec:impl:relooper algorithm}
 
-The Relooper algorithm is described in \ccref{sec:prep:relooper}. In this section I describe my implementation.
+The Relooper algorithm is described in \ccref{sec:prep:relooper} \textcolor{red}{\textit{[link to Preparation chapter: Relooper section]}}. In this section I describe my implementation.
 The Relooper stage takes the \gls{ir} as input, and transforming the instructions to a structure of Relooper blocks, but preserving the program metadata.
 
 First, the intermediate code is `soupified'.
@@ -562,7 +564,7 @@ Finally, divide the instructions into blocks by passing through the instructions
 \Ccrefrange{alg:soupify:remove label fall-through}{alg:soupify:merge consecutive labels} transform the instruction sequence until it can be directly split into label blocks.
 All control flow between labels is made explicit.
 
-For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} is used to create a Relooper block.
+For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} \textcolor{red}{\textit{[link to Preparation chapter: Relooper algorithm section]}} is used to create a Relooper block.
 The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID\@.
 
 The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
@@ -730,16 +732,6 @@ At runtime, a variable is accessed by first loading the \gls{fp}, then adding th
 
 \section{Runtime Environment}\label{sec:impl:runtime}
 
-\begin{mrwComment}
-%TC:ignore
-- Instantiating wasm module
-
-- stdlib functions skeleton implementation
-
-- arg passing + memory initialisation
-%TC:endignore
-\end{mrwComment}
-
 The purpose of the runtime environment is to provide an interface between the WebAssembly binary and the system, allowing it to be executed.
 I chose to use Node.js \ccite{nodejs}, because this allows the binary to be run locally.
 The other option would be to use JavaScript within a web browser, which would be the primary reason to use WebAssembly; however, for the purposes of this project that approach would have added unnecessary complexity.
@@ -901,22 +893,15 @@ We start with all variables live at successors of $n$, remove all variables that
 When $n$ assigns to a variable, it is no longer live for previous instructions, because any previous value has been overwritten.
 When $n$ references a variable, it becomes live for previous instructions, until an instruction assigns to that variable.
 
-To implement \gls{lva}, we keep iterating over every instruction in the flowgraph, applying the above equation to update the set of live variables, until there are no more changes.
+To implement \gls{lva}, we keep iterating over every instruction in the flowgraph, applying the above equation to update the set of live variables, until there are no more changes (see \Ccref{lst:lva implementation}).
 Initially the set of variables live at each instruction is the empty set.
 The algorithm is guaranteed to find the smallest set of live variables (it does not add unnecessary overapproximations).
-\Ccref{lst:lva implementation} shows my implementation.
 
-One complication of \gls{lva} I had to solve was that if a variable is assigned to but never subsequently referenced, it will never be marked as live by the analysis.
-The next stage of the optimisation then marks it as having no clashes with any other variables.
-However, the write to the variable may occur while other variable are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
-To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
-I made sure to keep any side-effect producing instructions (e.g.\ function calls) while removing assignments to variables that are not subsequently accessed.
-
-\begin{listing}[H]
+\begin{listing}[ht]
   \begin{RustListing*}{texcomments=true}
-    pub type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
-    pub fn live_variable_analysis(flowgraph: &Flowgraph) -> LiveVariableMap {
-        // For every instr, which vars are live at that point
+    // For every instr, which vars are live at that point
+    type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
+    fn live_variable_analysis(flowgraph: &Flowgraph) -> LiveVariableMap {
         let mut live: LiveVariableMap = LiveVariableMap::new();
         let mut changes = true;
         while changes {
@@ -924,19 +909,17 @@ I made sure to keep any side-effect producing instructions (e.g.\ function calls
             for (instr_id, instr) in &flowgraph.instrs {
                 // $\bigcup_{s \,\in\, \mathit{succ}\,(n)} \mathit{live}\,(s)$
                 let mut out_live: HashSet<VarId> = HashSet::new();
-                for successor in flowgraph.successors.get(instr_id).unwrap() {
-                    out_live.extend(live.get(successor).unwrap_or(&HashSet::new()).to_owned());
+                for successor in flowgraph.successors.get(instr_id) {
+                    out_live.extend(live.get(successor).unwrap_or(&HashSet::new());
                 }
-                // ${} \setminus \lvadef\,(n)$
-                for def_var in def_set(instr) {
+                for def_var in def_set(instr) { // ${} \setminus \lvadef\,(n)$
                     out_live.remove(&def_var);
                 }
-                // ${} \cup \lvaref\,(n)$
-                for ref_var in ref_set(instr) {
+                for ref_var in ref_set(instr) { // ${} \cup \lvaref\,(n)$
                     out_live.insert(ref_var);
                 }
                 // Update live variable set, and compare to previous value for changes
-                let prev_live = live.insert(instr_id.to_owned(), out_live.to_owned());
+                let prev_live = live.insert(instr_id, out_live);
                 match prev_live {
                     None => {
                         changes = true;
@@ -952,9 +935,18 @@ I made sure to keep any side-effect producing instructions (e.g.\ function calls
         live // Return the sets of live variables
     }
   \end{RustListing*}
-  \caption{\Acrlong{lva} implementation.}
+  \caption{\Acrlong{lva} implementation.}%
   \label{lst:lva implementation}
 \end{listing}
+
+One complication of \gls{lva} I had to solve was that if a variable is assigned to but never subsequently referenced, it will never be marked as live by the analysis.
+The next stage of the optimisation then marks it as having no clashes with any other variables.
+However, the write to the variable may occur while other variable are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
+To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
+I made sure to keep any side-effect producing instructions (e.g.\ function calls) while removing assignments to variables that are not subsequently accessed.
+
+% Stop the LVA code float being pushed down
+\FloatBarrier % chktex 1
 
 \subsubsection{Generating the Clash Graph}
 
@@ -967,21 +959,23 @@ When a variable has its address taken, the pointer may be passed around the prog
 Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable.
 I implemented this by storing a set of `universal clashes' in the clash graph; when checking if two variables clash, if one of them is a `universal clash', they clash even if they would otherwise not.
 
-\begin{listing}[h]
-  \begin{PseudocodeListing}
-  \For {instruction $n$}
-    \State $\ell \gets \mathit{live}\,(n)$
-    \While {$|\ell| > 1$}
-      \State $\mathit{var}_1 \gets \ell.\mathrm{pop}$()
-      \For {$\mathit{var}_2 \in \ell$}
-        \State Add edge $(v_1, v_2)$ to clash graph
-      \EndFor
-    \EndWhile
-    \If {$n$ takes the address of its operand $\mathit{var}$}
-      \State Add $\mathit{var}$ as a universal clash to clash graph
-    \EndIf
-  \EndFor
-  \end{PseudocodeListing}
+\begin{listing}[!h]
+  \begin{RustListing}
+    let live_vars = live_variable_analysis(flowgraph);
+    for (_instr_id, vars_live_at_instr) in live_vars {
+        // Add a clash between all vars simultaneously live
+        while let Some(var) = vars_live_at_instr.pop() {
+            for other_var in vars_live_at_instr {
+                clash_graph.add_clash(var, other_var);
+            }
+        }
+    }
+    for instr in flowgraph.instrs {
+        if let Instruction::AddressOf(_, _, var) = instr {
+            clash_graph.add_universal_clash(var); // Over-approximate address-taken variables
+        }
+    }
+  \end{RustListing}
   \caption{Algorithm to generate the clash graph from \gls{lva}.}
   \label{lst:clash graph generation}
 \end{listing}
@@ -1040,7 +1034,7 @@ This is due to the heuristic of always allocating to the lowest valid address.
     \scalebox{0.9}{\tikzfig{70-figures/11-clash-graph}}
     \caption{Clash graph.}
   \end{subfigure}
-  \par\bigskip
+  \par\vspace{2ex}
   \begin{subfigure}[b]{0.5\textwidth}
     \ctikzfig{70-figures/09-naive-variable-allocation}
     \caption{Naive allocation policy.}

@@ -69,6 +69,9 @@
 % Allow listings in subfigure
 \DeclareCaptionSubType{listing}
 
+% Provides command \FloatBarrier, which prevents floats being moved over it
+\usepackage{placeins}
+
 % For changing the color of \hline in repository overview table
 \usepackage{colortbl}
 
@@ -141,51 +144,35 @@
 \unless\ifCompileForWordCount % chktex 1
 \frontmatter
 
-\subfile{01-frontmatter/00-titlepage.tex}
+% \subfile{01-frontmatter/00-titlepage.tex}
 
 \pagestyle{plain}
 
-\subfile{01-frontmatter/10-declaration-of-originality.tex}
-
-\subfile{01-frontmatter/20-proforma.tex}
+% \subfile{01-frontmatter/10-declaration-of-originality.tex}
+%
+% \subfile{01-frontmatter/20-proforma.tex}
 
 \pagestyle{fancy}
 
-\tableofcontents
+% \tableofcontents
 
 \fi % ifCompileForWordCount
 
 \mainmatter % chktex 1
 
-\subfile{10-introduction}
+% \subfile{10-introduction}
 
-\subfile{20-preparation}
+% \subfile{20-preparation}
 
 \subfile{30-implementation}
 
-\subfile{40-evaluation}
+% \subfile{40-evaluation}
 
-\subfile{50-conclusions}
+% \subfile{50-conclusions}
 
 \unless\ifCompileForWordCount % chktex 1
 
-\begin{mrwComment}
-References:
-
-\begin{itemize}
-\item Relooper algorithm:~\cite{emscripten}
-\item WebAssembly spec:~\cite{wasm-spec}
-\item C grammar, Microsoft page:~\cite{c-language-grammar-microsoft}
-\item Avoiding the dangling else ambiguity in LR parsers (Wiki):~\cite{avoiding-dangling-else-ambiguity-wiki}. Wiki page references~\cite{final-solution-to-dangling-else} (``A Final Solution to the Dangling Else of ALGOL 60 and Related Languages'')
-\item C reference manual book:~\cite{c-reference-manual}
-\item CLRS algorithms textbook, for interval trees:~\cite{clrs-algorithms}
-\item LALRPOP tutorial/docs:~\cite{lalrpop-docs}
-\item WebAssembly memory guide:~\cite{wasm-definitive-guide-memory}
-\item Addressing Wasm memory:~\cite{wasm-addressing-memory}
-\end{itemize}
-\end{mrwComment}
-
-\printbibliography[heading=bibintoc]
+% \printbibliography[heading=bibintoc]
 
 % \printindex
 
@@ -201,7 +188,7 @@ References:
 
 \subfile{60-appendices/30-intermediate-code.tex}
 
-\subfile{60-appendices/00-original-proposal.tex}
+% \subfile{60-appendices/00-original-proposal.tex}
 
 \fi % ifCompileForWordCount
 
