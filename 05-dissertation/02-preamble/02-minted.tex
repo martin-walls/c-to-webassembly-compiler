@@ -24,7 +24,7 @@
 \newmintinline[RustInline]{rust}{}
 
 % WebAssembly (text format)
-\newminted[WasmListing]{wat}{escapeinside=||}
+\newminted[WasmListing]{wat}{escapeinside=||, fontsize=\small}
 \newmintinline[WasmInline]{wat}{escapeinside=||}
 
 \definecolor{WasmTypeHighlight}{HTML}{333399}
@@ -36,7 +36,8 @@
 \NewDocumentCommand{\IrType}{m}{\textcolor{IrTypeHighlight}{\textbf{\texttt{#1}}}}
 \definecolor{IrCodeHighlight}{HTML}{333399}
 \NewDocumentCommand{\IrCode}{m}{\textcolor{IrCodeHighlight}{\texttt{#1}}}
-\newminted[IrCodeListing]{text}{escapeinside=||}
+
+\newminted[TextListing]{text}{escapeinside=||, fontsize=\small}
 
 \NewDocumentCommand{\Filename}{m}{\texttt{#1}}
 \NewDocumentCommand{\Dirname}{m}{\textbf{\texttt{#1/}}}
@@ -45,18 +46,6 @@
 \usepackage{algpseudocode}
 % floating algorithm environment
 \usepackage{algorithm}
-
-% IR code listing
-% \NewDocumentEnvironment{IrCodeListing}{}
-%   {%
-%     \rule{\textwidth}{0.5pt}%
-%     \vspace{-2pt}%
-%     \begin{lstlisting}
-%   }{%
-%     \end{lstlisting}
-%     \vspace{-8pt}%
-%     \rule{\textwidth}{0.5pt}%
-%   }
 
 % pseudocode environment
 \NewDocumentEnvironment{PseudocodeListing}{}

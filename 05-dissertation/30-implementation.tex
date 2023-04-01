@@ -492,14 +492,14 @@ The following types are supported by the \gls{ir}, mirroring the types supported
 \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
 I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification doesn't specify the exact bit widths, only the minimum size.}.
-%
+
 \begin{align*}
 \textit{T} &= \IrType{I8} \vertpad \IrType{U8} \vertpad \IrType{I16} \vertpad \IrType{U16} \vertpad \IrType{I32} \vertpad \IrType{U32} \vertpad \IrType{I64} \vertpad \IrType{U64} \vertpad \IrType{F32} \vertpad \IrType{F64} \vertpad \IrType{Void} \\
 &\ \vertpad \IrType{Struct}(T[]) \vertpad \IrType{Union}(T[]) \\
 &\ \vertpad \IrType{Pointer}(T) \vertpad \IrType{Array}(T, size) \\
 &\ \vertpad \IrType{Function}(T, T[], is\_variadic) \\
 \end{align*}
-%
+
 I created a data structure to represent these types, along with methods for operations on those types.
 
 I implemented the ISO C unary and binary conversions for types \ccite[pp.~174--176]{c-reference-manual}.
@@ -604,9 +604,9 @@ This means the address of the destination variable needs to be pushed onto the s
 
 \begin{listing}[h]
   \begin{subfigure}[b]{0.28\textwidth}
-    \begin{IrCodeListing}
-      c = a + b
-    \end{IrCodeListing}
+    \begin{TextListing}
+      |\IrCode{c = a + b}|
+    \end{TextListing}
     \caption{Intermediate code.}
   \end{subfigure}
   \hfill
@@ -887,7 +887,7 @@ A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{s
 First, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables referenced by instruction $n$, and $\lvaref\,(n)$ is the set of all variables assigned to by $n$.
 We then define $\mathit{live}\,(n)$, the set of variables that are live immediately before instruction $n$, as follows:
 \begin{align*}
-  \mathit{live}\,(n) &= \left( \left( \bigcup_{s \,\in\, \mathit{succ}(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
+  \mathit{live}\,(n) &= \left( \left( \bigcup_{s \,\in\, \mathit{succ}\,(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
 \end{align*}
 We start with all variables live at successors of $n$, remove all variables that $n$ assigns to, and add any variables that $n$ references.
 When $n$ assigns to a variable, it is no longer live for previous instructions, because any previous value has been overwritten.
@@ -1021,12 +1021,12 @@ This is due to the heuristic of always allocating to the lowest valid address.
 
 \begin{figure}[ht]
   \begin{subfigure}[b]{0.5\textwidth}
-    \begin{IrCodeListing}
-    t0 = 3                 |$\{ \}$|
-    t1 = 2                 |$\{ \texttt{t0} \}$|
-    t2 = t0 + t1           |$\{ \texttt{t0}, \texttt{t1} \}$|
-    t3 = t2 + t1           |$\{ \texttt{t2}, \texttt{t1} \}$|
-    \end{IrCodeListing}
+    \begin{TextListing}
+      |\IrCode{t0 = 3}|                 |$\{ \}$|
+      |\IrCode{t1 = 2}|                 |$\{ \IrCode{t0} \}$|
+      |\IrCode{t2 = t0 + t1}|           |$\{ \IrCode{t0}, \IrCode{t1} \}$|
+      |\IrCode{t3 = t2 + t1}|           |$\{ \IrCode{t2}, \IrCode{t1} \}$|
+    \end{TextListing}
     \caption{Intermediate code, with \acrlong{lva}.}
   \end{subfigure}
   \begin{subfigure}[b]{0.5\textwidth}
@@ -1034,7 +1034,7 @@ This is due to the heuristic of always allocating to the lowest valid address.
     \scalebox{0.9}{\tikzfig{70-figures/11-clash-graph}}
     \caption{Clash graph.}
   \end{subfigure}
-  \par\vspace{2ex}
+  \par\vspace{3ex}
   \begin{subfigure}[b]{0.5\textwidth}
     \ctikzfig{70-figures/09-naive-variable-allocation}
     \caption{Naive allocation policy.}
