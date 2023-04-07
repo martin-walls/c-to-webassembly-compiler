@@ -1,17 +1,17 @@
 \begin{tikzpicture}
 	\begin{pgfonlayer}{nodelayer}
-    \node [style=none, anchor=base] (0) at (-7, -0.25) {\acrshort{fp}};
-    \node [style=none, anchor=base] (1) at (-4, -0.25) {Temp \acrshort{fp}};
-    \node [style=none, anchor=base] (2) at (-1, -0.25) {\acrshort{sp}};
+    \node [style=none, anchor=base] (0) at (-10, -0.25) {\acrshort{fp}};
+    \node [style=none, anchor=base] (1) at (-6, -0.25) {Temp \acrshort{fp}};
+    \node [style=none, anchor=base] (2) at (-2, -0.25) {\acrshort{sp}};
 		\node [style=none, anchor=base] (3) at (2.75, -0.25) {String literals};
 		\node [style=none, anchor=base] (4) at (8, -0.25) {Global vars};
 		\node [style=none, anchor=base] (5) at (13.25, -0.25) {Program args};
-		\node [style=none] (6) at (-8, 0.75) {};
-		\node [style=none] (7) at (-8, -0.75) {};
-		\node [style=none] (8) at (-6, -0.75) {};
-		\node [style=none] (9) at (-6, 0.75) {};
-		\node [style=none] (10) at (-2, 0.75) {};
-		\node [style=none] (11) at (-2, -0.75) {};
+		\node [style=none] (6) at (-12, 0.75) {};
+		\node [style=none] (7) at (-12, -0.75) {};
+		\node [style=none] (8) at (-8, -0.75) {};
+		\node [style=none] (9) at (-8, 0.75) {};
+		\node [style=none] (10) at (-4, 0.75) {};
+		\node [style=none] (11) at (-4, -0.75) {};
 		\node [style=none] (12) at (0, 0.75) {};
 		\node [style=none] (13) at (0, -0.75) {};
 		\node [style=none] (14) at (5.5, 0.75) {};
@@ -20,14 +20,15 @@
 		\node [style=none] (17) at (10.5, -0.75) {};
 		\node [style=none] (18) at (16, 0.75) {};
 		\node [style=none] (19) at (16, -0.75) {};
-    \node [style=none circle, inner sep=1] (22) at (16, -2.5) {\acrshort{sp}};
-		\node [style=none, font={\scriptsize}] (23) at (-8, 1.1) {0};
-		\node [style=none, font={\scriptsize}] (24) at (-6, 1.1) {4};
-		\node [style=none, font={\scriptsize}] (25) at (-2, 1.1) {8};
+    % \node [style=none circle, inner sep=1] (22) at (16, -2.5) {\acrshort{sp}};
+		\node [style=none, font={\scriptsize}] (23) at (-12, 1.1) {0};
+		\node [style=none, font={\scriptsize}] (24) at (-8, 1.1) {4};
+		\node [style=none, font={\scriptsize}] (25) at (-4, 1.1) {8};
 		\node [style=none, font={\scriptsize}] (26) at (0, 1.1) {12};
 		\node [style=none, anchor=base] (27) at (18.75, -0.25) {Call stack \textrightarrow};
 		\node [style=none] (28) at (20.75, 0.75) {};
 		\node [style=none] (29) at (20.75, -0.75) {};
+    \node [style=none] (30) at (-2, -0.75) {};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=line] (6.center) to (7.center);
@@ -49,8 +50,9 @@
 		\draw [style=line] (19.center) to (18.center);
 		\draw [style=line] (18.center) to (16.center);
 		\draw [style=line] (17.center) to (19.center);
-		\draw [style=Arrow] (22) to (19.center);
+		% \draw [style=Arrow] (22) to (19.center);
 		\draw [style=dashed normal] (18.center) to (28.center);
 		\draw [style=dashed normal] (29.center) to (19.center);
+    \draw [style=Arrow] (30.center) to +(0, -1) -| (19.center);
 	\end{pgfonlayer}
 \end{tikzpicture}

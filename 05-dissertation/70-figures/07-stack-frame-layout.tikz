@@ -4,22 +4,22 @@
 		\node [style=none] (1) at (3.5, 5) {};
 		\node [style=none] (2) at (3.5, -3) {};
 		\node [style=none] (3) at (-3.5, -3) {};
-		\node [style=none] (4) at (0, 4.25) {Prev \acrshort{fp}};
-		\node [style=none, text width=2.5cm, text centered] (9) at (0, 2.75) {Return value};
-		\node [style=none] (10) at (-3.5, 3.5) {};
-		\node [style=none] (11) at (3.5, 3.5) {};
-		\node [style=none] (12) at (0, 1) {Parameters};
-		\node [style=none] (15) at (-3.5, 2) {};
-		\node [style=none] (16) at (3.5, 2) {};
-		\node [style=none] (17) at (-3.5, 0) {};
-		\node [style=none] (18) at (3.5, 0) {};
-		\node [style=none] (19) at (0, -1.5) {Local variables};
-		\node [style=none circle, inner sep=1] (20) at (5.5, -3) {\acrshort{sp}};
-		\node [style=none circle, inner sep=1] (21) at (5.5, 5) {\acrshort{fp}};
+		\node [style=none] (4) at (0, 3.5) {Local variables};
+		\node [style=none, text width=2.5cm, text centered] (9) at (0, 1) {Parameters};
+		\node [style=none] (10) at (-3.5, 2) {};
+		\node [style=none] (11) at (3.5, 2) {};
+		\node [style=none] (12) at (0, -0.75) {Return value};
+		\node [style=none] (15) at (-3.5, 0) {};
+		\node [style=none] (16) at (3.5, 0) {};
+		\node [style=none] (17) at (-3.5, -1.5) {};
+		\node [style=none] (18) at (3.5, -1.5) {};
+		\node [style=none] (19) at (0, -2.25) {Prev \acrshort{fp}};
+		\node [style=none circle, inner sep=1] (20) at (5.5, -3) {\acrshort{fp}};
+		\node [style=none circle, inner sep=1] (21) at (5.5, 5) {\acrshort{sp}};
 		\node [style=none] (22) at (8, 0) {};
 		\node [style=none] (23) at (-8, 0) {};
-		\node [style=none, font={\scriptsize}] (24) at (-3.85, 5) {0};
-		\node [style=none, font={\scriptsize}] (25) at (-3.85, 3.5) {4};
+		\node [style=none, font={\scriptsize}] (24) at (-3.85, -3) {0};
+		\node [style=none, font={\scriptsize}] (25) at (-3.85, -1.5) {4};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
 		\draw [style=line thick] (0.center) to (1.center);

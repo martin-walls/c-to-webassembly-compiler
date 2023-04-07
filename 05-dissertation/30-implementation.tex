@@ -24,51 +24,11 @@ Code snippets and figures are presented to supplement my explanations.
 Where code is given, it is simplified to highlight the implementation details being explained.
 This includes removing boilerplate code, error handling, and other features that are necessary for implementation but unhelpful for clarity.
 
-\section{Repository Overview}
-
-I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
-The high-level structure of the codebase is shown below.
-All the code for the compiler is in the \Dirname{src} directory.
-The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
-All code was written by me.
-
-\newlength\IndentWidth\setlength\IndentWidth{1em}
-\NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
-\definecolor{TableHlineColour}{HTML}{ababab}
-
-\begin{xltabular}{\textwidth}{lX}
-\arrayrulecolor{TableHlineColour}
-\hline % chktex 44
-\Dirname{src} & Compiler source code. \\\hline % chktex 44
-\Indent{1}\Dirname{program_config} & Compiler constants and runtime options data structures. \\\hline % chktex 44
-\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline % chktex 44
-\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline % chktex 44
-\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline % chktex 44
-\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline % chktex 44
-\Indent{1}\Dirname{back_end} & Target code generation stage. \\\hline % chktex 44
-\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline % chktex 44
-\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline % chktex 44
-\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline % chktex 44
-% \Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
-\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline % chktex 44
-\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline % chktex 44
-\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline % chktex 44
-\Dirname{runtime} & Node.js runtime environment. \\\hline % chktex 44
-\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline % chktex 44
-\Dirname{tools} &  \\\hline % chktex 44
-\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline % chktex 44
-\Indent{1}\Filename{testsuite.py} & Test runner script. \\\hline % chktex 44
-\Dirname{tests} & Automated test specifications. \\\hline % chktex 44
-% Reset the rule colour for future tables
-\arrayrulecolor{black}
-\end{xltabular}
-
-
 \section{System Architecture}\label{sec:impl:system architecture}
 
 \Ccref{fig:project flowchart} describes the high-level structure of the project. The \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end} are denoted by colour.
 
-\begin{figure}[!ht]
+\begin{figure}[t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
   \caption{Project structure, highlighting the \textcolor{frontendcolor}{front end}, \textcolor{middleendcolor}{middle end}, and \textcolor{backendcolor}{back end}.}
@@ -136,7 +96,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
 \Ccref{fig:lexing numbers fsm} shows the finite state machine for lexing number literals. This handles all the different forms of number that C supports: decimal, binary, octal, hexadecimal, and floating point.
 (Note: the states leading to the ellipsis token are shown for completeness, even though the token is not a number literal, since they share the starting dot state.)
 
-\begin{figure}[!htb]
+\begin{figure}[t]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/00-numbers}
   \caption{Finite state machine for lexing number literals.}
@@ -151,7 +111,7 @@ This is where we handle the ambiguity introduced into the language.
 When we reach the end of the token, the three states will emit the corresponding token, either an identifier, keyword, or \CInline{typedef} name token respectively.
 The lexer stores the \CInline{typedef} names that have been declared so far so that it can emit the correct type of token for future names.
 
-\begin{figure}[!htb]
+\begin{figure}[t]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/01-identifiers}
   \caption{Finite state machine for lexing identifiers.}
@@ -162,9 +122,9 @@ The lexer stores the \CInline{typedef} names that have been declared so far so t
 \subsection{Parser}
 
 I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
-It generates an \gls{ast} that I defined the structure of.
+It generates an \gls{ast} for which I defined the structure.
 Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar. % chktex 13
-My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.\ \CInline{static}) and type qualifiers (e.g.\ \CInline{const}), and the middle end simply ignores them.
+My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
 
@@ -172,7 +132,7 @@ A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambigu
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem \ccite{dangling-else-wiki}.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{GrammarListing}
     if-stmt      ::= "if" "(" expr ")" stmt
     if-else-stmt ::= "if" "(" expr ")" stmt "else" stmt
@@ -183,22 +143,21 @@ If we have nested \CInline{if}/\CInline{else} statements that do not use curly b
 
 An example of the dangling else problem is shown in \ccref{lst:dangling else}.
 According to the grammar in \ccref{lst:ambiguous if-else grammar}, there are two possible parses of this program.
-Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref{lst:dangling else possible parsings}).
+Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref{lst:dangling else:belonging to inner if} and \ccref{lst:dangling else:belonging to outer if} respectively).
 
-\begin{listing}[!ht]
-  \begin{CListing}
-    if (x)
-      if (y)
-        stmt1;
-    else
-      stmt2;
-  \end{CListing}
-  \caption{Example of the dangling else problem.}
-  \label{lst:dangling else}
-\end{listing}
-
-\begin{listing}[!ht]
-  \begin{subfigure}[t]{0.49\textwidth}
+\begin{listing}[t]
+  \begin{sublisting}[b]{0.25\textwidth}
+    \begin{CListing}
+      if (x)
+        if (y)
+          stmt1;
+      else
+        stmt2;
+    \end{CListing}
+    \caption{Ambiguous source code.}
+  \end{sublisting}
+  \hfill
+  \begin{sublisting}[b]{0.35\textwidth}
     \begin{CListing}
       if (x) {
         if (y) {
@@ -208,10 +167,11 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
         }
       }
     \end{CListing}
-    \caption{\CInline{else} belongs to inner \CInline{if}.}
-  \end{subfigure}
+    \caption{Parse: \CInline{else} belongs to inner \CInline{if}.}
+    \label[listing]{lst:dangling else:belonging to inner if}
+  \end{sublisting}
   \hfill
-  \begin{subfigure}[t]{0.49\textwidth}
+  \begin{sublisting}[b]{0.35\textwidth}
     \begin{CListing}
       if (x) {
         if (y) {
@@ -221,10 +181,11 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
         stmt2;
       }
     \end{CListing}
-    \caption{\CInline{else} belongs to outer \CInline{if}.}
-  \end{subfigure}
-  \caption{Possible parsings of \ccref{lst:dangling else}.}
-  \label{lst:dangling else possible parsings}
+    \caption{Parse: \CInline{else} belongs to outer \CInline{if}.}
+    \label[listing]{lst:dangling else:belonging to outer if}
+  \end{sublisting}
+  \caption{Example of the dangling else problem.}
+  \label{lst:dangling else}
 \end{listing}
 
 C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
@@ -235,7 +196,7 @@ Any basic statements, i.e.\ statements that have no sub-statements, are added to
 All other statements that have sub-statements, such as \CInline{while}, \CInline{for}, and \CInline{switch} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.
 
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{GrammarListing}
     stmt        ::= open-stmt | closed-stmt
 
@@ -267,15 +228,15 @@ The left-hand side of the~\RustInline{=>} describes the grammar rule, and the ri
 Terminals are represented in double quotes; these are defined to map to the tokens emitted by the lexer.
 Non-terminals are represented inside angle brackets, with their type and a variable name to use in the \gls{ast} generation code.
 
-\begin{listing}[!ht]
-  \begin{subfigure}[t]{\textwidth}
+\begin{listing}[t]
+  \begin{sublisting}[t]{\textwidth}
     \begin{GrammarListing}
       additive-expression ::= additive-expression "+" multiplicative-expression
     \end{GrammarListing}
     \caption{The grammar rule for addition expressions.}
-  \end{subfigure}
+  \end{sublisting}
   \par\medskip % vertical space between subfigures
-  \begin{subfigure}[t]{\textwidth}
+  \begin{sublisting}[t]{\textwidth}
     \begin{RustListing}
       AdditiveExpression: ast::Expression = {
           <e1:AdditiveExpression> "+" <e2:MultiplicativeExpression>
@@ -288,7 +249,7 @@ Non-terminals are represented inside angle brackets, with their type and a varia
       };
     \end{RustListing}
     \caption{The LALRPOP syntax for the addition grammar rule.}
-  \end{subfigure}
+  \end{sublisting}
   \caption{In LALRPOP, the \gls{ast} generation and grammar code are combined.}
   \label{lst:AST generation code example}
 \end{listing}
@@ -297,7 +258,7 @@ LALRPOP also allows macros to be defined, which allow the grammar to be written 
 For example, I defined a macro to represent a comma-separated list of non-terminals (\ccref{lst:parser macro for comma-separated list}).
 The macro has a generic type \RustInline{T}, and collects the list items into a \RustInline{Vec<T>}, which can be used by the rules that use the macro.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{RustListing}
     CommaSepList<T>: Vec<T> = {
         <mut v:(<T> ",")*> <e:T> => {
@@ -338,6 +299,8 @@ Optimisations are run on the \gls{ir} in this stage; they are described in \ccre
 \subsection{Intermediate Code Generation}
 
 I defined a custom three-address code \gls{ir} (the instructions are listed in \ccref{app:intermediate code}).
+I decided to create a custom instruction set instead of using an existing one because it allowed me to tailor it to my compiler, with exactly the features I support. For example, the \gls{ir} does not include indirect function calls.
+I was also able to add instructions specific to the Relooper algorithm.
 The \gls{ir} contains both the program instructions and necessary metadata, such as variable type information, the mapping of variable and function names to their IDs, etc.
 The instructions and metadata are contained in separate sub-structs within the main \gls{ir} struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
 In the stage of converting the \gls{ast} to \gls{ir} code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
@@ -347,7 +310,7 @@ I created a \RustInline{Id} trait to abstract this concept, together with a gene
 The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
 IDs are generated inductively: each ID knows how to generate the next one.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{RustListing}
     trait Id {
         fn initial_id() -> Self;   // Base case
@@ -355,7 +318,7 @@ IDs are generated inductively: each ID knows how to generate the next one.
     }
 
     struct IdGenerator<T: Id + Clone> {
-        max_id: Option<T>,         // Internally tract the highest ID used so far
+        max_id: Option<T>,         // Internally track the highest ID used so far
     }
 
     impl<T: Id + Clone> IdGenerator<T> {
@@ -389,7 +352,7 @@ The core of converting a statement or expressions to \gls{ir} code is pattern ma
 The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR pseudocode}; the labels and branches to execute a while loop are added, and the instructions to evaluate the condition and body are generated recursively.
 Other control-flow structures are similar.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{RustListing}
     fn convert_statement_to_ir(stmt: Statement, prog: &mut Program, context: &mut Context)
             -> Vec<Instruction> {
@@ -433,7 +396,7 @@ This also allows \CInline{default} blocks to be easily handled; we just add an u
 If there is no \CInline{default} block, the conditional branches are followed by an unconditional branch to the end of the \CInline{switch} statement.
 \Ccref{fig:instr structure for switch statements} shows the structure of the generated instructions for \CInline{switch} statements.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/05-switch-case-handling}}
   \caption{\gls{ir} instructions generated for \CInline{switch} statements.}
@@ -448,8 +411,8 @@ For function definitions (i.e.\ declarations plus body), we transform the body c
 
 Arrays are complicated because there are multiple ways their length can be specified.
 It can be given explicitly in the declaration, or implicitly inferred from the length of the initialiser.
-To further complicate them, an explicit size can either be a static value or a variable that is only known at runtime (creating a variable-length array).
-To handle variable length arrays, an instruction is inserted to allocate space on the stack for it at runtime.
+To further complicate them, an explicit size can either be a static value or a variable that is only known at run time (creating a variable-length array).
+To handle variable-length arrays, an instruction is inserted to allocate space on the stack for it at run time.
 Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
 
 
@@ -462,9 +425,9 @@ Expressions are converted according to their structure, recursing into sub-expre
 
 Throughout the middle and back ends, I used a design pattern of passing a context object through all the function calls.
 For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} is used to track information about the current context we are in with respect to the source program.
-For example, it tracks the stack of nested loops and switch statements, so that when we convert a \CInline{break} or \CInline{continue} statement, we know where to branch to.
+It tracks the stack of nested loops and switch statements, so that when we convert a \CInline{break} or \CInline{continue} statement, we know where to branch to.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \begin{RustListing}
     struct Context {
         loop_stack: Vec<LoopOrSwitchContext>,
@@ -516,7 +479,7 @@ This ensures that the \gls{ir} passed to the back end is type safe.
 
 \subsection{The Relooper Algorithm}\label{sec:impl:relooper algorithm}
 
-The Relooper algorithm is described in \ccref{sec:prep:relooper} \textcolor{red}{\textit{[link to Preparation chapter: Relooper section]}}. In this section I describe my implementation.
+The Relooper algorithm is described in \ccref{sec:prep:relooper}. In this section I describe my implementation.
 The Relooper stage takes the \gls{ir} as input, and transforming the instructions to a structure of Relooper blocks, but preserving the program metadata.
 
 First, the intermediate code is `soupified'.
@@ -527,13 +490,15 @@ The process of soupifying is as follows:
 \begin{EnumerateAlgorithm}
 \item\label[algstep]{alg:soupify:remove label fall-through}
 Remove any label fall-through.
-By this I mean any label instruction that is not preceded by a branch, where control will flow to directly from the previous instruction.
-This is removed by inserting a branch instruction before each label instruction, if one does not already exist, branching to that label.
+By this I mean any label instruction that is not preceded by a branch in the linear instruction sequence, to which control will flow directly from the previous instruction.
+A branch instruction is inserted before each label instruction, if one does not already exist, branching to that label.
+This ensures that a label instruction is always preceded by a branch instruction along every control flow path.
 
 This will generate many redundant branch instructions, however they get removed when the Relooper blocks are transformed to target code.
 
 \item
 Insert an unconditional branch after each conditional branch, to ensure that conditional branches do not occur in the middle of a block.
+A new label is created for the unconditional branch, if necessary.
 
 \begin{center}
 \small
@@ -564,7 +529,7 @@ Finally, divide the instructions into blocks by passing through the instructions
 \Ccrefrange{alg:soupify:remove label fall-through}{alg:soupify:merge consecutive labels} transform the instruction sequence until it can be directly split into label blocks.
 All control flow between labels is made explicit.
 
-For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} \textcolor{red}{\textit{[link to Preparation chapter: Relooper algorithm section]}} is used to create a Relooper block.
+For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} is used to create a Relooper block.
 The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID\@.
 
 The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
@@ -575,6 +540,8 @@ Starting with a copy of the set of possible branch targets of a label, we iterat
 % Once an inner block has been created, branches inside it are replaced recursively
 \begin{mrwComment}
   Maybe talk a bit more about the actual relooper implementation?
+
+  - why do we need the reachability set that we've just mentioned?
 \end{mrwComment}
 
 \section{Back End: Target Code Generation}
@@ -588,7 +555,7 @@ I also defined a \RustInline{WasmInstruction} enum to represent all possible Web
 The back end generates a \RustInline{WasmModule} containing \RustInline{WasmInstruction}s, the byte representation of which is written out to a binary file as output of the compiler.
 
 I defined a \RustInline{ToBytes} trait that is implemented by all data structures that will be written out to the binary.
-This provides a layer of abstraction between the program data structures and the actual byte values in the binary; each structure only needs to know the byte values specific to itself, e.g.\ for a specific instruction, and nothing more.
+This provides a layer of abstraction between the program data structures and the actual byte values in the binary; each structure only needs to know the byte values specific to itself, e.g.~for a specific instruction, and nothing more.
 
 The core function of the back end is to transform \gls{ir} instructions to WebAssembly instructions.
 Since WebAssembly is a stack-based architecture, the general pattern for converting an instruction is:
@@ -602,15 +569,15 @@ Most instructions are a variation of this pattern.
 One subtlety is that \WasmInstr{store} instructions take the memory address as their first operand, and the value to store as their second operand.
 This means the address of the destination variable needs to be pushed onto the stack \emph{before} the source operands are loaded and the operation is performed.
 
-\begin{listing}[h]
-  \begin{subfigure}[b]{0.28\textwidth}
+\begin{listing}[t]
+  \begin{sublisting}[b]{0.28\textwidth}
     \begin{TextListing}
       |\IrCode{c = a + b}|
     \end{TextListing}
     \caption{Intermediate code.}
-  \end{subfigure}
+  \end{sublisting}
   \hfill
-  \begin{subfigure}[b]{0.7\textwidth}
+  \begin{sublisting}[b]{0.7\textwidth}
     \begin{WasmListing}
       i32.const |<addr of c>|  ;; address for the store instruction
       i32.const |<addr of a>|
@@ -621,12 +588,12 @@ This means the address of the destination variable needs to be pushed onto the s
       i64.store              ;; store result from top of stack
     \end{WasmListing}
     \caption{Generated WebAssembly code.}
-  \end{subfigure}
+  \end{sublisting}
   \caption{Transforming an add instruction to target code, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{i64}.}
   \label{lst:converting add instr to wasm code}
 \end{listing}
 
-I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly-typed load and store instructions respectively.
+I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly typed load and store instructions respectively.
 The \RustInline{store} function encapsulates the fact that the address operand has to come before the value to store; this helps to ensure correctness as it is only defined in one place.
 
 I used the same ID generator pattern as in the middle end, to generate unique indices for items in the WebAssembly module, such as functions and types.
@@ -637,7 +604,7 @@ One of the other main functions of the back end is to generate code that manages
 A large part of this is the function call stack; pushing new stack frames when functions are called, and popping them when functions return.
 \Ccref{fig:memory structure} shows the memory layout I defined for the compiler.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
   \caption{Memory structure, with addresses increasing to the right.}
@@ -654,23 +621,23 @@ My \gls{ir} has a dedicated \RustInline{PointerToStringLiteral} instruction whic
 All string literals are allocated at compile-time and have compile-time known addresses.
 
 Space is allocated for all global variables at compile-time.
-These are allocated in the same way as local variables, which is described below.
+These are allocated in the same way as local variables, described below.
 
 Programs may accept command-line arguments, which are stored into memory by the runtime environment.
 This is described in more detail in \ccref{sec:impl:runtime} below.
 
 The function call stack grows upwards dynamically from this point.
-I did not implement heap storage, so memory is only used from one end, unlike in standard C compilers such as GCC\@.
+I did not implement heap storage, so memory only increases from one end, unlike in standard C compilers such as GCC\@.
 
 \subsection{Stack Frame Operations}
 
 Whenever a function is called, a new stack frame is constructed at the top of the stack in memory.
 \Ccref{fig:stack frame layout} shows the structure of each stack frame.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/07-stack-frame-layout}}
-  \caption{Stack frame layout, with addresses increasing downwards.}
+  \caption{Stack frame layout, with addresses increasing upwards.}
   \label{fig:stack frame layout} % chktex 24
 \end{figure}
 
@@ -681,7 +648,7 @@ The callee is responsible for allocating space for its local variables on the st
 
 The procedure for pushing a new stack frame is the following:
 
-\begin{itemize}[nosep]
+\begin{EnumerateAlgorithm}
 \item
 Store the current \gls{fp} at the top of the stack.
 \item
@@ -693,7 +660,7 @@ Store each function parameter on top of the stack.
 This is either copying a variable from the stack frame below or storing a constant.
 \item
 Set the \gls{fp} to the value held in Temp \gls{fp}.
-\end{itemize}
+\end{EnumerateAlgorithm}
 
 Using the temporary \gls{fp} here is necessary because if we directly wrote to the \gls{fp}, we would not be able to copy any variables in as parameters.
 (Local variables have \gls{fp}-relative addresses.)
@@ -702,7 +669,7 @@ We also cannot wait to save the new \gls{fp} address until after we have copied 
 
 Popping a stack frame is simpler:
 
-\begin{itemize}[nosep]
+\begin{EnumerateAlgorithm}
 \item
 Set the \gls{sp} to the current value of the \gls{fp}.
 The new top of the stack is the top of the previous stack frame.
@@ -710,7 +677,7 @@ The new top of the stack is the top of the previous stack frame.
 Restore the previous value of the \gls{fp}.
 \item
 If the function returns a result to a variable, copy the return value from the stack frame to the destination variable.
-\end{itemize}
+\end{EnumerateAlgorithm}
 
 We can pop the frame simply by moving the \gls{sp} because the data above the \gls{sp} will never be read; when the stack grows again, it will be overwritten.
 
@@ -719,16 +686,16 @@ We can pop the frame simply by moving the \gls{sp} because the data above the \g
 Initially I implemented a naive variable allocation strategy.
 As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
 
-Variable allocation is done at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a runtime address table.
-Only in specific cases---variable-length arrays, for example---are variables allocated at runtime.
+Variable allocation is done at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a run time address table.
+Only in specific cases---variable-length arrays, for example---are variables allocated at run time.
 My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction which takes the number of bytes to allocate as an operand.
 
 Each variable, including temporary variables, is allocated a dedicated byte range in memory; none of the variables overlap.
 This safely maintains the programmer's memory model, however it is an inefficient use of memory, hence the later optimisation.
 
-Local variables are stored as part of the function stack frame, the address of which is runtime-dependent.
+Local variables are stored as part of the function stack frame, the address of which is run time dependent.
 Therefore, variables are allocated as offsets from the \gls{fp}.
-At runtime, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
+At run time, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
 
 \section{Runtime Environment}\label{sec:impl:runtime}
 
@@ -754,7 +721,7 @@ To facilitate this, the runtime first allocates space for the array of pointers,
 After the pointer array, the actual argument values are stored (as strings), and each corresponding pointer is set (\ccref{fig:program args memory structure}).
 The runtime then sets the \gls{sp} to immediately after the last argument.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/08-program-args-memory-layout}}
   \caption{Memory structure of program arguments, with addresses increasing to the right. Here, \CInline{argc}${} = 2$.}
@@ -780,8 +747,8 @@ To maintain correctness, the constructed graph is a superset of the \emph{semant
 The semantic graph is undecidable at compile time\footnote{Due to the undecidability of arithmetic, it is not possible to decide in general which control flow path will be taken.}, so we calculate the syntactic call graph.
 
 I used an adjacency list to store the call graph, since the graph is likely to be sparse.
-(An adjacency matrix would be more suitable for densely-connected graphs.)
-The call graph data structure also has a set of entry nodes, which are functions that are called from the global scope of the program (e.g.\ \CInline{main()}). % chktex 36
+(An adjacency matrix would be more suitable for densely connected graphs.)
+The call graph data structure also has a set of entry nodes, which are functions that are called from the global scope of the program (e.g.~\CInline{main()}). % chktex 36
 
 To generate the graph, all functions in the \gls{ir} are added as nodes, then an edge is added for every \IrCode{call} instruction.
 For a \IrCode{call y} instruction found inside function \IrCode{x}, a directed edge is added from node \IrCode{x} to node \IrCode{y}.
@@ -822,7 +789,7 @@ I will describe both approaches in turn below.
 
 \subsubsection{Approach 1: Replacing the Caller's Stack Frame at Runtime}
 
-My first approach was to replace the caller's stack frame at runtime rather than push a new stack frame on top whenever a tail-call is made.
+My first approach was to replace the caller's stack frame at run time rather than push a new stack frame on top whenever a tail-call is made.
 
 To do this, in the middle end we find all \IrCode{call} instructions that are directly returned from the function, and replace them with a \IrCode{tail-call} instruction.
 
@@ -855,7 +822,7 @@ The recursion is now contained within a single function using iteration.
 
 My initial variable allocation policy is described in \ccref{sec:impl:local variable allocation} above.
 Each variable is allocated a disjoint address range in memory.
-However, this is very inefficient since most variables are temporary variables that are only used once, and many of them are not used at the same time as each other (i.e.\ they never \emph{clash}).
+However, this is very inefficient since most variables are temporary variables that are only used once, and many of them have non-overlapping define-to-use ranges (i.e.\ they never \emph{clash} in the context of liveness analysis).
 
 Variables that never clash can safely be allocated to the same address range.
 The challenge of this optimisation was to find a more optimal way of allocating variables such that as little memory is used as possible.
@@ -884,7 +851,7 @@ The flowgraph is generated by recursing through the program blocks (the output o
 A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{semantic} liveness, which refers to actual possible execution behaviour, but is undecidable at compile time. Syntactic liveness is a safe overapproximation of semantic liveness.}) at an instruction if the value of the variable is used along any path in the flowgraph before it is redefined.
 
 \Gls{lva} is a backwards analysis, which means that liveness information is propagated backwards through the flowgraph.
-First, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables referenced by instruction $n$, and $\lvaref\,(n)$ is the set of all variables assigned to by $n$.
+First, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables defined by instruction $n$, and $\lvaref\,(n)$ is the set of all variables referenced by $n$.
 We then define $\mathit{live}\,(n)$, the set of variables that are live immediately before instruction $n$, as follows:
 \begin{align*}
   \mathit{live}\,(n) &= \left( \left( \bigcup_{s \,\in\, \mathit{succ}\,(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
@@ -897,7 +864,7 @@ To implement \gls{lva}, we keep iterating over every instruction in the flowgrap
 Initially the set of variables live at each instruction is the empty set.
 The algorithm is guaranteed to find the smallest set of live variables (it does not add unnecessary overapproximations).
 
-\begin{listing}[ht]
+\begin{listing}[t]
   \begin{RustListing*}{texcomments=true}
     // For every instr, which vars are live at that point
     type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
@@ -943,10 +910,10 @@ One complication of \gls{lva} I had to solve was that if a variable is assigned 
 The next stage of the optimisation then marks it as having no clashes with any other variables.
 However, the write to the variable may occur while other variable are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
 To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
-I made sure to keep any side-effect producing instructions (e.g.\ function calls) while removing assignments to variables that are not subsequently accessed.
+I made sure to keep any side-effect producing instructions (e.g.~function calls) while removing assignments to variables that are not subsequently accessed.
 
 % Stop the LVA code float being pushed down
-\FloatBarrier % chktex 1
+% \FloatBarrier % chktex 1
 
 \subsubsection{Generating the Clash Graph}
 
@@ -956,10 +923,10 @@ Any variables that are simultaneously live \emph{clash}; i.e.\ they cannot be al
 
 The clash graph is an approximation whenever variable pointers are present.
 When a variable has its address taken, the pointer may be passed around the program as a value, so it is no longer possible to track exactly where the variable is accessed.
-Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable.
+Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable\footnote{Pointer analysis may be able to improve upon this to reduce the set of clashes for address-taken variables, but cannot solve the problem entirely.}.
 I implemented this by storing a set of `universal clashes' in the clash graph; when checking if two variables clash, if one of them is a `universal clash', they clash even if they would otherwise not.
 
-\begin{listing}[!h]
+\begin{listing}[t]
   \begin{RustListing}
     let live_vars = live_variable_analysis(flowgraph);
     for (_instr_id, vars_live_at_instr) in live_vars {
@@ -987,7 +954,7 @@ When each variable is allocated, it is allocated a register that maximally overl
 
 My variable allocation problem is similar in many regards, however it has some key differences.
 I am allocating variables in memory rather than to registers, so each variable occupies a byte \emph{range} rather than a single location.
-Variables can have different sizes, and are not required to be aligned, so it is possible that variables may partially overlap (e.g.\ $\texttt{t0} \mapsto [0, 4), \texttt{t1} \mapsto [2, 6)$). % chktex 9
+Variables can have different sizes, and are not required to be aligned, so it is possible that variables may partially overlap (e.g.~$\texttt{t0} \mapsto [0, 4), \texttt{t1} \mapsto [2, 6)$). % chktex 9
 There is also (effectively) no limit to the amount of memory available, compared to the very limited set of registers most compilers target.
 The goal of my optimisation is to use as little memory as possible, whereas the goal of register allocation is to most efficiently use the constrained set of registers.
 
@@ -1006,8 +973,8 @@ We want to do this to keep the stack size as small as possible.
 
 I tested allocating variables in both orders: least clashes first and most clashes first.
 I found that contrary to register allocation, allocating variables with least clashes first resulted in more efficient memory use.
-I think this is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
-In my heuristic, it is beneficial to have variables with less clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
+This is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
+In my heuristic, it is beneficial to have variables with fewer clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
 
 
 \Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
@@ -1019,8 +986,8 @@ In the bottom right is the result of the optimised allocation policy: variables 
 Notice how all three variables use the lowest location, rather than, for example, \texttt{t3} overlapping with \texttt{t1}.
 This is due to the heuristic of always allocating to the lowest valid address.
 
-\begin{figure}[ht]
-  \begin{subfigure}[b]{0.5\textwidth}
+\begin{figure}[t]
+  \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
       |\IrCode{t0 = 3}|                 |$\{ \}$|
       |\IrCode{t1 = 2}|                 |$\{ \IrCode{t0} \}$|
@@ -1028,7 +995,7 @@ This is due to the heuristic of always allocating to the lowest valid address.
       |\IrCode{t3 = t2 + t1}|           |$\{ \IrCode{t2}, \IrCode{t1} \}$|
     \end{TextListing}
     \caption{Intermediate code, with \acrlong{lva}.}
-  \end{subfigure}
+  \end{sublisting}
   \begin{subfigure}[b]{0.5\textwidth}
     \centering
     \scalebox{0.9}{\tikzfig{70-figures/11-clash-graph}}
@@ -1046,5 +1013,52 @@ This is due to the heuristic of always allocating to the lowest valid address.
   \caption{Example of optimised stack allocation policy.}
   \label{fig:optimised var allocation example} % chktex 24
 \end{figure}
+
+
+\section{Repository Overview}
+
+I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
+The high-level structure of the codebase is shown below.
+All the code for the compiler is in the \Dirname{src} directory.
+The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
+All code was written by me.
+
+\newlength\IndentWidth\setlength\IndentWidth{1em}
+\NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
+\definecolor{TableHlineColour}{HTML}{ababab}
+
+\begin{tabularx}{\textwidth}{lX}
+\arrayrulecolor{TableHlineColour}
+\hline % chktex 44
+\Dirname{src} & Compiler source code. \\\hline % chktex 44
+\Indent{1}\Dirname{program_config} & Compiler constants and run time options data structures. \\\hline % chktex 44
+\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline % chktex 44
+\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline % chktex 44
+\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline % chktex 44
+\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline % chktex 44
+\Indent{1}\Dirname{back_end} & Target code-generation stage. \\\hline % chktex 44
+\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline % chktex 44
+\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline % chktex 44
+\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline % chktex 44
+% \Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
+\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline % chktex 44
+\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline % chktex 44
+\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline % chktex 44
+\Dirname{runtime} & Node.js runtime environment. \\\hline % chktex 44
+\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline % chktex 44
+\Dirname{tools} & Auxiliary scripts used for testing and generating graphs. \\\hline % chktex 44
+\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline % chktex 44
+\Indent{1}\Filename{testsuite.py} & Test runner script. \\\hline % chktex 44
+\Dirname{tests} & Automated test specifications. \\\hline % chktex 44
+% Reset the rule colour for future tables
+\arrayrulecolor{black}
+\end{tabularx}
+
+
+\section{Summary}
+
+\begin{mrwComment}
+Short summary of this chapter
+\end{mrwComment}
 
 \end{document}

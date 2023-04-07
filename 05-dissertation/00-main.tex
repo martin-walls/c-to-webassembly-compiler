@@ -104,9 +104,8 @@
 \NewDocumentCommand{\Ccrefrange}{mm}{\textcolor{refcolor}{\Crefrange{#1}{#2}}}
 \crefname{algstep}{Step}{Steps}
 
-\NewDocumentEnvironment{EnumerateAlgorithm}{}
-  {\begin{enumerate}[label=\boxed{\arabic*}]}
-  {\end{enumerate}}
+\newlist{EnumerateAlgorithm}{enumerate}{1}
+\setlist[EnumerateAlgorithm]{label=\boxed{\arabic*}}
 
 \usepackage{comment}
 \ifCompileForWordCount % chktex 1
