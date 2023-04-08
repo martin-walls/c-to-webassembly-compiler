@@ -218,11 +218,6 @@ If we allowed open statements inside the \CInline{if} clause of an \GrammarInlin
 
 \subsubsection{LALRPOP Parser Generator}
 
-I chose the LALRPOP parser generator because it builds up the \gls{ast} as it parses the grammar.
-This is in contrast to some of the other available libraries, which separate the grammar code and the code that generates the \gls{ast}\@.
-LALRPOP provides an intuitive and powerful approach.
-Each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
-
 \Ccref{lst:AST generation code example} is an example of the LALRPOP syntax for addition expressions.
 The left-hand side of the~\RustInline{=>} describes the grammar rule, and the right-hand side is the code to generate an \RustInline{Expression} node.
 Terminals are represented in double quotes; these are defined to map to the tokens emitted by the lexer.
