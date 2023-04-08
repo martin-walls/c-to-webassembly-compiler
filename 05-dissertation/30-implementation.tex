@@ -814,9 +814,47 @@ Similarly to above, we start by finding all \IrCode{call} instructions that are 
 In the current function, there is a variable holding each parameter.
 For each argument to the recursive call, we copy it to the variable holding the corresponding parameter in the current function.
 Once we have done this assignment for each parameter, we add a branch instruction to the start of the function.
+\Ccref{lst:tail-call optimisation example} shows an example of this transformation.
+(C code is shown for clarity, however the actual optimisation happens on the intermediate code.)
 
 This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
 The recursion is now contained within a single function using iteration.
+
+\begin{listing}[t]
+  \begin{sublisting}[b]{0.49\textwidth}
+    \begin{CListing}
+      long sum(long n, long acc) {
+          if (n == 0) {
+              return acc;
+          }
+          return sum(n - 1, acc + n);
+      }
+    \end{CListing}
+    \caption{Original function code.}
+  \end{sublisting}
+  \hfill
+  \begin{sublisting}[b]{0.49\textwidth}
+    \begin{CListing}
+      long sum(long n, long acc) {
+      start:
+          if (n == 0) {
+              return acc;
+          }
+          // Copy recursive arguments to param vars
+          long t0 = n - 1;
+          long t1 = acc + n;
+          n = t0;
+          acc = t1;
+          // Loop back to start of function
+          goto start;
+      }
+    \end{CListing}
+    \caption{Tail-call optimised function.}
+  \end{sublisting}
+  \caption{Example of transforming tail-recursion to iteration.}
+  \label{lst:tail-call optimisation example}
+\end{listing}
+
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
