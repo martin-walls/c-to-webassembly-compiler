@@ -1,4 +1,4 @@
-use crate::middle_end::ids::{FunId, VarId};
+use crate::middle_end::ids::{FunId, ValueType, VarId};
 use crate::middle_end::instructions::{Dest, Instruction, Src};
 use crate::middle_end::ir::ProgramMetadata;
 
@@ -39,13 +39,33 @@ pub fn tail_call_optimise(
                             // check if recursive call
                             if call_instr_fun_id == this_fun_id {
                                 // optimise tail recursion
+                                // first make a temp copy of each of the param vars, so we don't
+                                // accidentally overwrite a value before we use it in another param
+                                let mut temp_param_vars = Vec::new();
                                 for param_i in 0..params.len() {
                                     let new_param_src = params.get(param_i).unwrap();
+                                    let temp_var = prog_metadata.new_var(ValueType::RValue);
+                                    prog_metadata
+                                        .add_var_type(
+                                            temp_var.to_owned(),
+                                            new_param_src.get_type(prog_metadata).unwrap(),
+                                        )
+                                        .unwrap();
+                                    temp_param_vars.push(temp_var.to_owned());
+                                    new_instrs.push(Instruction::SimpleAssignment(
+                                        prog_metadata.new_instr_id(),
+                                        temp_var,
+                                        new_param_src.to_owned(),
+                                    ));
+                                }
+                                // store the temp params to the actual params
+                                for param_i in 0..params.len() {
+                                    let temp_param = temp_param_vars.get(param_i).unwrap();
                                     let param_var = param_var_mappings.get(param_i).unwrap();
                                     new_instrs.push(Instruction::SimpleAssignment(
                                         prog_metadata.new_instr_id(),
                                         param_var.to_owned(),
-                                        new_param_src.to_owned(),
+                                        Src::Var(temp_param.to_owned()),
                                     ));
                                 }
                                 // jump back to start of function
