@@ -144,7 +144,7 @@ Therefore, the stack memory usage remains constant rather than growing linearly 
 
 One of the functions I used to evaluate this optimisation was the function in \ccref{lst:tail-recursive sum} below, that uses tail-recursion to compute the sum of the first $n$ integers.
 
-\begin{listing}[ht]
+\begin{listing}[t]
   \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
   \caption{Tail-recursive function to sum the integers 1 to $n$}
   \label{lst:tail-recursive sum}
@@ -158,7 +158,7 @@ When the same program is compiled with tail-call optimisation enabled, only 298 
 Of course, the reduction depends on how many iterations of the function are run.
 In the non-optimised case, the stack usage is \bigo{n} in the number of iterations, whereas in the optimised case it is \bigo{1}.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
   \caption{Stack usage for calling \CInline{sum(500, 0)} (see \ccref{lst:tail-recursive sum})}
@@ -186,7 +186,7 @@ Shorter bars represent a greater improvement (less memory is being used).
 For programs that benefit from tail-call optimisation, I measured the effect of this optimisation on both the optimised and unoptimised versions.
 I did this because tail-call optimisation also affects how much memory is used, so it may have an impact on the effectiveness of this optimisation.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
   \caption{Comparing optimised stack usage to unoptimised stack usage. Shorter bars represent greater improvement.}
@@ -205,7 +205,7 @@ We can see the effect of this directly when we compare the stack usage of the un
 \Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a test program that converts strings to upper, lower, or camel case.
 Since the main stack allocations and deallocations occur on function calls and returns respectively, each spike on the plot corresponds to a function call. We can use this to figure out which parts of the plot correspond to which part of the source program.
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \IncludeStackPlot{01-case-compare.pgf}
   \caption{Comparing stack usage for \Filename{case.c}.}
@@ -223,13 +223,13 @@ In contrast, \CInline{case_camel()} performs many more operations iteratively in
 Even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()}.
 This results in the large spike at the end of \ccref{fig:comparing stack usage for case.c}.
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
   \caption{The entire body of \CInline{case_upper()}.}
   \label{lst:caseupper body code}
 \end{listing}
 
-\begin{listing}[!ht]
+\begin{listing}[t]
   \CInputListing[firstline=39, lastline=43]{../02-test-programs/12-single-source-programs/case.c}
   \caption{A short section of the body of \CInline{case_camel()}.}
   \label{lst:section of casecamel body code}
@@ -245,7 +245,7 @@ Since this optimisation reduces the size of each stack frame, we will see a larg
 In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
 
 
-\begin{figure}[ht]
+\begin{figure}[t]
   \centering
   \IncludeStackPlot{02-fibonacci-compare.pgf}
   \caption{Comparing stack usage for \Filename{fibonacci.c}.}

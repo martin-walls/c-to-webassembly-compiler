@@ -527,6 +527,7 @@ All control flow between labels is made explicit.
 For every function in the \gls{ir}, the instructions are soupified and then the algorithm described in \ccref{sec:prep:relooper algorithm} is used to create a Relooper block.
 The \RustInline{IdGenerator} struct described above is used to assign each loop and multiple block a unique ID\@.
 
+In the algorithm described in \ccref{sec:prep:relooper}, the \emph{reachability} set of a label is used to determine which type of block to generate.
 The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
 Starting with a copy of the set of possible branch targets of a label, we iteratively add the possible branch targets of each label in the set, until there are no more changes.
 (The reachability is a set so that no duplicates are added.)
@@ -897,7 +898,7 @@ To implement \gls{lva}, we keep iterating over every instruction in the flowgrap
 Initially the set of variables live at each instruction is the empty set.
 The algorithm is guaranteed to find the smallest set of live variables (it does not add unnecessary overapproximations).
 
-\begin{listing}[t]
+\begin{listing}[!t]
   \begin{RustListing*}{texcomments=true}
     // For every instr, which vars are live at that point
     type LiveVariableMap = HashMap<InstructionId, HashSet<VarId>>;
@@ -1009,17 +1010,7 @@ I found that contrary to register allocation, allocating variables with least cl
 This is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
 In my heuristic, it is beneficial to have variables with fewer clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
 
-
-\Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
-In the top left is the intermediate code for which memory is being allocated.
-The live variables at each instruction---calculated by \gls{lva}---are shows to the right of each line.
-In the top right is the clash graph, showing which variables cannot be allocated to the same memory.
-The bottom left shows how the naive allocation policy would allocate the variables in memory; sequentially and non-overlapping.
-In the bottom right is the result of the optimised allocation policy: variables \texttt{t0}, \texttt{t2}, and \texttt{t3} all use the same memory location because they are never live at the same time.
-Notice how all three variables use the lowest location, rather than, for example, \texttt{t3} overlapping with \texttt{t1}.
-This is due to the heuristic of always allocating to the lowest valid address.
-
-\begin{figure}[t]
+\begin{figure}[!t]
   \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
       |\IrCode{t0 = 3}|                 |$\{ \}$|
@@ -1047,6 +1038,15 @@ This is due to the heuristic of always allocating to the lowest valid address.
   \label{fig:optimised var allocation example} % chktex 24
 \end{figure}
 
+\Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
+In the top left is the intermediate code for which memory is being allocated.
+The live variables at each instruction---calculated by \gls{lva}---are shows to the right of each line.
+In the top right is the clash graph, showing which variables cannot be allocated to the same memory.
+The bottom left shows how the naive allocation policy would allocate the variables in memory; sequentially and non-overlapping.
+In the bottom right is the result of the optimised allocation policy: variables \texttt{t0}, \texttt{t2}, and \texttt{t3} all use the same memory location because they are never live at the same time.
+Notice how all three variables use the lowest location, rather than, for example, \texttt{t3} overlapping with \texttt{t1}.
+This is due to the heuristic of always allocating to the lowest valid address.
+
 
 \section{Repository Overview}
 
@@ -1060,6 +1060,7 @@ All code was written by me.
 \NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
 \definecolor{TableHlineColour}{HTML}{ababab}
 
+% Use `tabularx` when table doesn't span across pages, `xltabular` when it does
 \begin{tabularx}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
 \hline % chktex 44
@@ -1090,8 +1091,10 @@ All code was written by me.
 
 \section{Summary}
 
-\begin{mrwComment}
-Short summary of this chapter
-\end{mrwComment}
+The compiler pipeline is split into the front end, middle end, and back end.
+The front end takes C source code, lexes it to a token stream, and parses it to generate an \gls{ast}.
+The middle end uses a custom \gls{ir} to represent the program, performing the Relooper algorithm as well as doing tail-call optimisation and unreachable procedure elimination.
+The back end transforms the \gls{ir} to a WebAssembly module, along with performing the stack allocation policy optimisation.
+The WebAssembly binary is executed by a Node.js runtime environment, which provides an interface to the system and to my skeleton implementation of the C standard library.
 
 \end{document}
