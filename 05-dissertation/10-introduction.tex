@@ -5,23 +5,7 @@
 \chapter{Introduction}
 
 \begin{mrwComment}
-%TC:ignore
 Word budget: \textasciitilde500--600 words
-%TC:endignore
-\end{mrwComment}
-
-\begin{mrwComment}
-%TC:ignore
-Explain the main motivation for the project
-
-Show how the work fits into the broad area of surrounding computer science
-%TC:endignore
-\end{mrwComment}
-
-\begin{mrwComment}
-%TC:ignore
-Talk about why I chose C as a source language
-%TC:endignore
 \end{mrwComment}
 
 \section{Background and Motivation}
@@ -42,18 +26,23 @@ It is designed to be compact and modular, allowing it to be efficiently transmit
 This also includes being streamable and parallelisable, which means it can be decoded while still being received.
 % It supports both just-in-time and ahead-of-time compilation.
 
+This project creates a compiler from C to WebAssembly.
+I chose C as a source language because it is quite a low-level language, which allowed me to have time to work on compiler optimisations rather than just implementing language features.
+In particular, C has manual memory management, therefore I did not implement a garbage collector or similar.
 
 
 \section{Survey of Related Work}
 
-\begin{mrwComment}
-%TC:ignore
-brief survey of previous related work
+Many other compilers to WebAssembly exist, covering a large number of source languages~\ccite{awesome-wasm-langs}.
+Notably, Emscripten~\ccite{emscripten-homepage} is a compiler from LLVM~\ccite{llvm} to WebAssembly and JavaScript.
+This primarily targets C and C++, however many other languages also have LLVM compilers.
 
-- original emscripten (LLVM to JS)
+Cheerp~\ccite{cheerp} is an alternative C/C++ to WebAssembly compiler, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating very optimised code.
 
-- various other compilers to wasm, including LLVM
-%TC:endignore
-\end{mrwComment}
+Compilers to WebAssembly exist for other mainstream languages such as Java, C\#, Python, and even JavaScript.
+It is an area of active development; many more WebAssembly compilers are in progress for other languages.
+
+My project covers a subset of the existing C to WebAssembly compilers; I only support a subset of the language features, and focus on correctness over optimality.
+I have implemented some optimisations that provide significant performance improvements to many programs, however not to the extent of optimising every possible edge case as some industry compilers do.
 
 \end{document}

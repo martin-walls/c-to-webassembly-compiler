@@ -24,14 +24,24 @@ Can briefly outline any ideas for further work
 
 \section{Project Summary}
 
-\section{Lessons Learned}
+The project was a success; I met all my success criteria and an extension.
+I completed an entire compiler pipeline that transforms a subset of the C language into a WebAssembly binary, and provided a Node.js runtime environment.
+Additionally, I implemented several optimisations to the program in the middle and back ends of the compiler.
+
+My compiler produced correct binaries that maintained the semantics of the source program.
+My optimisations were successful in improving the performance of programs.
+
+I gained experience using Rust, including learning idiomatic ways of structuring my code and how to work with the borrow checker to produce memory-safe code.
+
+\begin{mrwComment}
+Talk about lessons learned
+\end{mrwComment}
 
 \section{Further Work}
 
-\begin{mrwComment}
-%TC:ignore
-- implement more of stdlib, eg. malloc() and free()
-%TC:endignore
-\end{mrwComment}
+I only implemented a small subset of the standard library.
+If I were taking this project further, I would implement more of the standard library, for example all the string manipulation functions.
+This would provide support for many more source programs.
+Notably I would also implement \CInline{malloc()} and \CInline{free()}, to provide support for heap memory allocation.
 
 \end{document}

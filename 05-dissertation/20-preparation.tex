@@ -8,12 +8,6 @@
 Word budget: \textasciitilde2500--3000 words
 \end{mrwComment}
 
-\begin{mrwComment}
-Describe the work undertaken before code was written.
-
-Talk about revision control strategy, licensing of any libraries I used
-\end{mrwComment}
-
 In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm.
 I highlight the main features of Rust, the programming language I learned for this project, and my rationale for using it.
 
@@ -22,7 +16,7 @@ Finally I outline my starting point and previous experience.
 
 \section{WebAssembly}
 
-Before starting to write the compiler, I extensively researched the WebAssembly specification \ccite{wasm-spec}, to gain a deep understanding of the binary code the project aims to generate.
+Before starting to write the compiler, I extensively researched the WebAssembly specification~\ccite{wasm-spec}, to gain a deep understanding of the binary code the project aims to generate.
 The following sections provide a high-level overview of the instruction set architecture.
 
 \subsection{Primitive values}
@@ -50,7 +44,7 @@ The primitive value types supported by WebAssembly are outlined in \ccref{tab:wa
 
 Integers can be interpreted as either signed or unsigned, depending on the operations applied to them.
 They will also be used to store data such as booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}
-Integer literals are encoded in the program using the LEB128 variable-length encoding scheme \ccite{leb128-encoding}.
+Integer literals are encoded in the program using the LEB128 variable-length encoding scheme~\ccite{leb128-encoding}.
 \Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
 The algorithm is almost the same for signed integers (encoded in two's complement); the only difference is that we sign-extend to a multiple of 7 bits, rather than zero-extend.
 When decoding, the decoder needs to know if the number is signed or unsigned, to know whether to decode it as a two's complement number or not.
@@ -70,7 +64,7 @@ This is why WebAssembly has signed and unsigned variants of some instructions.
   \label{lst:leb128 pseudocode}
 \end{listing}
 
-Floating-point literals are encoded using the IEEE 754-2019 standard \ccite{ieee-754-2019}. % chktex 8
+Floating-point literals are encoded using the IEEE 754-2019 standard~\ccite{ieee-754-2019}. % chktex 8
 This is the same standard used by many programming languages, including Rust, so the byte representation will not need to be converted between the compiler and the WebAssembly binary.
 
 WebAssembly also provides vector types and reference types.
@@ -169,8 +163,8 @@ Therefore, once the intermediate code has been generated, it needs to be transfo
 There are several algorithms that achieve this.
 The most naive solution would be to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next. However, this is very inefficient.
 
-The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript \ccite{emscripten}.
-In today's WebAssembly compilers, there are three general methods used to convert to structured control flow \ccite{wasm-control-flow-restructuring-thread, solving-structured-control-flow-problem}: Emscripten/Binaryen's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier.
+The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript~\ccite{emscripten}.
+In today's WebAssembly compilers, there are three general methods used to convert to structured control flow~\ccite{wasm-control-flow-restructuring-thread, solving-structured-control-flow-problem}: Emscripten/Binaryen's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier.
 All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, however therefore also more complex.
 The original Relooper algorithm is a greedy algorithm, and is well described in the paper, and is the one I decided to implement.
 
@@ -251,7 +245,7 @@ Construct the next block from the remaining labels. The entries are the remainin
 If \ccref{alg:relooper:attempt to create multiple block} fails, create a loop block in the same way as \ccref{alg:relooper:create a loop block}.
 \end{EnumerateAlgorithm}
 
-The Emscripten paper outlines a proof that this greedy approach will always succeed \ccite[p. 10]{emscripten}.
+The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite[p. 10]{emscripten}.
 The core idea is that we can show that (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
 Point (3) lies in the observation that if we reach \ccref{alg:relooper:create loop block after multiple block failed}, we must be able to create a loop block.
 This holds because if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
@@ -271,12 +265,12 @@ However, later stages of the compiler pipeline are able to optimise this away.
 
 \section{Rust}\label{sec:prep:rust}
 
-I learned the Rust programming language \ccite{rust-lang} for this project.
+I learned the Rust programming language~\ccite{rust-lang} for this project.
 I chose Rust because it is performant and memory efficient.
 It has a rich type system with pattern matching, which is well suited to writing a compiler.
 It uses the concept of a borrow checker rather than a garbage collector or other memory management system, which eliminates runtime overhead while guaranteeing memory safety at compile time.
 
-I made use of Rust's excellent online documentation \ccite{rust-by-example, rust-book}, using it to become familiar with the language.
+I made use of Rust's excellent online documentation~\ccite{rust-by-example, rust-book}, using it to become familiar with the language.
 The borrow checker was the main new feature of the language to learn.
 At its core are the concepts of \emph{ownership} and \emph{borrowing}.
 The main rule is that every value has exactly one owner at any time.
@@ -288,7 +282,7 @@ There can either be many immutable borrows of a value, or a single mutable borro
 When the borrower is done with the value, it is given back to the owner.
 
 
-\subsection{Requirements Analysis}
+\section{Requirements Analysis}
 
 The requirements for this project were clear from the project description.
 A C to WebAssembly compiler takes C source code as input, and generates WebAssembly binary code that can be instantiated and executed from JavaScript.
@@ -304,20 +298,19 @@ Optimisations to the compiler were set as extensions to the project, once the co
 These fall within the middle and back ends, transforming the \gls{ir} and the target code.
 
 
-\section{Project Strategy}
 
-\begin{mrwComment}
-TODO put short para here as section overview
-\end{mrwComment}
+\section{Software Engineering Methodology}
 
-\subsection{Software Engineering Methodology}
-
-I structured my project using the incremental model \ccite[sec.~3.3.1]{software-engineering-practitioners-approach}, which builds upon the waterfall model \ccite[sec.~3.2]{software-engineering-practitioners-approach}.
+I structured my project using the incremental model~\ccite[sec.~3.3.1]{software-engineering-practitioners-approach}, which builds upon the waterfall model~\ccite[sec.~3.2]{software-engineering-practitioners-approach}.
 The project is broken down into `increments', which are individual sections of functionality.
 Each increment is developed consecutively, using the waterfall model to design, implement, and test each section before moving on to the next one.
 
 Each stage of the compiler pipeline was a separate increment.
 Subsequent stages of the project each depended on the deliverable from the previous one, making this model a natural fit, because it ensured a stage was working correctly before building upon it.
+
+I used Git~\ccite{git} as my version control system.
+I regularly committed my code in small, revertible chunks, and pushed the repository to GitHub~\ccite{github} to maintain an up-to-date off-site backup.
+In the later stages of the project, I used pre-commit hooks to run automated tests on the project every time I committed, ensuring I did not inadvertently break it.
 
 \subsection{Testing}
 
@@ -328,7 +321,7 @@ After completing a stage of the compiler pipeline, I carefully examined the outp
 Once the compiler could generate an \gls{ast}, I wrote a function to reconstruct the source code from the \gls{ast}.
 I compared this output against the original source to check that the program semantics had been maintained.
 
-Once the entire pipeline was complete, I used GCC \ccite{gcc} as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output.
+Once the entire pipeline was complete, I used GCC~\ccite{gcc} as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output.
 
 \section{Starting Point}
 
@@ -341,18 +334,18 @@ I gained all my knowledge of WebAssembly and Rust through independent research.
 
 \section{Tools Used}
 
-The code for the body of the compiler was written in Rust (see \ccref{sec:prep:rust}).
-I wrote the runtime environment in JavaScript \ccite{javascript}, using Node.js \ccite{nodejs}, which is necessary to interface with the Web\-Assembly binary.
-Additional development scripts, for automated testing and profiling, were written in Python \ccite{python}, because of the ease of use, and my familiarity with libraries such as Matplotlib \ccite{matplotlib}.
+The code for the body of the compiler was written in Rust (see~\ccref{sec:prep:rust}).
+I wrote the runtime environment in JavaScript~\ccite{javascript}, using Node.js~\ccite{nodejs}, which is necessary to interface with the Web\-Assembly binary.
+Additional development scripts, for automated testing and profiling, were written in Python~\ccite{python}, because of the ease of use, and my familiarity with libraries such as Matplotlib~\ccite{matplotlib}.
 
-I used the LALRPOP parser generator library \ccite{lalrpop-docs} to generate parsing code from the abstract grammar of C.
+I used the LALRPOP parser generator library~\ccite{lalrpop-docs} to generate parsing code from the abstract grammar of C.
 Other parser generator libraries are available for Rust: notably, \texttt{nom} and \texttt{pest}.
 \texttt{nom} is more suited to parsing binary file formats rather than source code.
 \texttt{pest} is another popular choice, however it separates the formal grammar and \gls{ast} generation, making the code more complicated.
 LALRPOP provides an intuitive and powerful approach, where each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
 
-I used Git \ccite{git} for version control, regularly pushing the repository to GitHub \ccite{github} as an off-site backup.
-I used the CLion IDE \ccite{clion} as my development environment, using the Intellij Rust plugin \ccite{intellij-rust-plugin}.
+I used Git~\ccite{git} for version control and GitHub~\ccite{github} as an off-site backup.
+I used the CLion IDE~\ccite{clion} as my development environment, using the Intellij Rust plugin~\ccite{intellij-rust-plugin}.
 CLion has excellent support for C, and the plugin enables native Rust support, including code analysis and debugging.
 
 
