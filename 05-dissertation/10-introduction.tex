@@ -14,10 +14,9 @@ Increasingly in modern society, more and more applications are shifting to cloud
 We are experiencing a transition away from traditional native applications and towards performing the same tasks in an online environment.
 However, the standard approach of building web apps with JavaScript fails to deliver the performance necessary for many intensive applications.
 
-WebAssembly (abbreviated Wasm) aims to solve this problem by bringing near-native performance to the browser space.
+WebAssembly aims to solve this problem by bringing near-native performance to the browser space.
 It is a virtual instruction set architecture, which executes on a stack-based virtual machine.
 Per the Introduction section of the WebAssembly specification \ccite{wasm-spec}, it is designed to have ``fast, safe, and portable semantics'' and an ``efficient and portable representation''.
-The next two paragraphs expand on what this entails.
 
 The semantics are designed to be able to be executed efficiently across different hardware, be memory safe (with respect to the surrounding execution environment), and to be portable across source languages, target architectures, and platforms.
 
@@ -27,8 +26,8 @@ This also includes being streamable and parallelisable, which means it can be de
 % It supports both just-in-time and ahead-of-time compilation.
 
 This project creates a compiler from C to WebAssembly.
-I chose C as a source language because it is quite a low-level language, which allowed me to have time to work on compiler optimisations rather than just implementing language features.
-In particular, C has manual memory management, therefore I did not implement a garbage collector or similar.
+I chose C as a source language because it is a reasonably low-level language, which allowed me to have time to work on compiler optimisations rather than just implementing language features.
+In particular, C has manual memory management, therefore I did not have to implement a garbage collector or similar.
 
 
 \section{Survey of Related Work}

@@ -128,7 +128,7 @@ My grammar is able to parse all of the core features of the C language, omitting
 
 \subsubsection{Dangling Else Ambiguity}
 
-A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains an ambiguity around \CInline{if}/\CInline{else} statements \ccite[sec.~8.5.2]{c-reference-manual}.
+A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements \ccite[sec.~8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem \ccite{dangling-else-wiki}.
 
@@ -542,10 +542,6 @@ Starting with a copy of the set of possible branch targets of a label, we iterat
 
 \section{Back End: Target Code Generation}
 
-\begin{mrwComment}
-- Int and vector encoding?
-\end{mrwComment}
-
 In the back end, I defined data structures to directly represent a WebAssembly module with its constituent sections.
 I also defined a \RustInline{WasmInstruction} enum to represent all possible WebAssembly instructions, and data structures to represent value types.
 The back end generates a \RustInline{WasmModule} containing \RustInline{WasmInstruction}s, the byte representation of which is written out to a binary file as output of the compiler.
@@ -592,7 +588,7 @@ This means the address of the destination variable needs to be pushed onto the s
 I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly typed load and store instructions respectively.
 The \RustInline{store} function encapsulates the fact that the address operand has to come before the value to store; this helps to ensure correctness as it is only defined in one place.
 
-I used the same ID generator pattern as in the middle end, to generate unique indices for items in the WebAssembly module, such as functions and types.
+I used the same ID generator pattern as in the middle end, to generate unique indexes for items in the WebAssembly module, such as functions and types.
 
 \subsection{Memory Layout}
 
@@ -1097,4 +1093,4 @@ The middle end uses a custom \gls{ir} to represent the program, performing the R
 The back end transforms the \gls{ir} to a WebAssembly module, along with performing the stack allocation policy optimisation.
 The WebAssembly binary is executed by a Node.js runtime environment, which provides an interface to the system and to my skeleton implementation of the C standard library.
 
-\end{document}
+\end{document} % chktex 17

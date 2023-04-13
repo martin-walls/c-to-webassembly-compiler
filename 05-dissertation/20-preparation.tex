@@ -8,20 +8,18 @@
 Word budget: \textasciitilde2500--3000 words
 \end{mrwComment}
 
-In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm.
-I highlight the main features of Rust, the programming language I learnt for this project, and my rationale for using it.
+In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm, highlight the main features of Rust, the programming language I learnt for this project, and my rationale for using it.
 
-I also discuss the requirements of the project, and describe the software engineering approach I employed.
-Finally I outline my starting point and previous experience.
+Furthermore, I discuss the requirements of the project, and describe the software engineering approach I employed, before outlining my starting point and previous experience.
 
 \section{WebAssembly}
 
-Before starting to write the compiler, I extensively researched the WebAssembly specification~\ccite{wasm-spec}, to gain a deep understanding of the binary code the project aims to generate.
+Initially, I extensively researched the WebAssembly specification~\ccite{wasm-spec} to gain a deep understanding of the target binary code.
 The following sections provide a high-level overview of the instruction set architecture.
 
 \subsection{Primitive values}
 
-The primitive value types supported by WebAssembly are outlined in \ccref{tab:wasm value types}, and described in more detail below.
+The primitive values supported by WebAssembly are outlined in~\ccref{tab:wasm value types} below.
 
 \begin{table}[t]
   \centering
@@ -42,13 +40,13 @@ The primitive value types supported by WebAssembly are outlined in \ccref{tab:wa
   \label{tab:wasm value types} % chktex 24
 \end{table}
 
-Integers can be interpreted as either signed or unsigned, depending on the operations applied to them.
-They will also be used to store data such as booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}
+The same representation is used for both signed and unsigned integers; operations determine whether to interpret their operands as signed or unsigned.
+I will also use integers to store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
 Integer literals are encoded in the program using the LEB128 variable-length encoding scheme~\ccite{leb128-encoding}.
 \Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
-The algorithm is almost the same for signed integers (encoded in two's complement); the only difference is that we sign-extend to a multiple of 7 bits, rather than zero-extend.
-When decoding, the decoder needs to know if the number is signed or unsigned, to know whether to decode it as a two's complement number or not.
-This is why WebAssembly has signed and unsigned variants of some instructions.
+The algorithm is almost identical for signed integers (encoded in two's complement); the only difference is that we sign-extend rather than zero-extend.
+The decoder needs to know if the number is signed or unsigned, to know whether to decode it as a two's complement integer or not.
+Therefore, some instructions have both signed and unsigned variants.
 
 \begin{listing}[t]
   \begin{PseudocodeListing}
@@ -65,13 +63,13 @@ This is why WebAssembly has signed and unsigned variants of some instructions.
 \end{listing}
 
 Floating-point literals are encoded using the IEEE 754-2019 standard~\ccite{ieee-754-2019}. % chktex 8
-This is the same standard used by many programming languages, including Rust, so the byte representation will not need to be converted between the compiler and the WebAssembly binary.
+This is the same standard used by many programming languages, including Rust, so the byte representation does not need to be converted between the compiler and the WebAssembly binary.
 
 WebAssembly also provides vector types and reference types.
-Vectors can store either integers or floats: in either case, the vector is split into a number of evenly-sized numbers.
+Vectors can store either integers or floats: in either case, the vector is split into a number of evenly-sized integers.
 Vector instructions exist to operate on these values.
 \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
-This project does not have a need for using either of these types; the C language doesn't have vector types, and although a compiler could create them, mine will not.
+This project does not have a need for either of these types; the C language has no vector types, and although a compiler could create them, mine will not.
 Additionally I do not support function references in the scope of this project.
 I will only use the four main integer and float types.
 
@@ -95,62 +93,76 @@ The module would fail to instantiate if the types did not match.
 Some arithmetic instructions have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_u} and \WasmInstr{i32.lt_s}.
 This is the case for all instructions where the signedness of a number would make a difference to the result.
 
-WebAssembly only supports structured control flow, in contrast to the unstructured control flow found in most instruction sets that feature arbitrary jump instructions.
+WebAssembly only supports structured control flow, in contrast to the unstructured control flow found in most instruction sets with arbitrary jump instructions.
 There are three types of block: \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if}.
 The only difference between \WasmInline{block} and \WasmInline{loop} is the semantics of branch instructions.
 When referring to a \WasmInline{block}, \WasmInstr{br} will jump to the end of it, and when referring to a \WasmInline{loop}, \WasmInstr{br} will jump back to the start.
 This is analogous to \CInline{break} and \CInline{continue} in C, respectively.
-It is worth noting that \WasmInline{loop} doesn't loop back to the start implicitly; an explicit \WasmInstr{br} instruction is required.
+Note that \WasmInline{loop} does not loop back to the start implicitly; an explicit \WasmInstr{br} instruction is required.
 \WasmInline{if} blocks, which may optionally have an \WasmInline{else} block, conditionally execute depending on the value on top of the stack.
-A \WasmInstr{br} instruction inside an \WasmInline{if} block behaves in the same way as inside a \WasmInline{block}; it will jump to the end of it.
+A \WasmInstr{br} instruction referring to an \WasmInline{if} block will jump to the end of it.
 
+% \begin{listing}[t]
+%   \begin{WasmListing}
+%     loop $l1
+%       br $l1  ;; jumps back to start of loop
+%     end
+%
+%     block $l2
+%       br $l2  ;; jumps to end of block
+%     end
+%
+%     if $l3
+%       br $l3  ;; jumps to end of if
+%     end
+%   \end{WasmListing}
+%   \caption{}
+%   \label{}
+% \end{listing}
 
 \subsection{Modules}
 
 A module is a unit of compilation and loading for a WebAssembly program.
-There is no distinction between a `library' and a `program' such as there is in other languages; there are only modules that export functions to the instantiator (i.e.\ the runtime environment that instantiates the WebAssembly module).
-Modules are split up into different sections.
+There is no distinction between a `library' and a `program' such as in other languages; there are only modules that export functions to the instantiator (the runtime environment that instantiates the WebAssembly module).
+Modules are split up into sections.
 Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
-Each of the sections is described in turn below.
 
-The \emph{type section} defines any function types used in the module, including imported functions.
+The \emph{type section} defines the function types used in the module, including imported functions.
 Each type has a type index, allowing the same type to be used by multiple functions.
 
-The \emph{import section} defines everything that is imported to the module from the runtime environment.
-This includes imported functions as well as memories, tables, and globals.
+The \emph{import section} defines everything that is imported to the module from the runtime environment, including imported functions as well as memories, tables, and global variables.
 
 The \emph{function section} is a map from function indexes to type indexes.
-This comes before the actual body code of the functions, because this allows the module to be decoded in a single pass.
-The type signature of all functions will be known before any of the code is read, so all function calls will be able to be properly typed without needing multiple passes.
+This comes before the code section, so the type signature of all functions is known before any code is parsed.
+This allows all function calls to be properly typed without needing multiple passes over the module in decoding.
 
-A table is an array of function pointers, which can be called indirectly with \WasmInstr{call_indirect}.
-It is necessary for WebAssembly to have a separate data structure for this, because functions live outside of the memory visible to the program; tables keep the function addresses opaque to the program, keeping the execution sandboxed.
-The \emph{table section} stores the size limits of each table; any elements to initialise the tables with are stored in the element section.
+A table is an array of function pointers, used as arguments to \WasmInstr{call_indirect}.
+WebAssembly needs a separate data structure for this because functions live outside of the memory visible to the program; tables hide the function addresses from the program, keeping the execution sandboxed.
+The \emph{table section} stores the size limits of each table; any pointers with which to initialise the tables are stored in the element section.
 
-The \emph{memory section} is similar to the table section; is specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
+The \emph{memory section} specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
 
-The \emph{global section} defines any global variables used in the program, including an expression to initialise them. Global variables can be either mutable or immutable.
+The \emph{global section} defines any global variables used in the program, including an expression to initialise them. They can be either mutable or immutable.
 
 The \emph{export section} defines everything exported from the module to the runtime environment.
-Normally this is mainly function exports, however it can also include tables, memories, and global variables.
+As with imports, this can be functions, memories, tables, and global variables.
 
 The \emph{start section} optionally specifies a function that should automatically be run when the module is initialised.
-This could be used to initialise a global variable to a non-constant expression.
 
-The \emph{element section} is used to statically initialise the contents of tables with function addresses.
+The \emph{element section} contains segments that statically initialise the contents of tables with function addresses.
 Segments can be active or passive.
 An active segment will be automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
 
-The \emph{data count section} is an optional additional section used to allow validators to use only a single pass.
+The \emph{data count section} is an optional additional section used to allow validators to use only a single pass for static analysis.
 It specifies how many data segments are in the data section.
 If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but because this comes after the code section, it would require multiple passes over the module.
 This section has no effect on the actual execution.
 
 The \emph{code section} contains the instructions for each function body.
 All code in a WebAssembly program is contained in a function.
-Each function body begins by declaring any local variables, followed by the code for that function.
+Each function body begins by declaring any local variables, followed by the instructions for that function.
 
-The \emph{data section} is similar to the element section; it is used to statically initialise the contents of memory.
+The \emph{data section} is used to statically initialise the contents of memory (like the element section for tables).
 This can be used, for example, to load string literals into memory.
 
 
@@ -164,7 +176,7 @@ There are several algorithms that achieve this.
 The most naive solution would be to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next. However, this is very inefficient.
 
 The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript~\ccite{emscripten}.
-In today's WebAssembly compilers, there are three general methods used to convert to structured control flow~\ccite{wasm-control-flow-restructuring-thread, solving-structured-control-flow-problem}: Emscripten/Binaryen's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier.
+In today's WebAssembly compilers, there are three general methods used to convert to structured control flow~\ccite{wasm-control-flow-restructuring-thread, solving-structured-control-flow-problem}: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier.
 All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, however therefore also more complex.
 The original Relooper algorithm is a greedy algorithm, and is well described in the paper, and is the one I decided to implement.
 
@@ -173,7 +185,7 @@ The original Relooper algorithm is a greedy algorithm, and is well described in 
 The Relooper algorithm takes a so-called `soup of blocks' as input.
 Each block is a basic block of the flowgraph, that begins at an instruction label and ends with a branch instruction (\ccref{fig:relooper input label structure}).
 There can be no labels or branch instructions other than at the start or end of the block.
-The branch instruction may either be a conditional branch (i.e.\ \CInline{if (...) goto x else goto y}), or an unconditional branch.
+The branch instruction may either be a conditional branch (\CInline{if (...) goto x else goto y}), or an unconditional branch.
 
 To avoid overloading the term \emph{block}, these input blocks are referred to as \emph{labels}.
 
@@ -270,17 +282,15 @@ I chose Rust because it is performant and memory efficient.
 It has a rich type system with pattern matching, which is well suited to writing a compiler.
 It uses the concept of a borrow checker rather than a garbage collector or other memory management system, which eliminates runtime overhead while guaranteeing memory safety at compile time.
 
-I made use of Rust's excellent online documentation~\ccite{rust-by-example, rust-book}, using it to become familiar with the language.
-The borrow checker was the main new feature of the language to learn.
-At its core are the concepts of \emph{ownership} and \emph{borrowing}.
+I made use of Rust's excellent online documentation~\ccite{rust-by-example, rust-book} to become familiar with the language.
+The borrow checker was the main new feature of the language to learn, with the concepts of \emph{ownership} and \emph{borrowing}.
 The main rule is that every value has exactly one owner at any time.
-When the owner goes out of scope, the value is automatically deallocated; this takes the place of the garbage collector found in other languages.
+When the owner goes out of scope, the value is automatically deallocated; this takes the place of the garbage collector or explicit deallocation found in other languages.
 When using a value, it can either be \emph{moved} or \emph{borrowed}.
-A move will make the new variable the owner of the value, and invalidate the old variable.
+Moving a value to another variable makes the new variable the owner of the value, and invalidates the old variable.
 Borrowing, on the other hand, allows a value to be used without taking ownership; it creates a reference that points to the owned value.
 There can either be many immutable borrows of a value, or a single mutable borrow.
-When the borrower is done with the value, it is given back to the owner.
-
+The Rust compiler enforces these constraints at compile time.
 
 \section{Requirements Analysis}
 
@@ -314,14 +324,14 @@ In the later stages of the project, I used pre-commit hooks to run automated tes
 
 \subsection{Testing}
 
-My testing strategy in the incremental model was to verify the correct functioning of each section, as much as possible, before moving onto the next section.
-I wrote a suite of test programs designed to use different language constructs.
-After completing a stage of the compiler pipeline, I carefully examined the output of compiling each test program to check its correctness.
+% My testing strategy in the incremental model was to verify the correct functioning of each section, as much as possible, before moving onto the next section.
+To facilitate testing, I wrote a suite of test programs designed to use different language constructs.
+After completing each stage of the compiler pipeline, I carefully examined the output of compiling each test program to check its correctness.
 
 Once the compiler could generate an \gls{ast}, I wrote a function to reconstruct the source code from the \gls{ast}.
 I compared this output against the original source to check that the program semantics had been maintained.
 
-Once the entire pipeline was complete, I used GCC~\ccite{gcc} as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output.
+When the entire pipeline was complete, I used GCC~\ccite{gcc} as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output.
 
 \section{Starting Point}
 
