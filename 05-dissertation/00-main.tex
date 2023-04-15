@@ -69,8 +69,17 @@
 % Allow listings in subfigure
 \DeclareCaptionSubType{listing}
 
+% Number algorithms by chapter
+\renewcommand\thealgorithm{\thechapter.\arabic{algorithm}}
+\makeatletter
+\@addtoreset{algorithm}{chapter}
+\makeatother
+
 % Provides command \FloatBarrier, which prevents floats being moved over it
 \usepackage{placeins}
+
+\floatstyle{boxed}
+\restylefloat{figure}
 
 % For changing the color of \hline in repository overview table
 \usepackage{colortbl}
@@ -106,6 +115,19 @@
 
 \newlist{EnumerateAlgorithm}{enumerate}{1}
 \setlist[EnumerateAlgorithm]{label=\boxed{\arabic*}}
+
+% Environment to wrap EnumerateAlgorithm with lines and a caption
+\NewDocumentEnvironment{Algorithm}{mm}
+  {%
+    \rule{\textwidth}{0.5pt}%
+    \vspace{-14pt}%
+  }
+  {%
+    \vspace{-20pt}%
+    \rule{\textwidth}{0.5pt}%
+    \captionof{algorithm}{#1\label{#2}}
+    \medskip
+  }
 
 \usepackage{comment}
 \ifCompileForWordCount % chktex 1
