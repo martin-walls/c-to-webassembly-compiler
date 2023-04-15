@@ -1,17 +1,18 @@
 % Needed for vertical alignment of signature
 \usepackage[export]{adjustbox}
 
-\newcommand{\FullName}{Martin Walls}
-\newcommand{\College}{Churchill College}
-\newcommand{\ProjectTitle}{C to WebAssembly Compiler}
-\newcommand{\Examination}{Computer Science Tripos: Part II}
-\newcommand{\CandidateNumber}{\textbf{TODO}}
-\newcommand{\Date}{\today}
-\newcommand{\Year}{2023}
-\newcommand{\DissertationWordCount}{\textbf{TODO}}
-\newcommand{\CodeLineCount}{\num{17722}}
-\newcommand{\ProjectOriginator}{Timothy M. Jones}
-\newcommand{\ProjectSupervisor}{Timothy M. Jones}
+\NewDocumentCommand{\FullName}{}{Martin Walls}
+\NewDocumentCommand{\College}{}{Churchill College}
+\NewDocumentCommand{\University}{}{Cambridge University}
+\NewDocumentCommand{\ProjectTitle}{}{C to WebAssembly Compiler}
+\NewDocumentCommand{\Examination}{}{Computer Science Tripos: Part II}
+\NewDocumentCommand{\CandidateNumber}{}{\textbf{TODO}}
+\NewDocumentCommand{\Date}{}{\today}
+\NewDocumentCommand{\Year}{}{2023}
+\NewDocumentCommand{\DissertationWordCount}{}{\textbf{TODO}}
+\NewDocumentCommand{\CodeLineCount}{}{\num{17722}}
+\NewDocumentCommand{\ProjectOriginator}{}{Timothy M. Jones}
+\NewDocumentCommand{\ProjectSupervisor}{}{Timothy M. Jones}
 
 \NewDocumentCommand{\Signature}{}{
   \includegraphics[width=2cm, valign=m]{00-signature.jpg}
