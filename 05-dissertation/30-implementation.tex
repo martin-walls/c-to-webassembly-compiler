@@ -54,11 +54,11 @@ I created my own \gls{ast} representation and \gls{ir}, which are used as the ma
 
 The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
 I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
-I used the LALRPOP parser generator \ccite{lalrpop-docs} to convert the tokens emitted by the lexer into an \gls{ast}\@.
+I used the LALRPOP parser generator to convert the tokens emitted by the lexer into an \gls{ast}~\ccite{lalrpop-docs}.
 
 \subsection{Preprocessor}
 
-I used the GNU C preprocessor (\mintinline{bash}{cpp}) \ccite{gnu-c-preprocessor} to handle any preprocessor directives in the source code, for example macro definitions.
+I used the GNU C preprocessor (\mintinline{bash}{cpp}) to handle any preprocessor directives in the source code, for example macro definitions~\ccite{gnu-c-preprocessor}.
 However, since I do not support linking, I removed any \CInline{#include} directives before running the preprocessor and handled them myself.
 
 For each \CInline{#include <name.h>} directive that is removed, if it is one of the standard library headers that I support, the appropriate library code is copied into the source code from \Filename{headers/<name>.h}.
@@ -68,7 +68,11 @@ After processing \CInline{#include} directives, the compiler spawns \mintinline{
 
 \subsection{Lexer}
 
-The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive \ccite[Section 5.10.3]{c-reference-manual}.
+\begin{mrwComment}
+TODO remove section reference in C reference manual citation
+\end{mrwComment}
+
+The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive~\ccite[Section 5.10.3]{c-reference-manual}.
 For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
 \begin{itemize}
 \item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
@@ -121,16 +125,20 @@ The lexer stores the \CInline{typedef} names that have been declared so far so t
 
 \subsection{Parser}
 
-I used the LALRPOP parser generator \ccite{lalrpop-docs} to generate parsing code from the input grammar I wrote.
+I used the LALRPOP parser generator to generate parsing code from the input grammar I wrote~\ccite{lalrpop-docs}.
 It generates an \gls{ast} for which I defined the structure.
-Microsoft's C Language Syntax Summary \ccite{c-language-grammar-microsoft} and C: A Reference Manual \ccite{c-reference-manual} were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar. % chktex 13
+Microsoft's C Language Syntax Summary and C: A Reference Manual were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar~\ccite{c-language-grammar-microsoft,c-reference-manual}. % chktex 13
 My grammar is able to parse all of the core features of the C language, omitting some of the recent language additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
 
-A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements \ccite[sec.~8.5.2]{c-reference-manual}.
+\begin{mrwComment}
+TODO remove section reference in citation
+\end{mrwComment}
+
+A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements~\ccite[sec.~8.5.2]{c-reference-manual}.
 C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
-If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem \ccite{dangling-else-wiki}.
+If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem~\ccite{dangling-else-wiki}.
 
 \begin{listing}[t]
   \begin{GrammarListing}
@@ -189,7 +197,7 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
 \end{listing}
 
 C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
-We can encode this into the grammar with the concept of `open' and `closed' statements \ccite{final-solution-to-dangling-else}.
+We can encode this into the grammar with the concept of `open' and `closed' statements~\ccite{final-solution-to-dangling-else}.
 \Ccref{lst:open/closed statement grammar} shows how I introduce this into my grammar for \CInline{if}/\CInline{else} statements.
 All other forms of statement must also be converted to the new structure.
 Any basic statements, i.e.\ statements that have no sub-statements, are added to \GrammarInline{closed-stmt}.
@@ -446,7 +454,11 @@ The \RustInline{FunctionContext} lives for a shorter lifetime than the \RustInli
 
 \subsection{Types}
 
-The following types are supported by the \gls{ir}, mirroring the types supported by the C language \ccite[ch.~5]{c-reference-manual}.
+\begin{mrwComment}
+TODO remove chapter reference in citation
+\end{mrwComment}
+
+The following types are supported by the \gls{ir}, mirroring the types supported by the C language~\ccite[ch.~5]{c-reference-manual}.
 \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
 I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification doesn't specify the exact bit widths, only the minimum size.}.
@@ -460,7 +472,11 @@ I followed the standard implementation convention for the bit size of \CInline{c
 
 I created a data structure to represent these types, along with methods for operations on those types.
 
-I implemented the ISO C unary and binary conversions for types \ccite[pp.~174--176]{c-reference-manual}.
+\begin{mrwComment}
+TODO remove page ref in citation
+\end{mrwComment}
+
+I implemented the ISO C unary and binary conversions for types~\ccite[pp.~174--176]{c-reference-manual}.
 They are applied before unary and binary operations respectively.
 Unary conversion reduces the number of types an operand can be. Smaller integer types are promoted to \IrType{I32}/\IrType{U32} appropriately, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
 Binary conversions make sure that both operands to a binary operation are of the same type.
@@ -698,7 +714,7 @@ At run time, a variable is accessed by first loading the \gls{fp}, then adding t
 \section{Runtime Environment}\label{sec:impl:runtime}
 
 The purpose of the runtime environment is to provide an interface between the WebAssembly binary and the system, allowing it to be executed.
-I chose to use Node.js \ccite{nodejs}, because this allows the binary to be run locally.
+I chose to use Node.js, because this allows the binary to be run locally~\ccite{nodejs}.
 The other option would be to use JavaScript within a web browser, which would be the primary reason to use WebAssembly; however, for the purposes of this project that approach would have added unnecessary complexity.
 
 \begin{mrwComment}

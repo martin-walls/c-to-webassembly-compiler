@@ -65,13 +65,13 @@ There were two types of program:
 
 Programs of the first type are not strictly unit tests by the standard definition.
 Unit tests verify the functionality of individual units of source code, in isolation from the rest of the application.
-Each test should test one particular behaviour of that unit, and should be independent from the rest of the program's functionality \ccite{unit-testing}.
+Each test should test one particular behaviour of that unit, and should be independent from the rest of the program's functionality~\ccite{unit-testing}.
 My test programs don't test an isolated behaviour of the compiler's source code.
 Instead, they test a single behaviour of the C source code that is being compiled (for example, dereferencing a pointer), verifying that the compiler pipeline maintains the correct behaviour.
 This allowed me to trace bugs to the units of code that transformed that particular construct.
 
-Examples of `full programs' include Conway's Game of Life \ccite{conways-game-of-life}, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string.
-Six of the test programs I used were sourced from Clib \ccite{clib}, which contains many small utility packages for C. Those that I used had no external dependencies, and were useful in verifying that my compiler worked for other people's code as well as my own. Clib is licensed under the MIT license, which permits use of the software ``without restriction''.
+Examples of `full programs' include Conway's Game of Life, calculating the Fibonacci numbers (recursively), and finding occurrences of a substring in a string~\ccite{conways-game-of-life}.
+Six of the test programs I used were sourced from Clib, which contains many small utility packages for C. Those that I used had no external dependencies, and were useful in verifying that my compiler worked for other people's code as well as my own. Clib is licensed under the MIT license, which permits use of the software ``without restriction''~\ccite{clib}.
 The remaining five full programs and all 18 unit test programs were written by myself.
 
 For all my tests, I used GCC\footnote{GCC version 11.3.1.} as the reference for correctness.

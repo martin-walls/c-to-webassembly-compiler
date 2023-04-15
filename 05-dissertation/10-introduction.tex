@@ -16,7 +16,7 @@ However, the standard approach of building web apps with JavaScript fails to del
 
 WebAssembly aims to solve this problem by bringing near-native performance to the browser space.
 It is a virtual instruction set architecture, which executes on a stack-based virtual machine.
-Per the Introduction section of the WebAssembly specification \ccite{wasm-spec}, it is designed to have ``fast, safe, and portable semantics'' and an ``efficient and portable representation''.
+Per the Introduction section of the WebAssembly specification, it is designed to have ``fast, safe, and portable semantics'' and an ``efficient and portable representation''~\ccite{wasm-spec}.
 
 The semantics are designed to be able to be executed efficiently across different hardware, be memory safe (with respect to the surrounding execution environment), and to be portable across source languages, target architectures, and platforms.
 
@@ -33,10 +33,10 @@ In particular, C has manual memory management, therefore I did not have to imple
 \section{Survey of Related Work}
 
 Many other compilers to WebAssembly exist, covering a large number of source languages~\ccite{awesome-wasm-langs}.
-Notably, Emscripten~\ccite{emscripten-homepage} is a compiler from LLVM~\ccite{llvm} to WebAssembly and JavaScript.
+Notably, Emscripten is a compiler from LLVM to WebAssembly and JavaScript~\ccite{emscripten-homepage,llvm}.
 This primarily targets C and C++, however many other languages also have LLVM compilers.
 
-Cheerp~\ccite{cheerp} is an alternative C/C++ to WebAssembly compiler, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating very optimised code.
+Cheerp is an alternative C/C++ to WebAssembly compiler, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating very optimised code~\ccite{cheerp}.
 
 Compilers to WebAssembly exist for other mainstream languages such as Java, C\#, Python, and even JavaScript.
 It is an area of active development; many more WebAssembly compilers are in progress for other languages.

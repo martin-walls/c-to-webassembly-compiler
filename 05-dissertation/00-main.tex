@@ -36,7 +36,8 @@
 % For the bibliography
 \usepackage[sorting=none]{biblatex}
 \addbibresource{90-references.bib}
-\NewDocumentCommand{\ccite}{O{}m}{\textcolor{citecolor}{\cite[#1]{#2}}}
+% Use \mbox so a multiple citation doesn't break over two lines
+\NewDocumentCommand{\ccite}{O{}m}{\mbox{\textcolor{citecolor}{\cite[#1]{#2}}}}
 
 % To generate the index
 \usepackage{imakeidx}
