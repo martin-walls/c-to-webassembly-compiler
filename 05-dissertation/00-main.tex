@@ -126,6 +126,8 @@
 \NewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{\Cref{#1}}}
 \NewDocumentCommand{\ccrefrange}{mm}{\textcolor{refcolor}{\crefrange{#1}{#2}}}
 \NewDocumentCommand{\Ccrefrange}{mm}{\textcolor{refcolor}{\Crefrange{#1}{#2}}}
+\NewDocumentCommand{\ccrefeq}{m}{\textcolor{refcolor}{\ref{#1}}}
+\NewDocumentCommand{\Ccrefeq}{m}{\ccrefeq{#1}}
 \crefname{algstep}{Step}{Steps}
 
 \newlist{EnumerateAlgorithm}{enumerate}{1}

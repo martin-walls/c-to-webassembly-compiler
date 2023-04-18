@@ -89,7 +89,7 @@ If, when starting to lex a new token, there is no initial transition correspondi
     \label{subfig:lexer fsm identifiers}
   \end{subfigure}
   \caption{
-    \glsreset{fsm}Sections of the lexer \gls{fsm}.
+    \protect\glsreset{fsm}Sections of the lexer \gls{fsm}.
     Named states represent a valid token, and blank states are invalid.
     Only valid transitions are shown, using regular expressions; if no transition exists for an input character, the end of the current token has been reached.
     Transitions without a prior state are the initial transitions for the first input character.
@@ -592,7 +592,7 @@ This means the address of the destination variable needs to be pushed onto the s
   \label{lst:converting add instr to wasm code}
 \end{listing}
 
-I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly typed load and store instructions respectively.
+I defined \RustInline{load} and \RustInline{store} functions that take the \gls{ir} type of a variable and return correctly typed load and store instructions, respectively.
 The \RustInline{store} function encapsulates the fact that the address operand has to come before the value to store; this helps to ensure correctness as it is only defined in one place.
 
 I used the same ID generator pattern as in the middle end, to generate unique indexes for items in the WebAssembly module, such as functions and types.
@@ -606,44 +606,52 @@ A large part of this is the function call stack; pushing new stack frames when f
 \begin{figure}[t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
-  \caption{Memory structure, with addresses increasing to the right.}
-  \label{fig:memory structure} % chktex 24
+  \caption{\protect\glsreset{fp}\protect\glsreset{sp}%
+    Memory structure, containing the \gls{fp}, temporary \acrlong{fp}, and \gls{sp}, followed by other sections of memory.
+    Addresses increase to the right; compile-time known memory addresses are labelled above.
+  }%
+  \label{fig:memory structure}
 \end{figure}
 
+\glsreset{fp}\glsreset{sp}
+
 The first section of memory contains the \gls{fp} and \gls{sp}, as well as a temporary pointer storage location which is used in intermediate steps of manipulating stack frames.
-I chose to call this the `temporary \gls{fp}', because it is mainly used to hold the new value that the \gls{fp} will be set to once we have finished setting up a new stack frame.
-In a register architecture, these pointers would be stored in registers, however WebAssembly does not have any registers, so instead I chose to allocate them at known locations in memory.
+I chose to call this the `temporary \acrlong{fp}', because it is mainly used to hold the new value that the \gls{fp} will be set to once we have finished setting up a new stack frame.
+In a register architecture, these pointers would be stored in registers, however WebAssembly does not have registers, so instead I allocate them at known locations in memory.
 
 The next section of memory contains any string literals that are defined in the program.
 In C, a string literal is simply a null-terminated array of characters, which a variable accesses via a \CInline{char*}.
-My \gls{ir} has a dedicated \RustInline{PointerToStringLiteral} instruction which, in the back end, gets converted to an instruction that pushes the address of the corresponding string onto the stack.
+My \gls{ir} has a dedicated \RustInline{PointerToStringLiteral} instruction which, in the back end, is converted to an instruction that pushes the address of the corresponding string onto the stack.
 All string literals are allocated at compile-time and have compile-time known addresses.
 
 Space is allocated for all global variables at compile-time.
-These are allocated in the same way as local variables, described below.
+These are allocated in the same way as local variables (see \ccref{sec:impl:local variable allocation} below).
 
 Programs may accept command-line arguments, which are stored into memory by the runtime environment.
 This is described in more detail in \ccref{sec:impl:runtime} below.
 
 The function call stack grows upwards dynamically from this point.
-I did not implement heap storage, so memory only increases from one end, unlike in standard C compilers such as GCC\@.
+I did not implement heap storage, so memory only increases from one end, unlike in standard C compilers such as GCC~\ccite{gcc}.
 
 \subsection{Stack Frame Operations}
 
 Whenever a function is called, a new stack frame is constructed at the top of the stack in memory.
 \Ccref{fig:stack frame layout} shows the structure of each stack frame.
 
-\begin{figure}[t]
+\begin{figure}[!t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/07-stack-frame-layout}}
-  \caption{Stack frame layout, with addresses increasing upwards.}
-  \label{fig:stack frame layout} % chktex 24
+  \caption{\protect\glsreset{fp}\protect\glsreset{sp}%
+    Memory layout of a stack frame, showing where the \gls{fp} and \gls{sp} point to.
+    Addresses increase upwards; compile-time known offsets from the \gls{fp} are labelled.
+  }%
+  \label{fig:stack frame layout}
 \end{figure}
 
 I defined callee/caller conventions for pushing and popping stack frames.
 The caller is responsible for constructing the frame with the previous \gls{fp} value, space for the return address, and any function parameters.
 The caller also deallocates the stack frame once the function returns.
-The callee is responsible for allocating space for its local variables on the stack (discussed in \ccref{sec:impl:local variable allocation} below).
+The callee is responsible for allocating space for its local variables on the stack (see \ccref{sec:impl:local variable allocation} below).
 
 The procedure for pushing a new stack frame is \ccref{alg:pushing new stack frame}:
 
@@ -663,7 +671,7 @@ Set the \gls{fp} to the value held in Temp \gls{fp}.
 \end{EnumerateAlgorithm}
 \end{Algorithm}
 
-Using the temporary \gls{fp} here is necessary because if we directly wrote to the \gls{fp}, we would not be able to copy any variables in as parameters.
+Using the temporary \gls{fp} here is necessary since overwriting the \gls{fp} directly would prevent copying local variables in as parameters.
 (Local variables have \gls{fp}-relative addresses.)
 We also cannot wait to save the new \gls{fp} address until after we have copied the variables, because by then the \gls{sp} has been moved and no longer points to the start of the stack frame.
 (The \gls{sp} is updated every time a value is stored on top of the stack.)
@@ -686,15 +694,15 @@ We can pop the frame simply by moving the \gls{sp} because the data above the \g
 
 \subsection{Local Variable Allocation}\label{sec:impl:local variable allocation}
 
-Initially I implemented a naive variable allocation strategy.
+Initially, I implemented a naive variable allocation strategy.
 As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
 
-Variable allocation is done at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a run time address table.
+Variable allocation is performed at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a run time address table.
 Only in specific cases---variable-length arrays, for example---are variables allocated at run time.
-My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction which takes the number of bytes to allocate as an operand.
+My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction that takes the number of bytes to allocate as an operand.
 
 Each variable, including temporary variables, is allocated a dedicated byte range in memory; none of the variables overlap.
-This safely maintains the programmer's memory model, however it is an inefficient use of memory, hence the later optimisation.
+This safely maintains the programmer's memory model, but is an inefficient use of memory, hence the later optimisation.
 
 Local variables are stored as part of the function stack frame, the address of which is run time dependent.
 Therefore, variables are allocated as offsets from the \gls{fp}.
@@ -702,33 +710,32 @@ At run time, a variable is accessed by first loading the \gls{fp}, then adding t
 
 \section{Runtime Environment}\label{sec:impl:runtime}
 
-The purpose of the runtime environment is to provide an interface between the WebAssembly binary and the system, allowing it to be executed.
-I chose to use Node.js, because this allows the binary to be run locally~\ccite{nodejs}.
-The other option would be to use JavaScript within a web browser, which would be the primary reason to use WebAssembly; however, for the purposes of this project that approach would have added unnecessary complexity.
-
-\begin{mrwComment}
-Reason for using Node.js maybe should go in preparation chapter
-\end{mrwComment}
+The purpose of the runtime environment is to provide an interface between the WebAssembly binary and the system, thus allowing it to be executed.
+I chose to use Node.js, which allows the binary to be run locally~\ccite{nodejs}.
+Another option was to use JavaScript within a web browser, the primary target for WebAssembly; however, for the purposes of this project it would have added unnecessary complexity.
 
 The runtime is responsible for instantiating the WebAssembly module.
-A module must be instantiated before any functions it contains can be executed.
+A module must be instantiated before any of its functions can be executed.
 One of the main functions of the instantiation is to pass imports into the WebAssembly module.
 The runtime creates a new linear memory for the module to use, and also imports my skeleton library functions.
-The memory is created by the runtime so that the standard library functions can have access to it.
-If the memory were created by the WebAssembly module, which is the other option, then the imported functions would not be able to reference it.
+The memory is created by the runtime so that the standard library functions can access it.
+Alternatively, if the memory were created by the WebAssembly module, the imported functions would not be able to reference it.
 
 Once the module has been instantiated, the runtime stores the command-line program arguments into memory.
-As is standard for C programs, the first argument is always the name of the program being run (i.e.\ the name of the WebAssembly binary).
+Following the C standard, the first argument is always the name of the program being run.
 Arguments are passed to the \CInline{main} function as an array of \CInline{char} pointers (\CInline{argv}), plus the argument count (\CInline{argc}).
-To facilitate this, the runtime first allocates space for the array of pointers, at the compile-time known address immediately after the global variables.
+To facilitate this, the runtime first allocates space for the array of pointers, after the global variables.
 After the pointer array, the actual argument values are stored (as strings), and each corresponding pointer is set (\ccref{fig:program args memory structure}).
 The runtime then sets the \gls{sp} to immediately after the last argument.
 
 \begin{figure}[t]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/08-program-args-memory-layout}}
-  \caption{Memory structure of program arguments, with addresses increasing to the right. Here, \CInline{argc}${} = 2$.}
-  \label{fig:program args memory structure} % chktex 24
+  \caption{\protect\glsreset{sp}%
+    Memory structure of program arguments, with addresses increasing to the right. Here, the argument count (\CInline{argc}) is 2.
+    The pointer to the start of the array (\CInline{argv}) and the \gls{sp} are labelled.
+  }%
+  \label{fig:program args memory structure}
 \end{figure}
 
 Finally, the runtime calls the exported \JSInline{main} function, with the values of \JSInline{argc} and \JSInline{argv} as parameters.
@@ -736,20 +743,20 @@ Finally, the runtime calls the exported \JSInline{main} function, with the value
 \section{Optimisations}\label{sec:impl:optimisations}
 
 After completing the main compiler pipeline, I implemented optimisations in the middle and back ends.
-I performed unreachable procedure elimination and tail-call optimisation in the middle end, and in the back end I created a more optimal stack allocation policy for local variables.
+I performed unreachable procedure elimination (\ccref{sec:impl:unreachable procedure elimination}) and tail-call optimisation (\ccref{sec:impl:tail-call optimisation}) in the middle end, and in the back end I created a more optimal stack allocation policy for local variables (\ccref{sec:impl:optimised stack allocation}).
 
 \subsection{Unreachable Procedure Elimination}\label{sec:impl:unreachable procedure elimination}
 
 Unreachable procedure elimination removes all functions that are never called.
 I do not support function pointers; all function calls are direct.
-Therefore, if no \IrCode{call} instruction references a particular function, that function is guaranteed to never be called.
+Therefore, if no \IrCode{call} instruction references a particular function, that function is guaranteed never to be called.
 
-First, the call graph is generated.
+Firstly, the call graph is generated.
 This is a directed graph where each node is a function in the program and each edge represents a syntactic function call.
 To maintain correctness, the constructed graph is a superset of the \emph{semantic} call graph, which contains all the function calls that can happen in actual execution.
 The semantic graph is undecidable at compile time\footnote{Due to the undecidability of arithmetic, it is not possible to decide in general which control flow path will be taken.}, so we calculate the syntactic call graph.
 
-I used an adjacency list to store the call graph, since the graph is likely to be sparse.
+I used an adjacency list to store the call graph, since it is likely to be sparse.
 (An adjacency matrix would be more suitable for densely connected graphs.)
 The call graph data structure also has a set of entry nodes, which are functions that are called from the global scope of the program (e.g.~\CInline{main()}). % chktex 36
 
@@ -758,7 +765,7 @@ For a \IrCode{call y} instruction found inside function \IrCode{x}, a directed e
 Any functions that are called from the global scope, as well as the \CInline{main} function, are added to the set of entry nodes.
 
 Once the call graph is constructed, it is used to find functions that are never called.
-First mark every function as unused.
+Firstly, mark every function as unused.
 I then implemented a \gls{bfs} over the graph, starting from each entry node.
 Each node we reach is marked as used.
 Once the search returns, all nodes still marked as unused can be safely removed from the program.
@@ -768,7 +775,7 @@ A program may contain cycles of functions that call each other but that are neve
 In this case, the nodes would have incoming edges, but would not be reached in a \gls{bfs}, allowing them to be removed.
 
 
-\subsection{Tail-Call Optimisation}
+\subsection{Tail-Call Optimisation}\label{sec:impl:tail-call optimisation}
 
 When a function is called recursively, a new stack frame is pushed onto the call stack.
 A recursive tail-call is when the recursive call is the last operation of the calling function, and the result from the recursive call is directly returned from the caller.
@@ -777,17 +784,17 @@ Therefore, tail-call optimisation aims to remove the unnecessary stack frames, t
 The new stack frame replaces the caller's stack frame, instead of being pushed on top of it.
 
 This can have a dramatic impact on memory usage; it turns a function's memory usage from $\bigo{n}$ to $\bigo{1}$ (where $n$ is the recursion depth).
-Not only does this make a program much more efficient, but for deep enough recursion it allows programs to run that would otherwise crash due to running out of memory.
+Not only does this make a program much more efficient, but with deep enough recursion, it allows programs to run that would otherwise crash due to lack of memory.
 
 There is a distinction between general tail-calls and recursive tail-calls. In general, a tail-call is any function call that is the last action of a function\footnote{A tail-call necessarily has the same return type as the calling function, because otherwise an explicit type conversion instruction would already have been inserted before the \IrCode{return} instruction.}, whereas a recursive tail-call is specifically a recursive call.
 Recursive tail-calls are easier to optimise because the function signature is the same, and also have the greatest performance impact because many recursive calls may be made.
 
-Initially I implemented this optimisation by replacing the stack frame in the target code generation stage, however this did not actually work properly.
+Initially, I implemented this optimisation by replacing the stack frame in the target code generation stage, however this did not actually work properly.
 Function calls are implemented using WebAssembly functions and the \WasmInstr{call} instruction, which means that the WebAssembly virtual machine has its own call stack as well as the call stack I manage in memory.
 At large recursion depths, the WebAssembly stack was still running out of memory.
-Instead, I implemented an approach of transforming the recursion into iteration in the \gls{ir} stage.
+Instead, I implemented an approach of transforming the recursion into iteration at the \gls{ir} stage.
 This was much more successful.
-However, I kept the old optimisation for the cases of non-recursive tail-calls, because it does still reduce memory usage there.
+However, I kept the old optimisation for the cases of non-recursive tail-calls, since this still reduces memory usage there.
 I will describe both approaches in turn below.
 
 \subsubsection{Approach 1: Replacing the Caller's Stack Frame at Runtime}
@@ -800,7 +807,7 @@ In the target code generation stage, \IrCode{tail-call} instructions are handled
 The construction of this is very similar to how a stack frame is normally pushed.
 The frame pointer and space for the return value are left as they are; they don't need to be changed for the new stack frame.
 
-To store the parameters in the new stack frame, first they are copied to a region of unused memory above the stack, then copied to their respective positions in the stack frame. This ensures the needed values in the old stack frame are not overwritten by the new stack frame before they are used.
+To store the parameters in the new stack frame, initially they are copied to a region of unused memory above the stack, then copied to their respective positions in the stack frame. This ensures the values in the old stack frame are not overwritten by the new stack frame before they are used.
 
 This approach works for both recursive and non-recursive tail-calls.
 However, as described above, it is not ideal for recursive tail-calls, because of WebAssembly's own function call stack.
@@ -808,20 +815,19 @@ Therefore I implemented the second approach below.
 
 \subsubsection{Approach 2: Transforming Recursion to Iteration}
 
-The second approach is entirely contained in the middle end.
+The second approach is entirely contained within the middle end.
 It only targets recursive tail-calls; these are where the majority of the performance gains are to be found.
 It removes the recursive calls altogether, and replaces them with iteration back to the start of the function.
 Therefore, no new stack frame will be allocated.
 
-Similarly to above, we start by finding all \IrCode{call} instructions that are both recursive and are tail-calls.
+Similarly to the previous approach, we start by finding all \IrCode{call} instructions that are both recursive and are tail-calls.
 In the current function, there is a variable holding each parameter.
 For each argument to the recursive call, we copy it to the variable holding the corresponding parameter in the current function.
-Once we have done this assignment for each parameter, we add a branch instruction to the start of the function.
+Once done for each parameter, a branch instruction is added to the start of the function.
 \Ccref{lst:tail-call optimisation example} shows an example of this transformation.
-(C code is shown for clarity, however the actual optimisation happens on the intermediate code.)
+(C code is shown for clarity, however the actual optimisation happens to the intermediate code.)
 
 This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
-The recursion is now contained within a single function using iteration.
 
 \begin{listing}[t]
   \begin{sublisting}[b]{0.49\textwidth}
@@ -861,14 +867,14 @@ The recursion is now contained within a single function using iteration.
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
-My initial variable allocation policy is described in \ccref{sec:impl:local variable allocation} above.
+My initial variable allocation policy is described in \ccref{sec:impl:local variable allocation}.
 Each variable is allocated a disjoint address range in memory.
-However, this is very inefficient since most variables are temporary variables that are only used once, and many of them have non-overlapping define-to-use ranges (i.e.\ they never \emph{clash} in the context of liveness analysis).
+However, this is inefficient since most variables are temporary variables that are only used once, and many of them have non-overlapping define-to-use ranges (i.e.\ they never \emph{clash} in the context of liveness analysis).
 
 Variables that never clash can safely be allocated to the same address range.
-The challenge of this optimisation was to find a more optimal way of allocating variables such that as little memory is used as possible.
+The challenge was to find a more optimal way of allocating variables to use as little memory as possible.
 
-The optimised allocation is performed in the following steps:
+The optimised allocation is performed with the following steps:
 
 \begin{Algorithm}{Optimised variable allocation.}{alg:optimised variable allocation}
 \begin{EnumerateAlgorithm}
@@ -885,7 +891,7 @@ The optimised allocation is performed in the following steps:
 \newcommand{\lvadef}{\ensuremath{\mathit{def}}}
 \newcommand{\lvaref}{\ensuremath{\mathit{ref}}}
 
-An instruction flowgraph is similar to the function call graph used in \ccref{sec:impl:unreachable procedure elimination} above, but on the level of individual instructions within a function.
+An instruction flowgraph is similar to the function call graph used in \ccref{sec:impl:unreachable procedure elimination}, but at the level of individual instructions within a function.
 Each node in the graph is a single instruction, and successors of a node are any instructions that can be executed as the next instruction along some execution path.
 For example, branch instructions will have multiple successors.
 
@@ -896,15 +902,16 @@ A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{s
 
 \Gls{lva} is a backwards analysis, which means that liveness information is propagated backwards through the flowgraph.
 First, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables defined by instruction $n$, and $\lvaref\,(n)$ is the set of all variables referenced by $n$.
-We then define $\mathit{live}\,(n)$, the set of variables that are live immediately before instruction $n$, as follows:
-\begin{align*}
+\Ccrefeq{eq:live vars} defines $\mathit{live}\,(n)$, the set of variables that are live immediately before instruction $n$:
+\begin{align}\label{eq:live vars}
   \mathit{live}\,(n) &= \left( \left( \bigcup_{s \,\in\, \mathit{succ}\,(n)} \mathit{live}\,(s) \right) \setminus \lvadef\,(n) \right) \cup \lvaref\,(n)
-\end{align*}
-We start with all variables live at successors of $n$, remove all variables that $n$ assigns to, and add any variables that $n$ references.
+  \tag{Equation~3.1}
+\end{align}
+We start with all variables live at successors of $n$, remove all variables that $n$ assigns to, and then add any variables that $n$ references.
 When $n$ assigns to a variable, it is no longer live for previous instructions, because any previous value has been overwritten.
 When $n$ references a variable, it becomes live for previous instructions, until an instruction assigns to that variable.
 
-To implement \gls{lva}, we keep iterating over every instruction in the flowgraph, applying the above equation to update the set of live variables, until there are no more changes (see \Ccref{lst:lva implementation}).
+To implement \gls{lva}, we keep iterating over every instruction in the flowgraph, applying \ccrefeq{eq:live vars} to update the set of live variables, until there are no more changes (see \Ccref{lst:lva implementation}).
 Initially the set of variables live at each instruction is the empty set.
 The algorithm is guaranteed to find the smallest set of live variables (it does not add unnecessary overapproximations).
 
@@ -946,11 +953,11 @@ The algorithm is guaranteed to find the smallest set of live variables (it does 
         live // Return the sets of live variables
     }
   \end{RustListing*}
-  \caption{\Acrlong{lva} implementation.}%
+  \caption{\Acrlong{lva} implementation, iteratively applying \ccrefeq{eq:live vars}.}%
   \label{lst:lva implementation}
 \end{listing}
 
-One complication of \gls{lva} I had to solve was that if a variable is assigned to but never subsequently referenced, it will never be marked as live by the analysis.
+One complication of \gls{lva} I had to solve was that if a variable is assigned to but is never subsequently referenced, it will never be marked as live by the analysis.
 The next stage of the optimisation then marks it as having no clashes with any other variables.
 However, the write to the variable may occur while other variable are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
 To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
@@ -993,7 +1000,7 @@ I implemented this by storing a set of `universal clashes' in the clash graph; w
 
 \subsubsection{Allocating Variables from the Clash Graph}
 
-In the Part II Optimising Compilers Course, a register allocation heuristic was described which allocates variables in order of most clashes to least clashes.
+In the Part II Optimising Compilers Course, a register allocation heuristic was described which allocates variables in order of most to least clashes.
 When each variable is allocated, it is allocated a register that maximally overlaps with already allocated variables, while avoiding registers containing variables it clashes with.
 
 My variable allocation problem is similar in many regards, however it has some key differences.
