@@ -4,10 +4,6 @@
 
 \chapter{Preparation}
 
-\begin{mrwComment}
-Word budget: \textasciitilde2500--3000 words
-\end{mrwComment}
-
 In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm, highlight the main features of Rust, the programming language I learnt for this project, and my rationale for using it.
 
 Furthermore, I discuss the requirements of the project, and describe the software engineering approach I employed, before outlining my starting point and previous experience.
@@ -36,17 +32,17 @@ The primitive values supported by WebAssembly are outlined in~\ccref{tab:wasm va
               & \WasmType{externref} & \\
     \bottomrule
   \end{tabular}
-  \caption{WebAssembly primitive types.}
+  \caption{Summary of the primitive types supported by WebAssembly. The `constructor' is the name of the type in code and in the specification.}
   \label{tab:wasm value types} % chktex 24
 \end{table}
 
 The same representation is used for both signed and unsigned integers; operations determine whether to interpret their operands as signed or unsigned.
-I will also use integers to store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
+Integers also store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
 Integer literals are encoded in the program using the LEB128 variable-length encoding scheme~\ccite{leb128-encoding}.
 \Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
 The algorithm is almost identical for signed integers (encoded in two's complement); the only difference is that we sign-extend rather than zero-extend.
-The decoder needs to know if the number is signed or unsigned, to know whether to decode it as a two's complement integer or not.
-Therefore, some instructions have both signed and unsigned variants.
+The decoder needs to know if the number is signed or unsigned, to know whether to interpret it as a two's complement integer or not.
+Hence some instructions have both signed and unsigned variants.
 
 \begin{listing}[t]
   \begin{PseudocodeListing}
@@ -58,7 +54,7 @@ Therefore, some instructions have both signed and unsigned variants.
       \State \Return bytes in little-endian order
     \EndFunction
   \end{PseudocodeListing}
-  \caption{Pseudocode for the LEB128 encoding scheme (for unsigned integers).}
+  \caption{Pseudocode for the LEB128 encoding scheme for unsigned integers~\ccite{leb128-encoding}. The function takes an integer $n$ and returns the byte sequence to represent it in the compiled program.}
   \label{lst:leb128 pseudocode}
 \end{listing}
 
@@ -70,7 +66,7 @@ Vectors can store either integers or floats: in either case, the vector is split
 Vector instructions exist to operate on these values.
 \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
 This project does not have a need for either of these types; the C language has no vector types, and although a compiler could create them, mine will not.
-Additionally I do not support function references in the scope of this project.
+Additionally, I do not support function references in the scope of this project.
 I will only use the four main integer and float types.
 
 \subsection{Instructions}
@@ -84,7 +80,7 @@ For binary instructions that take their operands from the stack, the first opera
     i32.const 2  ;; second operand
     i32.sub
   \end{WasmListing}
-  \caption{WebAssembly instructions to calculate \CInline{10 - 2}.}
+  \caption{WebAssembly instructions to calculate \CInline{10 - 2}. Firstly the two operands are pushed onto the stack, then the subtraction operation is performed.}
   \label{lst:wasm example sub instr}
 \end{listing}
 
@@ -99,7 +95,7 @@ The only difference between \WasmInline{block} and \WasmInline{loop} is the sema
 When referring to a \WasmInline{block}, \WasmInstr{br} will jump to the end of it, and when referring to a \WasmInline{loop}, \WasmInstr{br} will jump back to the start.
 This is analogous to \CInline{break} and \CInline{continue} in C, respectively.
 Note that \WasmInline{loop} does not loop back to the start implicitly; an explicit \WasmInstr{br} instruction is required.
-\WasmInline{if} blocks, which may optionally have an \WasmInline{else} block, conditionally execute depending on the value on top of the stack.
+An \WasmInline{if}~block conditionally executes depending on the value on top of the stack, and may optionally have an \WasmInline{else} block.
 A \WasmInstr{br} instruction referring to an \WasmInline{if} block will jump to the end of it.
 
 % \begin{listing}[t]
@@ -123,7 +119,7 @@ A \WasmInstr{br} instruction referring to an \WasmInline{if} block will jump to 
 \subsection{Modules}
 
 A module is a unit of compilation and loading for a WebAssembly program.
-There is no distinction between a `library' and a `program' such as in other languages; there are only modules that export functions to the instantiator (the runtime environment that instantiates the WebAssembly module).
+There is no distinction between a `library' and a `program' as in other languages; there are only modules that export functions to the instantiator (the runtime environment that instantiates the WebAssembly module).
 Modules are split up into sections.
 Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
 
@@ -136,11 +132,12 @@ The \emph{function section} is a map from function indexes to type indexes.
 This comes before the code section, so the type signature of all functions is known before any code is parsed.
 This allows all function calls to be properly typed without needing multiple passes over the module in decoding.
 
+The \emph{table section} stores size information about tables.
 A table is an array of function pointers, used as arguments to \WasmInstr{call_indirect}.
 WebAssembly needs a separate data structure for this because functions live outside of the memory visible to the program; tables hide the function addresses from the program, keeping the execution sandboxed.
-The \emph{table section} stores the size limits of each table; any pointers with which to initialise the tables are stored in the element section.
+This section stores the size limits of each table; any pointers used to initialise the tables are stored in the element section (below).
 
-The \emph{memory section} specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.}, in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
+The \emph{memory section} specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
 
 The \emph{global section} defines any global variables used in the program, including an expression to initialise them. They can be either mutable or immutable.
 
@@ -151,11 +148,11 @@ The \emph{start section} optionally specifies a function that should automatical
 
 The \emph{element section} contains segments that statically initialise the contents of tables with function addresses.
 Segments can be active or passive.
-An active segment will be automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
+An active segment will automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
 
 The \emph{data count section} is an optional additional section used to allow validators to use only a single pass for static analysis.
 It specifies how many data segments are in the data section.
-If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but because this comes after the code section, it would require multiple passes over the module.
+If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but, because this comes after the code section, it would require multiple passes over the module.
 This section has no effect on the actual execution.
 
 The \emph{code section} contains the instructions for each function body.
@@ -176,9 +173,9 @@ There are several algorithms that achieve this.
 The most naive solution would be to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next. However, this is very inefficient.
 
 The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript~\ccite{emscripten}.
-In today's WebAssembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
-All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, however therefore also more complex.
-The original Relooper algorithm is a greedy algorithm, and is well described in the paper, and is the one I decided to implement.
+In current WebAssembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
+All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, hence more complex.
+The original Relooper algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project.
 
 \subsection{Input and Output}
 
@@ -201,7 +198,7 @@ The algorithm generates a set of structured blocks, recursively nested to repres
 \emph{Simple} blocks represent linear control flow; they contain an \emph{internal} label, which contains the actual program instructions.
 \emph{Loop} blocks contain an \emph{inner} block, which contains all the labels that can possibly loop back to the start of the loop, along some execution path.
 \emph{Multiple} blocks represent conditional execution, where execution can flow along one of several paths.
-They contain \emph{handled} blocks to which execution can pass when we enter the block.
+They contain \emph{handled} blocks to which execution can pass when entering the block.
 All three blocks have a \emph{next} block, where execution will continue.
 
 \begin{figure}[t]
@@ -220,7 +217,7 @@ It also has a set of labels it can \emph{reach}, known as the \emph{reachability
 This is the transitive closure of the possible branch targets; i.e.\ all labels that can be reached along some execution path.
 Labels can always reach themselves.
 
-Given a set of labels, and set of entries, \ccref{alg:relooper} creates a block:
+Given a set of labels and entries, \ccref{alg:relooper} creates a block:
 
 \begin{Algorithm}{The Relooper Algorithm.}{alg:relooper}
 \begin{EnumerateAlgorithm}
@@ -242,7 +239,7 @@ Construct the next block from the remaining labels; the entries for the next blo
 \end{itemize}
 
 \item\label[algstep]{alg:relooper:attempt to create multiple block}
-If there is more than one entry, attempt to create a multiple block. (This may not be possible.)
+If there is more than one entry, attempt to create a multiple block; this may not be possible.
 \begin{itemize}
 \item
 For each entry, find any labels that it reaches that no other entry reaches.
@@ -259,33 +256,33 @@ If \ccref{alg:relooper:attempt to create multiple block} fails, create a loop bl
 \end{EnumerateAlgorithm}
 \end{Algorithm}
 
-The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite{emscripten}.
-The core idea is that we can show that (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
+The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite[10]{emscripten}.
+The core idea is that we can show that: (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
 Point (3) lies in the observation that if we reach \ccref{alg:relooper:create loop block after multiple block failed}, we must be able to create a loop block.
 This holds because if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
 
 The algorithm replaces the branch instructions in the labels as it processes them.
 When creating a loop block, branch instructions to the start of the loop are replaced with a \CInline{continue}, and any branches to outside the loop are replaced with a \CInline{break} (all the branch targets outside the loop will be in the next block).
 When creating a handled block, branch instructions into the next block are replaced with an \CKeyword{endHandled} instruction.
-Each of these instructions is annotated with the ID of the block they act on, because blocks may be nested.
-Note that functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep the two distinct because they store IDs of different block types.
+Each of these instructions is annotated with the unique identifier~(ID) of the block they act on, because blocks may be nested.
+Functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep the two distinct because they store IDs of different block types.
 
-To direct control flow when execution enters a multiple block, Relooper makes use of a label variable.
+In order to direct control flow when execution enters a multiple block, Relooper makes use of a label variable.
 Whenever a branch instruction is replaced, an instruction is inserted to set the label variable to the label ID of the branch target.
 Handled blocks are executed conditional on the value of the label variable.
-This will generate some overhead of unnecessary instructions, since most of the time the label variable is set, it will not be checked.
-However, later stages of the compiler pipeline are able to optimise this away.
+This generates some overhead of unnecessary instructions, since most of the time the label variable is set, it will not be checked.
+However, later stages of my compiler pipeline will optimise this away.
 
 
 \section{Rust}\label{sec:prep:rust}
 
 I learnt the Rust programming language for this project~\ccite{rust-lang}.
 I chose Rust because it is performant and memory efficient.
-It has a rich type system with pattern matching, which is well suited to writing a compiler.
-It uses the concept of a borrow checker rather than a garbage collector or other memory management system, which eliminates runtime overhead while guaranteeing memory safety at compile time.
+It has a rich type system with pattern matching that is well suited to writing a compiler.
+It uses the concept of a borrow checker rather than a garbage collector or similar memory management system, which eliminates runtime overhead whilst guaranteeing memory safety at compile time.
 
 I made use of Rust's excellent online documentation to become familiar with the language~\ccite{rust-by-example, rust-book}.
-The borrow checker was the main new feature of the language to learn, with the concepts of \emph{ownership} and \emph{borrowing}.
+The borrow checker was the main new feature to be learnt, with the concepts of \emph{ownership} and \emph{borrowing}.
 The main rule is that every value has exactly one owner at any time.
 When the owner goes out of scope, the value is automatically deallocated; this takes the place of the garbage collector or explicit deallocation found in other languages.
 When using a value, it can either be \emph{moved} or \emph{borrowed}.
@@ -317,28 +314,28 @@ I structured my project using the incremental model, which builds upon the water
 The project is broken down into `increments', which are individual sections of functionality.
 Each increment is developed consecutively, using the waterfall model to design, implement, and test each section before moving on to the next one.
 
-Each stage of the compiler pipeline was a separate increment.
-Subsequent stages of the project each depended on the deliverable from the previous one, making this model a natural fit, because it ensured a stage was working correctly before building upon it.
+Each stage of the compiler pipeline is a separate increment.
+Subsequent stages of the project each depend on the deliverable from the previous one, making this model a natural fit, because it ensures each stage works correctly before continuing.
 
 I used Git as my version control system~\ccite{git}.
 I regularly committed my code in small, revertible chunks, and pushed the repository to GitHub to maintain an up-to-date off-site backup~\ccite{github}.
-In the later stages of the project, I used pre-commit hooks to run automated tests on the project every time I committed, ensuring I did not inadvertently break it.
+In the later stages of the project, I used pre-commit hooks to run automated tests on the project every time I committed, ensuring no inadvertent bugs were introduced.
 
 \subsection{Testing}
 
 % My testing strategy in the incremental model was to verify the correct functioning of each section, as much as possible, before moving onto the next section.
 To facilitate testing, I wrote a suite of test programs designed to use different language constructs.
-After completing each stage of the compiler pipeline, I carefully examined the output of compiling each test program to check its correctness.
+After completing each stage of the compiler pipeline, I carefully examined the output of compiling each test program, verifying its correctness.
 
 Once the compiler could generate an \gls{ast}, I wrote a function to reconstruct the source code from the \gls{ast}.
-I compared this output against the original source to check that the program semantics had been maintained.
+I compared this output to the original source to confirm the program semantics were maintained.
 
-When the entire pipeline was complete, I used GCC as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output~\ccite{gcc}.
+When the entire pipeline was complete, I used GCC (the GNU Compiler Collection) as a reference compiler; I compiled my test programs with both my compiler and GCC, and verified that the resulting binaries produced the same output~\ccite{gcc}.
 
 \section{Starting Point}
 
-The \emph{Compiler Construction} course of the Tripos was my starting point for my knowledge of compilers.
-The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though the optimisations I implemented were not all included in the course.
+The \emph{Compiler Construction} course of the Tripos was the starting point for my knowledge of compilers.
+The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though not all the optimisations I implemented were included in the course.
 
 I had familiarity with the C language from the \emph{Programming in C and C++} course, as well as from previous personal projects.
 Additionally, I had experience writing JavaScript and Python from personal projects.
@@ -348,15 +345,15 @@ I gained all my knowledge of WebAssembly and Rust through independent research.
 
 The code for the body of the compiler was written in Rust (see~\ccref{sec:prep:rust}).
 I wrote the runtime environment in JavaScript, using Node.js, which is necessary to interface with the Web\-Assembly binary~\ccite{javascript,nodejs}.
-Additional development scripts, for automated testing and profiling, were written in Python, because of the ease of use, and my familiarity with libraries such as Matplotlib~\ccite{python,matplotlib}.
+Additional development scripts, for automated testing and profiling, were written in Python, because of ease of use and my familiarity with libraries such as Matplotlib~\ccite{python,matplotlib}.
 
 I used the LALRPOP parser generator library to generate parsing code from the abstract grammar of C~\ccite{lalrpop-docs}.
-Other parser generator libraries are available for Rust: notably, \texttt{nom} and \texttt{pest}.
+Other parser generator libraries are available for Rust: notably, \texttt{nom} and \texttt{pest}~\ccite{nom-parser,pest-parser}.
 Originally \texttt{nom} was designed for parsing binary file formats, making it less suitable for parsing source code.
 Another popular choice is \texttt{pest}, however it separates the formal grammar and \gls{ast} generation, making the code more complicated.
 LALRPOP provides an intuitive and powerful approach, where each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
 
-I used Git for version control with GitHub as an off-site backup~\ccite{git,github}, and the CLion IDE as my development environment using the Intellij Rust plugin~\ccite{clion,intellij-rust-plugin}.
+I used Git for version control with GitHub as an off-site backup, and the CLion IDE as my development environment using the Intellij Rust plugin~\ccite{git,github,clion,intellij-rust-plugin}.
 CLion has excellent support for C, and the plugin enables native Rust support, including code analysis and debugging.
 
 \end{document}

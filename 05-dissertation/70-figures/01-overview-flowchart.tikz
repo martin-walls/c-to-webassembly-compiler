@@ -1,32 +1,76 @@
 \begin{tikzpicture}
 	\begin{pgfonlayer}{nodelayer}
-		\node [style=Flowchart data structure] (0) at (-10, 20) {C source code};
-		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (11) at (0, 20) {Lexer};
-		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (12) at (0, 16) {Token stream};
-		\node [style=Flowchart process, draw=frontendcolor, text=frontendcolor] (7) at (0, 12) {Parser};
-		\node [style=Flowchart data structure, draw=frontendcolor, text=frontendcolor] (13) at (0, 8) {AST};
-		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (8) at (0, 4) {Intermediate code generation};
-		\node [style=Flowchart data structure, draw=middleendcolor, text=middleendcolor] (2) at (0, 0) {Three-address code IR};
-		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (14) at (10, 0) {Optimise};
-		\node [style=Flowchart process, draw=middleendcolor, text=middleendcolor] (4) at (0, -4) {Relooper algorithm};
-		\node [style=Flowchart data structure, draw=middleendcolor, text=middleendcolor] (9) at (0, -8) {Relooped IR};
-		\node [style=Flowchart process, draw=backendcolor, text=backendcolor] (10) at (0, -12) {Target code generation};
-		\node [style=Flowchart data structure, draw=backendcolor, text=backendcolor] (5) at (0, -16) {Wasm binary};
+		\node [style=none] (17) at (-20, 22.25) {};
+		\node [style=none] (19) at (20, 22.25) {};
+		\node [style=none] (20) at (-20, 29.75) {};
+		\node [style=none] (21) at (20, 29.75) {};
+		\node [style=none] (22) at (-20, 6.25) {};
+		\node [style=none] (23) at (20, 6.25) {};
+		\node [style=none] (24) at (-20, 22) {};
+		\node [style=none] (25) at (20, 22) {};
+		\node [style=none] (26) at (-20, -9.75) {};
+		\node [style=none] (27) at (20, -9.75) {};
+		\node [style=none] (28) at (-20, 6) {};
+		\node [style=none] (29) at (20, 6) {};
+		\node [style=none] (30) at (-20, -17.5) {};
+		\node [style=none] (31) at (20, -17.5) {};
+		\node [style=none] (32) at (-20, -10) {};
+		\node [style=none] (33) at (20, -10) {};
+		\node [style=Flowchart data structure] (0) at (-10, 28) {C source code};
+		\node [style=Flowchart process] (11) at (0, 20) {Lexer};
+		\node [style=Flowchart data structure] (12) at (0, 16) {Token stream};
+		\node [style=Flowchart process] (7) at (0, 12) {Parser};
+		\node [style=Flowchart data structure] (13) at (0, 8) {AST};
+		\node [style=Flowchart process] (8) at (0, 4) {Intermediate code generation};
+		\node [style=Flowchart data structure] (2) at (0, 0) {Three-address code IR};
+		\node [style=Flowchart process] (14) at (10, 0) {Optimise};
+		\node [style=Flowchart process] (4) at (0, -4) {Relooper algorithm};
+		\node [style=Flowchart data structure] (9) at (0, -8) {Relooped IR};
+		\node [style=Flowchart process] (10) at (0, -12) {Target code generation};
+		\node [style=Flowchart data structure] (5) at (0, -16) {Wasm binary};
 		\node [style=Flowchart process] (6) at (10, -16) {Node.js runtime};
+		\node [style=Flowchart process] (15) at (0, 24) {\texttt{cpp}};
+		\node [style=Flowchart process] (16) at (0, 28) {\CInline{#include} preprocessing};
+		\node [style=Flowchart section label] (35) at (-18.5, 26) {Preprocessor};
+		\node [style=Flowchart section label] (36) at (-18.5, 14) {Front end};
+		\node [style=Flowchart section label] (37) at (-18.5, -2) {Middle end};
+		\node [style=Flowchart section label] (38) at (-18.5, -13.75) {Back end};
 	\end{pgfonlayer}
 	\begin{pgfonlayer}{edgelayer}
-		\draw [style=Arrow] (0) to (11);
-		\draw [style=Arrow, draw=frontendcolor] (11) to (12);
-		\draw [style=Arrow, draw=frontendcolor] (12) to (7);
-		\draw [style=Arrow, draw=frontendcolor] (7) to (13);
-		\draw [style=Arrow, draw=middleendcolor] (13) to (8);
-		\draw [style=Arrow, draw=middleendcolor] (8) to (2);
-		\draw [style=Arrow, draw=middleendcolor, bend left=15, looseness=0.75] (2) to (14);
-		\draw [style=Arrow, draw=middleendcolor, bend right=345, looseness=0.75] (14) to (2);
-		\draw [style=Arrow, draw=middleendcolor] (2) to (4);
-		\draw [style=Arrow, draw=middleendcolor] (4) to (9);
-		\draw [style=Arrow, draw=backendcolor] (9) to (10);
-		\draw [style=Arrow, draw=backendcolor] (10) to (5);
+		\draw [draw=none, fill=preprocessorcolor, opacity=0.15] (19.center)
+			 to (21.center)
+			 to (20.center)
+			 to (17.center)
+			 to cycle;
+		\draw [draw=none, fill=frontendcolor, opacity=0.15] (23.center)
+			 to (25.center)
+			 to (24.center)
+			 to (22.center)
+			 to cycle;
+		\draw [draw=none, fill=middleendcolor, opacity=0.15] (27.center)
+			 to (29.center)
+			 to (28.center)
+			 to (26.center)
+			 to cycle;
+		\draw [draw=none, fill=backendcolor, opacity=0.15] (31.center)
+			 to (33.center)
+			 to (32.center)
+			 to (30.center)
+			 to cycle;
+		\draw [style=Arrow] (11) to (12);
+		\draw [style=Arrow] (12) to (7);
+		\draw [style=Arrow] (7) to (13);
+		\draw [style=Arrow] (13) to (8);
+		\draw [style=Arrow] (8) to (2);
+		\draw [style=Arrow, bend left=15, looseness=0.75] (2) to (14);
+		\draw [style=Arrow, bend right=345, looseness=0.75] (14) to (2);
+		\draw [style=Arrow] (2) to (4);
+		\draw [style=Arrow] (4) to (9);
+		\draw [style=Arrow] (9) to (10);
+		\draw [style=Arrow] (10) to (5);
 		\draw [style=Dashed arrow] (5) to (6);
+		\draw [style=Arrow] (0) to (16);
+		\draw [style=Arrow] (16) to (15);
+		\draw [style=Arrow] (15) to (11);
 	\end{pgfonlayer}
 \end{tikzpicture}

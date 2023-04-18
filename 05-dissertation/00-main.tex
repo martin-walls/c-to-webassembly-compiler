@@ -34,7 +34,7 @@
 \usepackage{changepage}
 
 % For the bibliography
-\usepackage[sorting=none]{biblatex}
+\usepackage[sorting=none,sortcites=true,language=UKenglish]{biblatex}
 \addbibresource{90-references.bib}
 % Use \mbox so a multiple citation doesn't break over two lines
 \NewDocumentCommand{\ccite}{O{}m}{\mbox{\textcolor{citecolor}{\cite[#1]{#2}}}}
@@ -78,6 +78,20 @@
 
 % Provides command \FloatBarrier, which prevents floats being moved over it
 \usepackage{placeins}
+
+% Redefine `boxed` float style to adjust the spacing.
+% - Make the box the same width as \textwidth (by default it's 6.8pt wider)
+%   -> the horizontal kerning needs to be 0.4pt smaller than \hsize
+% - Increase the vertical padding inside the box
+\makeatletter
+\renewcommand\fs@boxed{\def\@fs@cfont{\bfseries}\let\@fs@capt\floatc@plain% chktex 1
+  \def\@fs@pre{\setbox\@currbox\vbox{\hbadness10000
+    \vbox{%
+      \hrule\hbox to\hsize{\vrule\kern-0.4pt% chktex 1
+        \vbox{\kern9pt\box\@currbox\kern9pt}\kern-0.4pt\vrule}\hrule}}}%
+  \def\@fs@mid{\kern2pt}%
+  \def\@fs@post{}\let\@fs@iftopcapt\iffalse}
+\makeatother
 
 \floatstyle{boxed}
 \restylefloat{figure}
