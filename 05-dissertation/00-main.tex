@@ -168,6 +168,11 @@
   \makeatother
   % disable chapter and section numbering
   \setcounter{secnumdepth}{-1}
+  % Don't try to calculate references, it seems to break when we disable section numbering
+  \RenewDocumentCommand{\ccref}{m}{\textcolor{refcolor}{ref}}
+  \RenewDocumentCommand{\Ccref}{m}{\textcolor{refcolor}{ref}}
+  \RenewDocumentCommand{\ccrefrange}{mm}{\textcolor{refcolor}{refrange}}
+  \RenewDocumentCommand{\Ccrefrange}{mm}{\textcolor{refcolor}{refrange}}
 \fi
 
 \ifHideComments % chktex 1

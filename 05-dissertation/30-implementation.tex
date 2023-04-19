@@ -27,7 +27,7 @@ I created my own \gls{ast} representation and \gls{ir}, which are used as the ma
 % The optimisations I implemented in the middle end were unreachable procedure elimination, and tail-call optimisation.
 % As an extension to the project, I implemented a more optimal stack allocation policy, as part of the target code generation module.
 
-\section{Front End}
+\section{Front End}\label{sec:impl:front end}
 
 % \begin{figure}[H]
 %   \centering
@@ -286,7 +286,7 @@ For each type specifier, the corresponding bit is set.
 Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
 
 
-\section{Middle End}
+\section{Middle End}\label{sec:impl:middle end}
 
 The middle end takes an \gls{ast} as input, and transforms it to intermediate code.
 It also runs the Relooper algorithm on the \gls{ir}.
@@ -547,7 +547,7 @@ Starting with a copy of the set of possible branch targets of a label, we iterat
   - why do we need the reachability set that we've just mentioned?
 \end{mrwComment}
 
-\section{Back End: Target Code Generation}
+\section{Back End: Target Code Generation}\label{sec:impl:back end}
 
 In the back end, I defined data structures to directly represent a WebAssembly module with its constituent sections.
 I also defined a \RustInline{WasmInstruction} enum to represent all possible WebAssembly instructions, and data structures to represent value types.
@@ -994,7 +994,7 @@ I implemented this by storing a set of `universal clashes' in the clash graph; w
         }
     }
   \end{RustListing}
-  \caption{Algorithm to generate the clash graph from \gls{lva}.}
+  \caption{Algorithm to generate the clash graph from the results of \acrlong{lva}.}
   \label{lst:clash graph generation}
 \end{listing}
 
@@ -1020,16 +1020,17 @@ I modified the register allocation method to the following heuristic for variabl
 \end{EnumerateAlgorithm}
 \end{Algorithm}
 
-In \ccref{alg:allocate vars:allocate}, variables are always allocated to the lowest position on the stack possible (satisfying clash constraints).
-This prioritises overlapping non-clashing variables at lower addresses; only variables that clash lots will be pushed to higher addresses.
-We want to do this to keep the stack size as small as possible.
+In \ccref{alg:allocate vars:allocate}, variables are always allocated to the lowest possible position on the stack (whilst satisfying clash constraints).
+This prioritises overlapping non-clashing variables at lower addresses; only variables that clash often will be pushed to higher addresses.
+This keeps the stack size as small as possible.
 
-I tested allocating variables in both orders: least clashes first and most clashes first.
+I tested allocating variables in both orders: least clashes or most clashes first.
 I found that contrary to register allocation, allocating variables with least clashes first resulted in more efficient memory use.
 This is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
 In my heuristic, it is beneficial to have variables with fewer clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
 
 \begin{figure}[!t]
+  \hspace{2ex}
   \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
       |\IrCode{t0 = 3}|                 |$\{ \}$|
@@ -1037,23 +1038,33 @@ In my heuristic, it is beneficial to have variables with fewer clashes at lower 
       |\IrCode{t2 = t0 + t1}|           |$\{ \IrCode{t0}, \IrCode{t1} \}$|
       |\IrCode{t3 = t2 + t1}|           |$\{ \IrCode{t2}, \IrCode{t1} \}$|
     \end{TextListing}
-    \caption{Intermediate code, with \acrlong{lva}.}
+    \caption{Intermediate code, with \acrlong{lva}.}%
+    \label{subfig:optimised var allocation source}
   \end{sublisting}
   \begin{subfigure}[b]{0.5\textwidth}
     \centering
     \scalebox{0.9}{\tikzfig{70-figures/11-clash-graph}}
-    \caption{Clash graph.}
+    \caption{Clash graph.}%
+    \label{subfig:optimised var allocation clash graph}
   \end{subfigure}
   \par\vspace{3ex}
   \begin{subfigure}[b]{0.5\textwidth}
     \ctikzfig{70-figures/09-naive-variable-allocation}
-    \caption{Naive allocation policy.}
+    \caption{Memory allocation (naive policy).}%
+    \label{subfig:optimised var allocation naive policy}
   \end{subfigure}
   \begin{subfigure}[b]{0.5\textwidth}
     \ctikzfig{70-figures/10-optimised-variable-allocation}
-    \caption{Optimised allocation policy.}
+    \caption{Memory allocation (optimised policy).}%
+    \label{subfig:optimised var allocation optimised policy}
   \end{subfigure}
-  \caption{Example of optimised stack allocation policy.}
+  \caption{
+    Example of the optimised stack allocation policy.
+    (\subref{subfig:optimised var allocation source})~is the intermediate code for which memory is being allocated, showing the set of live variables at each instruction.
+    (\subref{subfig:optimised var allocation clash graph})~is the clash graph generated after running \acrlong{lva}.
+    (\subref{subfig:optimised var allocation naive policy})~and~(\subref{subfig:optimised var allocation optimised policy}) show the allocations made by the naive and optimised policies, respectively.
+    Memory addresses increase to the right; variables overlapping vertically, separated by dashed lines, are allocated to the same address.
+  }
   \label{fig:optimised var allocation example} % chktex 24
 \end{figure}
 
@@ -1070,7 +1081,7 @@ This is due to the heuristic of always allocating to the lowest valid address.
 \section{Repository Overview}
 
 I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
-The high-level structure of the codebase is shown below.
+The high-level structure of the codebase is shown in \ccref{tab:repository structure}.
 All the code for the compiler is in the \Dirname{src} directory.
 The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
 All code was written by me.
@@ -1080,37 +1091,39 @@ All code was written by me.
 \definecolor{TableHlineColour}{HTML}{ababab}
 
 % Use `tabularx` when table doesn't span across pages, `xltabular` when it does
-\begin{tabularx}{\textwidth}{lX}
+\begin{xltabular}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
-\hline % chktex 44
-\Dirname{src} & Compiler source code. \\\hline % chktex 44
-\Indent{1}\Dirname{program_config} & Compiler constants and run time options data structures. \\\hline % chktex 44
-\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\hline % chktex 44
-\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\hline % chktex 44
-\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\hline % chktex 44
-\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\hline % chktex 44
-\Indent{1}\Dirname{back_end} & Target code-generation stage. \\\hline % chktex 44
-\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\hline % chktex 44
-\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\hline % chktex 44
-\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\hline % chktex 44
-% \Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\hline % chktex 44
-\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\hline % chktex 44
-\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\hline % chktex 44
-\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\hline % chktex 44
-\Dirname{runtime} & Node.js runtime environment. \\\hline % chktex 44
-\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\hline % chktex 44
-\Dirname{tools} & Auxiliary scripts used for testing and generating graphs. \\\hline % chktex 44
-\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\hline % chktex 44
-\Indent{1}\Filename{testsuite.py} & Test runner script. \\\hline % chktex 44
-\Dirname{tests} & Automated test specifications. \\\hline % chktex 44
+\specialrule{\heavyrulewidth}{0pt}{0pt}
+\Dirname{src} & Compiler source code. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{program_config} & Compiler constants and run time options data structures. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{relooper} & Relooper algorithm. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{back_end} & Target code-generation stage. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{2}\Dirname{wasm_module} & Data structures to represent a WebAssembly module. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{2}\Dirname{dataflow_analysis} & Flowgraph generation, dead code analysis, live variable analysis, clash graph. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{2}\Dirname{stack_allocation} & Different stack allocation policies. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+% \Indent{1}\Dirname{data_structures} & Interval tree implementation that I ended up not using. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Filename{preprocessor.rs} & C preprocessor. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Filename{id.rs} & Trait for generating IDs used across the compiler. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Filename{lib.rs} & Contains the main \texttt{run} function. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Dirname{runtime} & Node.js runtime environment. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Dirname{headers} & Header files for the parts of the standard library I implemented. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Dirname{tools} & Auxiliary scripts used for testing and generating graphs. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Filename{profiler.py} & Plot stack usage profiles. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Filename{testsuite.py} & Test runner script. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Dirname{tests} & Automated test specifications. \\\specialrule{\heavyrulewidth}{0pt}{0pt}
 % Reset the rule colour for future tables
 \arrayrulecolor{black}
-\end{tabularx}
+\end{xltabular}
+\vspace{-14pt}
+\captionof{table}{Repository structure.\protect\label{tab:repository structure}}
 
 
 \section{Summary}
 
-The compiler pipeline is split into the front end, middle end, and back end.
+The compiler pipeline is split into the front, middle, and back ends.
 The front end takes C source code, lexes it to a token stream, and parses it to generate an \gls{ast}.
 The middle end uses a custom \gls{ir} to represent the program, performing the Relooper algorithm as well as doing tail-call optimisation and unreachable procedure elimination.
 The back end transforms the \gls{ir} to a WebAssembly module, along with performing the stack allocation policy optimisation.
