@@ -4,40 +4,77 @@
 
 \chapter{Lexer Finite State Machine}\label{app:lexer fsm}
 
-In a slight abuse of regular expression notation, the dot character `\texttt{.}' and the backslash character `\texttt{\char`\\}' represent the respective characters literally.
+\glsreset{fsm}
+This chapter contains the full \gls{fsm} for the lexer (see~\ccref{sec:impl:lexer}).
 
-\begin{figure}[ht]
+Named states represent valid tokens, and blank states are invalid.
+Transitions are labelled with regular expressions, matching the input character.
+No input is consumed along an $\epsilon$ transition; the transition is automatically taken if the condition is true.
+Only valid transitions are shown; if no transition matches the input character, either the end of the current token has been reached, or the token is invalid.
+Transitions with no prior state are the initial transitions for the first input character.
+
+If the machine stops in a named state, the corresponding token is emitted to the token stream.
+However, if the machine stops in an unnamed state, the token is invalid and a lexing error is raised.
+
+In a slight abuse of regular expression notation, the dot character~`\texttt{.}' and the backslash character~`\texttt{\char`\\}' represent the respective characters literally.
+
+Tokens labelled as symbols represent themselves.
+Named tokens correspond to the tokens described in \ccref{app:tab:token name key}.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{>{\itshape}ll} % chktex 6
+    \toprule
+    \normalfont\textbf{Label} & \textbf{Represented token} \\
+    \midrule
+    Dec & Decimal literal \\
+    FP & Floating point literal \\
+    Bin & Binary literal \\
+    Oct & Octal literal \\
+    Hex & Hexadecimal literal \\
+    Iden & Identifier \\
+    Keyword & C language keyword \\
+    Typedef & An identifier defined as a type name \\
+    String & String literal \\
+    Char & Character literal \\
+    \bottomrule
+  \end{tabular}
+  \caption{Key to token names.}%
+  \label{app:tab:token name key}
+\end{table}
+
+\begin{figure}[h]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/00-numbers}
-  \caption{Finite state machine for lexing number literals.}
+  \caption{\Acrlong{fsm} for lexing number literals (decimal, floating point, binary, octal, and hexadecimal).}
   \label{app:fig:lexing numbers fsm} % chktex 24
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[h]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/01-identifiers}
-  \caption{Finite state machine for lexing identifiers.}
+  \caption{\Acrlong{fsm} for lexing identifiers, and matching them against keywords and typedef names.}
   \label{app:fig:lexing identifiers fsm} % chktex 24
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[h]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/02-string}
-  \caption{Finite state machine for lexing string literals.}
+  \caption{\Acrlong{fsm} for lexing string literals, enclosed in double quotes.}
   \label{app:fig:lexing strings fsm} % chktex 24
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[h]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/03-char}
-  \caption{Finite state machine for lexing character literals.}
+  \caption{\Acrlong{fsm} for lexing character literals, enclosed in single quotes. The machine handles all allowed escape sequences.}
   \label{app:fig:lexing chars fsm} % chktex 24
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[h]
   \centering
   \tikzfig{70-figures/10-lexer-fsm/04-operators}
-  \caption{Finite state machine for lexing operators.}
+  \caption{\Acrlong{fsm} for lexing operators and symbols.}
   \label{app:fig:lexing operators fsm} % chktex 24
 \end{figure}
 

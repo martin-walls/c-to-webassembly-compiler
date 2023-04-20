@@ -12,7 +12,7 @@
 		\draw [style=Arrow] (3) to node [style=FSM input transition, below right] {"} (2);
 		\draw [style=Arrow] (0) to node [style=FSM input transition, below] {[\^{}"\char`\\]} (3);
 		\draw [style=Arrow, in=-30, out=30, loop] (3) to node [style=FSM input transition, right] {[\^{}"\char`\\]} ();
-		\draw [style=Arrow, bend left] (1) to node [above right] {any char} (3);
+		\draw [style=Arrow, bend left] (1) to node [above right] {any character} (3);
 		\draw [style=Arrow, bend left] (3) to node [style=FSM input transition, left=0.1cm] {\char`\\} (1);
 		\draw [style=Arrow] (4.center) to node [style=FSM input transition, above] {"} (0);
 	\end{pgfonlayer}

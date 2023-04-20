@@ -2,7 +2,7 @@
 	\begin{pgfonlayer}{nodelayer}
 		\node [style=FSM node] (0) at (-8.25, 5) {.};
 		\node [style=FSM node] (1) at (-8.25, 2) {};
-		\node [style=FSM node] (2) at (-8.25, -1) {...};
+		\node [style=FSM node] (2) at (-8.25, -1) {\ldots};
 		\node [style=FSM node] (3) at (-3.25, 5) {FP};
 		\node [style=FSM node] (4) at (-3.25, 9) {Dec};
 		\node [style=none] (5) at (-8.25, 9) {};
