@@ -267,12 +267,12 @@ The macro has a generic type \RustInline{T}, and returns the list items as a \Ru
   \label{lst:parser macro for comma-separated list}
 \end{listing}
 
-\subsubsection{String Escape Sequences}
-
-The parser has to handle escape sequences in strings.
-I implemented this by first creating an iterator over the characters of a string, which replaces escape sequences by the character they represent as it emits each character.
-When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
-I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
+% \subsubsection{String Escape Sequences}
+%
+% The parser has to handle escape sequences in strings.
+% I implemented this by first creating an iterator over the characters of a string, which replaces escape sequences by the character they represent as it emits each character.
+% When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
+% I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
 
 \subsubsection{Parsing Type Specifiers}
 

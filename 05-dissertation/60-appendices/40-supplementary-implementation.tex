@@ -1,0 +1,90 @@
+\documentclass[../00-main.tex]{subfiles}
+
+\begin{document}
+
+\chapter{Supplementary Implementation Details}
+
+\begin{mrwComment}
+Add a chapter overview text here
+\end{mrwComment}
+
+\section{Parsing String Escape Sequences}
+
+\begin{mrwComment}
+TODO clean this up and make it clearer
+\end{mrwComment}
+
+In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
+The parser needs to be convert these to the literal characters they represent.
+
+I implemented this by first creating an iterator over the characters of the string, which replaces escape sequences by the character they represent as it emits each character.
+
+When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
+I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string (\ccref{app:lst:interpret string function}).
+
+The implementation is shown in \ccref{app:lst:string escape iterator}.
+
+\begin{listing}[t]
+  \begin{RustListing}
+    struct InterpretString<'a> {
+        s: Peekable<Chars<'a>>,
+    }
+    impl Iterator for InterpretString<'_> {
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.s.next() {
+                Some(c) => Some(match c {
+                    '\\' => match self.s.next() {
+                        Some('n') => Ok('\n'),  // New line
+                        // \', \", \t, \r, etc.
+                        Some('x') => { // Hexadecimal character code
+                            // Check whether the next digit is a valid hex digit
+                            match self.s.peek() {
+                                Some(c) if c.is_ascii_hexdigit() => {
+                                    // Store the hex digits in a buffer
+                                    let mut buffer = String::new();
+                                    // Keep consuming hex digits
+                                    while let Some(c) = self.s.next() {
+                                        buffer.push(c); // Consume the next hex digit
+                                        match self.s.peek() { // Check the following char
+                                            Some(c) if c.is_ascii_hexdigit() => continue,
+                                            Some(_) | None => break,
+                                        }
+                                    }
+                                    // Convert the hex code to the corresponding char
+                                    let hex_code = u32::from_str_radix(&buffer, 16).unwrap();
+                                    match char::from_u32(hex_code) {
+                                        Some(c) => Ok(c),
+                                        None => Err(InvalidCharCode(buffer)),
+                                    }
+                                }
+                                Some(c) => Err(InvalidEscapeChar(*c)),
+                                None => Err(EscapeCharAtEndOfString),
+                            }
+                        }
+                        Some(c) if c.is_digit(8) => {} // Octal character code similarly
+                        Some(c) => Err(InvalidEscapeChar(c)), // Invalid escape code
+                        None => Err(EscapeCharAtEndOfString),
+                    },
+                    c => Ok(c), // All other (non-escape) characters
+                }),
+                None => None,
+            }
+        }
+    }
+  \end{RustListing}
+  \caption{Implementation of an iterator to handle string escape sequences.}
+  \label{app:lst:string escape iterator}
+\end{listing}
+
+\begin{listing}[t]
+  \begin{RustListing}
+    pub fn interpret_string(s: &str) -> Result<String, Error> {
+        InterpretString::new(s).collect()
+    }
+  \end{RustListing}
+  \caption{Function wrapper around the \RustInline{InterpretString} iterator (see \ccref{app:lst:string escape iterator}).}
+  \label{app:lst:interpret string function}
+\end{listing}
+
+
+\end{document}
