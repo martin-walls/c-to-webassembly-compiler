@@ -10,19 +10,42 @@ Add a chapter overview text here
 
 \section{Parsing String Escape Sequences}
 
-\begin{mrwComment}
-TODO clean this up and make it clearer
-\end{mrwComment}
-
 In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
 The parser needs to be convert these to the literal characters they represent.
+My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}.
 
-I implemented this by first creating an iterator over the characters of the string, which replaces escape sequences by the character they represent as it emits each character.
+I implemented this by creating an iterator over the characters of the string, that replaces escape sequences as it emits characters (\ccref{app:lst:string escape iterator}).
+When the current character is a backslash (`\texttt{\char`\\}'), the next one or more characters form an escape sequence.
+The iterator consumes the characters of the escape sequence, and matches it against the valid escape sequences to perform the appropriate character substitution, which is emitted as the next character from the iterator.
+When the current character is not a backslash, it is emitted as-is.
 
-When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
 I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string (\ccref{app:lst:interpret string function}).
+I also wrote a set of unit tests to verify the iterator was functioning correctly.
 
-The implementation is shown in \ccref{app:lst:string escape iterator}.
+\begin{mrwComment}
+TODO reference the C book for what the escape codes are
+\end{mrwComment}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{$l^l}
+    \toprule
+    \rowstyle{\bfseries}Escape sequence & Represented character \\
+    \midrule
+    \texttt{\char`\\'} & Single quote \\
+    \texttt{\char`\\"} & Double quote \\ % chktex 18
+    \texttt{\char`\\?} & Question mark \\ % chktex 18
+    \texttt{\char`\\\char`\\} & Backslash \\ % chktex 18
+    \texttt{\char`\\n} & New line (line feed) \\ % chktex 18
+    \texttt{\char`\\r} & Carriage return \\ % chktex 18
+    \texttt{\char`\\t} & Horizontal tab \\ % chktex 18
+    \texttt{\char`\\xhh\ldots} & The byte given by \texttt{hh\ldots} interpreted as a hexadecimal number \\ % chktex 18
+    \texttt{\char`\\nnn} & The byte given by \texttt{nnn} interpreted as an octal number \\ % chktex 18
+    \bottomrule
+  \end{tabular}
+  \caption{Supported string escape sequences.}%
+  \label{app:tab:supported string escape codes}
+\end{table}
 
 \begin{listing}[t]
   \begin{RustListing}
@@ -86,5 +109,16 @@ The implementation is shown in \ccref{app:lst:string escape iterator}.
   \label{app:lst:interpret string function}
 \end{listing}
 
+
+\section{Parsing Type Specifiers}
+
+Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
+For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
+To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
+It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
+The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
+The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
+For each type specifier, the corresponding bit is set.
+Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
 
 \end{document}

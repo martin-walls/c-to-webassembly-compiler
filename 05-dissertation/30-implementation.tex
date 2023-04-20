@@ -274,16 +274,22 @@ The macro has a generic type \RustInline{T}, and returns the list items as a \Ru
 % When the current character is a backslash, instead of emitting it straight away, the iterator consumes the next character and emits the character corresponding to the escape sequence.
 % I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
 
-\subsubsection{Parsing Type Specifiers}
+% \subsubsection{Parsing Type Specifiers}
+%
+% Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
+% For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
+% To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
+% It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
+% The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
+% The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
+% For each type specifier, the corresponding bit is set.
+% Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
 
-Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
-For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
-To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
-It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
-The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
-The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
-For each type specifier, the corresponding bit is set.
-Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
+\subsubsection{Additional Parser Details}
+
+\begin{mrwComment}
+TODO link to Supplementary Implementation Details in the appendix for string escape sequences and parsing type specifiers
+\end{mrwComment}
 
 
 \section{Middle End}\label{sec:impl:middle end}
