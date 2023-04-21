@@ -8,7 +8,7 @@
 Add a chapter overview text here
 \end{mrwComment}
 
-\section{Parsing String Escape Sequences}
+\section{Parsing String Escape Sequences}\label{app:sec:parsing string escape sequences}
 
 In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character~\ccite[sec.~2.7.5]{c-reference-manual}.
 The parser needs to be convert these to the literal characters they represent.
@@ -43,7 +43,7 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
   \label{app:tab:supported string escape codes}
 \end{table}
 
-\begin{listing}[t]
+\begin{listing}[!t]
   \begin{RustListing}
     struct InterpretString<'a> {
         s: Peekable<Chars<'a>>,
@@ -95,7 +95,7 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
   \label{app:lst:string escape iterator}
 \end{listing}
 
-\begin{listing}[t]
+\begin{listing}[!t]
   \begin{RustListing}
     pub fn interpret_string(s: &str) -> Result<String, Error> {
         InterpretString::new(s).collect()
@@ -106,7 +106,7 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
 \end{listing}
 
 
-\section{Parsing Type Specifiers}
+\section{Parsing Type Specifiers}\label{app:sec:parsing type specifiers}
 
 Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
 For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
@@ -116,5 +116,100 @@ The bitfield is the normalised representation of a type; every possible declarat
 The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
 For each type specifier, the corresponding bit is set.
 Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
+
+
+\section{Compile-time Expression Evaluation}\label{app:sec:compile time expression evaluation}
+
+Some expressions are evaluated at compile-time, such as array length expressions.
+The expressions much be constant expressions, which means they are not permitted to contain assignments, function calls, and increments or decrements~\ccite[sec.~7.11]{c-reference-manual}.
+I implemented a compile-time expression evaluator that supports arithmetic expressions and ternaries (conditional expressions of the form \texttt{condition~?~expr_if_true~:~expr_if_false}).
+
+\Ccref{app:lst:compile time expression evaluator} shows the function that evaluates expressions.
+An expression at compile-time can either evaluate to an integer or a float, however only integers are supported as array lengths etc.
+The \RustInline{eval} function recurses into the structure of an \gls{ast} expression, evaluating subtrees before combining their results.
+An expression either returns a result or an error, that it cannot be evaluated as a constant expression at compile time.
+Errors will short-circuit the evaluation.
+
+I do not support variables in compile-time evaluated expressions.
+A more sophisticated compile-time evaluator could look further up the \gls{ast} to determine if a variable's value is a constant expression, and if so, use it.
+
+\begin{listing}[!t]
+  \begin{RustListing}
+    // Types that can be evaluated at compile-time
+    enum ConstantExpressionType {
+        Int(i128),
+        Float(f64),
+    }
+
+    fn eval(expr: Expression) -> Result<ConstantExpressionType, MiddleEndError> {
+        match expr {
+            Expression::Constant(c) => match c {
+                AstConstant::Int(i) => Ok(Int(i as i128)),
+                AstConstant::Float(f) => Ok(Float(f)),
+                AstConstant::Char(c) => Ok(Int(c as i128)),
+            },
+            Expression::BinaryOp(op, left, right) => {
+                let left_result = eval(left)?;
+                let right_result = eval(right)?;
+                match op {
+                    BinaryOperator::Add => match (left_result, right_result) {
+                        (Int(l), Int(r)) => {
+                            Ok(Int(l + r))
+                        }
+                        // ... other combinations of int and float ...
+                    },
+                    // ... other binary operators ...
+                }
+            }
+            Expression::Ternary(cond, true_expr, false_expr) => {
+                let cond_result = eval(cond)?;
+                let cond_value = match cond_result {
+                    Int(i) => i != 0,
+                    Float(f) => f != 0.,
+                };
+                if cond_value {
+                    eval(true_expr)
+                } else {
+                    eval(false_expr)
+                }
+            }
+            Expression::Identifier(_) => Err(CantEvaluateAtCompileTime),
+            Expression::FunctionCall(_, _) => Err(InvalidConstantExpression),
+            // ... other expressions ...
+        }
+    }
+  \end{RustListing}
+  \caption{Compile-time expression evaluator, supporting arithmetic expressions and ternaries. If the given expression is a supported constant expression, its result is returned; if not, an error is returned.}
+  \label{app:lst:compile time expression evaluator}
+\end{listing}
+
+
+\section{Context Object Design Pattern}\label{app:sec:context object design pattern}
+
+Throughout the middle and back ends, I used a design pattern of passing a context object through all function calls.
+For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} was used to track information about the current context with respect to the source program.
+It tracks the stack of nested loops and switch statements, so that when a \CInline{break} or \CInline{continue} statement is converted, the branch target is known.
+
+\begin{listing}[t]
+  \begin{RustListing}
+    struct Context {
+        loop_stack: Vec<LoopOrSwitchContext>,
+        scope_stack: Vec<Scope>,
+        in_function_name_expr: bool,
+        function_names: HashMap<String, FunId>,
+        directly_on_lhs_of_assignment: bool,
+    }
+  \end{RustListing}
+  \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
+  \label{lst:AST to IR context struct}
+\end{listing}
+
+In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
+Rust, however, is not object-oriented, and I found this approach offered more modularity and flexibility.
+Firstly, the context information is encapsulated inside a separate data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
+It also enables creating different context objects for different purposes.
+In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
+The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
+
 
 \end{document}

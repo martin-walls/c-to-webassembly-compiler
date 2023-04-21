@@ -114,7 +114,7 @@ The lexer stores each \CInline{typedef} name that is declared so that it can emi
 I used the LALRPOP parser generator to generate parsing code from the input grammar that I wrote~\ccite{lalrpop-docs}.
 It generates an \gls{ast} for which I defined the structure.
 Microsoft's C Language Syntax Summary and C: A Reference Manual were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar~\ccite{c-language-grammar-microsoft,c-reference-manual}. % chktex 13
-My grammar is able to parse all core features of the C language, whilst omitting some of the recent additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it doesn't handle. For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
+My grammar is able to parse all core features of the C language, whilst omitting some of the recent additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it does not handle. For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
 
@@ -250,7 +250,7 @@ Non-terminals are represented inside angle brackets, with their type and a varia
   \label{lst:AST generation code example}
 \end{listing}
 
-LALRPOP also allows macros to be defined, which allow the grammar to be written in a more intuitive way.
+LALRPOP allows macros to be defined, which allow the grammar to be written in a more intuitive way.
 For example, I defined a macro to represent a comma-separated list of non-terminals (\ccref{lst:parser macro for comma-separated list}).
 The macro has a generic type \RustInline{T}, and returns the list items as a \RustInline{Vec<T>}.
 
@@ -287,16 +287,16 @@ The macro has a generic type \RustInline{T}, and returns the list items as a \Ru
 
 \subsubsection{Additional Parser Details}
 
-\begin{mrwComment}
-TODO link to Supplementary Implementation Details in the appendix for string escape sequences and parsing type specifiers
-\end{mrwComment}
-
+The parser contains other features that warrant discussion.
+The handling of escape sequences in strings is described in~\ccref{app:sec:parsing string escape sequences}.
+Subtleties around parsing type specifiers are discussed in~\ccref{appsec:parsing type specifiers}.
 
 \section{Middle End}\label{sec:impl:middle end}
 
 The middle end takes an \gls{ast} as input and transforms it to intermediate code.
 It also runs the Relooper algorithm on the \gls{ir}.
 Optimisations are run on the \gls{ir} in this stage; they are described in \ccref{sec:impl:optimisations}.
+The middle and back ends make use of a context object design pattern, discussed in \ccref{app:sec:context object design pattern}.
 
 \subsection{Intermediate Code Generation}
 
@@ -348,7 +348,7 @@ To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses th
 At the highest level, the \gls{ast} contains a list of statements.
 For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}~\ccref{lst:convert while stmt to IR}. % chktex 36
 \RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
-\RustInline{context} is the context object described in \ccref{sec:impl:context object design pattern}, which passes relevant contextual information through the functions recursively.
+\RustInline{context} is the context object described in \ccref{app:sec:context object design pattern}, which passes relevant contextual information through the functions recursively.
 
 The core of converting a statement or expressions to \gls{ir} code is pattern matching the \gls{ast} node, and generating \gls{ir} instructions according to its structure, recursing into sub-statements and expressions.
 The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR}; the labels and branches to execute a \CInline{while} loop are added, and the instructions to evaluate the condition and body are generated recursively.
@@ -417,41 +417,8 @@ Furthermore, an explicit size can either be a static value or a variable that is
 To handle variable-length arrays, an instruction is inserted to allocate space on the stack for it at run-time.
 Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
 
-Some expressions can be evaluated by the compiler ahead-of-time, e.g.~array length expressions.
-I implemented a compile-time expression evaluator that can handle arithmetic expressions and ternary statements.
-Expressions are converted according to their structure, recursing into sub-expressions.
-
-\begin{mrwComment}
-Tim: is there space for more detail on this?
-\end{mrwComment}
-
-
-\subsection{Context Object Design Pattern}\label{sec:impl:context object design pattern}
-
-Throughout the middle and back ends, I used a design pattern of passing a context object through all function calls.
-For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} was used to track information about the current context with respect to the source program.
-It tracks the stack of nested loops and switch statements, so that when a \CInline{break} or \CInline{continue} statement is converted, the branch target is known.
-
-\begin{listing}[t]
-  \begin{RustListing}
-    struct Context {
-        loop_stack: Vec<LoopOrSwitchContext>,
-        scope_stack: Vec<Scope>,
-        in_function_name_expr: bool,
-        function_names: HashMap<String, FunId>,
-        directly_on_lhs_of_assignment: bool,
-    }
-  \end{RustListing}
-  \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
-  \label{lst:AST to IR context struct}
-\end{listing}
-
-In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
-Rust, however, is not object-oriented, and I found this approach to offer more modularity and flexibility.
-Firstly, the context information is encapsulated inside its own data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
-It also enables creating different context objects for different purposes.
-In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
-The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
+Some expressions are evaluated at compile-time, such as array length expressions.
+My implementation of this is described in~\ccref{app:sec:compile time expression evaluation}.
 
 
 \subsection{Types}
@@ -459,7 +426,7 @@ The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{Mod
 \Ccref{fig:ir supported types} outlines the types supported by the \gls{ir}, mirroring the types supported by the C language~\ccite[ch.~5]{c-reference-manual}.
 \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
-I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification doesn't define the exact bit widths, only the minimum size.}.
+I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification does not define the exact bit widths, only the minimum size.}.
 
 \begin{figure}[t]
   \setlength{\abovedisplayskip}{-6pt}
@@ -548,14 +515,8 @@ In \ccref{alg:relooper}, the \emph{reachability} set of a label is used to deter
 The reachability of each label is calculated by taking the transitive closure of its possible branch targets.
 Starting with a copy of the set of possible branch targets of a label, we iteratively add the possible branch targets of each label in the set, until there are no more changes.
 (The reachability is a set so that no duplicates are added.)
+Subsequent steps of the algorithm are implemented as described earlier.
 
-% As it creates blocks, the algorithm replaces branch instructions.
-% Once an inner block has been created, branches inside it are replaced recursively
-\begin{mrwComment}
-  Maybe talk a bit more about the actual relooper implementation?
-
-  - why do we need the reachability set that we've just mentioned?
-\end{mrwComment}
 
 \section{Back End: Target Code Generation}\label{sec:impl:back end}
 
@@ -815,7 +776,7 @@ To do this, in the middle end we find all \IrCode{call} instructions that are di
 
 In the target code generation stage, \IrCode{tail-call} instructions are handled by re-using the current stack frame instead of pushing a new one.
 The construction of this is very similar to how a stack frame is normally pushed.
-The frame pointer and space for the return value are left as they are; they don't need to be changed for the new stack frame.
+The frame pointer and space for the return value are left as they are; they do not need to be changed for the new stack frame.
 
 To store the parameters in the new stack frame, initially they are copied to a region of unused memory above the stack, then copied to their respective positions in the stack frame. This ensures the values in the old stack frame are not overwritten by the new stack frame before they are used.
 
@@ -1026,7 +987,7 @@ I modified the register allocation method to the following heuristic for variabl
 \begin{EnumerateAlgorithm}
 \item\label[algstep]{alg:allocate vars:start} Choose a variable with the least number of clashes. Break ties by choosing smaller variables.
 \item Remove the variable and its edges from the clash graph.
-\item\label[algstep]{alg:allocate vars:allocate} Allocate the variable to the lowest memory address where it doesn't clash with already allocated variables.
+\item\label[algstep]{alg:allocate vars:allocate} Allocate the variable to the lowest memory address where it does not clash with already allocated variables.
 \item Repeat from \ccref{alg:allocate vars:start} until the clash graph is empty.
 \end{EnumerateAlgorithm}
 \end{Algorithm}
