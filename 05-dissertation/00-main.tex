@@ -66,9 +66,12 @@
 \usepackage[font=small,
             labelfont=bf,
             format=hang]{caption}
-\usepackage{subcaption}
+\usepackage[labelformat=simple, subrefformat=simple]{subcaption}
 % Allow listings in subfigure
 \DeclareCaptionSubType{listing}
+% Use brackets around subfigure/sublisting reference
+\renewcommand\thesubfigure{(\alph{subfigure})}
+\renewcommand\thesublisting{(\alph{sublisting})}
 
 % Number algorithms by chapter
 \renewcommand\thealgorithm{\thechapter.\arabic{algorithm}}

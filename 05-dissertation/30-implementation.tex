@@ -179,7 +179,7 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
     \caption{Parse: \CInline{else} belongs to outer \CInline{if}.}
     \label[listing]{lst:dangling else:belonging to outer if}
   \end{sublisting}
-  \caption{Example of the dangling else problem in C. The C source code (\subref{lst:dangling else:ambiguous source}) could have two potential parse trees (\subref{lst:dangling else:belonging to inner if}, \subref{lst:dangling else:belonging to outer if}) when using the grammar in \ccref{lst:ambiguous if-else grammar}.}
+  \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \ccref{lst:ambiguous if-else grammar}.}
   \label{lst:dangling else}
 \end{listing}
 
@@ -244,7 +244,7 @@ Non-terminals are represented inside angle brackets, with their type and a varia
   \end{sublisting}
   \caption{
     Example of the LALRPOP syntax for grammar rules.
-    (\subref{sublst:addition expr grammar rule}) is the rule for an addition expression, and (\subref{sublst:lalrpop syntax addition rule}) is the Rust code to represent it.
+    \subref{sublst:addition expr grammar rule} is the rule for an addition expression, and \subref{sublst:lalrpop syntax addition rule} is the Rust code to represent it.
     In LALRPOP, the grammar parsing and \gls{ast} generation code are combined.
   }
   \label{lst:AST generation code example}
@@ -294,7 +294,7 @@ TODO link to Supplementary Implementation Details in the appendix for string esc
 
 \section{Middle End}\label{sec:impl:middle end}
 
-The middle end takes an \gls{ast} as input, and transforms it to intermediate code.
+The middle end takes an \gls{ast} as input and transforms it to intermediate code.
 It also runs the Relooper algorithm on the \gls{ir}.
 Optimisations are run on the \gls{ir} in this stage; they are described in \ccref{sec:impl:optimisations}.
 
@@ -413,13 +413,17 @@ For function definitions (i.e.~declarations plus body), the body code is convert
 
 Arrays are complicated because there are multiple ways their length can be specified.
 It can be given explicitly in the declaration, or implicitly inferred from the length of the initialiser.
-Furthermore, an explicit size can either be a static value or a variable that is only known at run time (creating a variable-length array).
-To handle variable-length arrays, an instruction is inserted to allocate space on the stack for it at run time.
+Furthermore, an explicit size can either be a static value or a variable that is only known at run-time (creating a variable-length array).
+To handle variable-length arrays, an instruction is inserted to allocate space on the stack for it at run-time.
 Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
 
 Some expressions can be evaluated by the compiler ahead-of-time, e.g.~array length expressions.
 I implemented a compile-time expression evaluator that can handle arithmetic expressions and ternary statements.
 Expressions are converted according to their structure, recursing into sub-expressions.
+
+\begin{mrwComment}
+Tim: is there space for more detail on this?
+\end{mrwComment}
 
 
 \subsection{Context Object Design Pattern}\label{sec:impl:context object design pattern}
@@ -486,7 +490,7 @@ This ensures that the \gls{ir} passed to the back end is type safe.
 
 The Relooper algorithm was described in \ccref{sec:prep:relooper}.
 Here, I describe its implementation.
-The Relooper stage takes the \gls{ir} as input, and transforming the instructions into Relooper blocks whilst preserving program metadata.
+The Relooper stage takes the \gls{ir} as input, and transforms the instructions into Relooper blocks whilst preserving program metadata.
 
 Firstly, the intermediate code is `soupified'.
 This is the process of taking the linear sequence of instructions and producing a set of \emph{labels}\footnote{The term `label' is overloaded here, though the two concepts are related; a `label instruction' refers to the intermediate code instruction, whereas a `label' is a basic block that starts with a label instruction.} (basic blocks), which are the input to the Relooper algorithm itself.
@@ -703,16 +707,16 @@ We can pop the frame simply by moving the \gls{sp} because the data above the \g
 Initially, I implemented a naive variable allocation strategy.
 As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
 
-Variable allocation is performed at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a run time address table.
-Only in specific cases---variable-length arrays, for example---are variables allocated at run time.
+Variable allocation is performed at compile time, so that variable accesses can be static \gls{fp} offsets rather than requiring a run-time address table.
+Only in specific cases---variable-length arrays, for example---are variables allocated at run-time.
 My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction that takes the number of bytes to allocate as an operand.
 
 Each variable, including temporary variables, is allocated a dedicated byte range in memory; none of the variables overlap.
 This safely maintains the programmer's memory model, but is an inefficient use of memory, hence the later optimisation.
 
-Local variables are stored as part of the function stack frame, the address of which is run time dependent.
+Local variables are stored as part of the function stack frame, the address of which is run-time dependent.
 Therefore, variables are allocated as offsets from the \gls{fp}.
-At run time, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
+At run-time, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
 
 \section{Runtime Environment}\label{sec:impl:runtime}
 
@@ -803,9 +807,9 @@ This was much more successful.
 However, I kept the old optimisation for the cases of non-recursive tail-calls, since this still reduces memory usage there.
 I will describe both approaches in turn below.
 
-\subsubsection{Approach 1: Replacing the Caller's Stack Frame at Runtime}
+\subsubsection{Approach 1: Replacing the Caller's Stack Frame at Run-time}
 
-My first approach was to replace the caller's stack frame at run time rather than push a new stack frame on top whenever a tail-call is made.
+My first approach was to replace the caller's stack frame at run-time rather than push a new stack frame on top whenever a tail-call is made.
 
 To do this, in the middle end we find all \IrCode{call} instructions that are directly returned from the function, and replace them with a \IrCode{tail-call} instruction.
 
@@ -827,8 +831,8 @@ It removes the recursive calls altogether, and replaces them with iteration back
 Therefore, no new stack frame will be allocated.
 
 Similarly to the previous approach, we start by finding all \IrCode{call} instructions that are both recursive and are tail-calls.
-In the current function, there is a variable holding each parameter.
-For each argument to the recursive call, we copy it to the variable holding the corresponding parameter in the current function.
+In the current function, there is a variable for each formal parameter.
+For each actual parameter to the recursive call, we copy it to corresponding formal parameter in the current function.
 Once done for each parameter, a branch instruction is added to the start of the function.
 \Ccref{lst:tail-call optimisation example} shows an example of this transformation.
 (C code is shown for clarity, however the actual optimisation happens to the intermediate code.)
@@ -967,12 +971,13 @@ One complication of \gls{lva} I had to solve was that if a variable is assigned 
 The next stage of the optimisation then marks it as having no clashes with any other variables.
 However, the write to the variable may occur while other variable are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
 To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
-I made sure to keep any side-effect producing instructions (e.g.~function calls) while removing assignments to variables that are not subsequently accessed.
 
-% Stop the LVA code float being pushed down
-% \FloatBarrier % chktex 1
+I handled side-effecting instruction (e.g.~function calls) that write to an unused variable by creating a `null destination' variable.
+The instruction in the \gls{ir} writes to the null variable.
+When transforming to target code, no write instruction is generated if the destination variable is the null variable.
 
-\subsubsection{Generating the Clash Graph}
+
+\subsubsection{Generating the Clash Graph}\label{sec:impl:generating clash graph}
 
 The clash graph is generated from the results of \gls{lva}.
 Any variables that are simultaneously live \emph{clash}; i.e.\ they cannot be allocated to overlapping addresses, because they are in use at the same time.
@@ -1066,9 +1071,9 @@ In my heuristic, it is beneficial to have variables with fewer clashes at lower 
   \end{subfigure}
   \caption{
     Example of the optimised stack allocation policy.
-    (\subref{subfig:optimised var allocation source})~is the intermediate code for which memory is being allocated, showing the set of live variables at each instruction.
-    (\subref{subfig:optimised var allocation clash graph})~is the clash graph generated after running \acrlong{lva}.
-    (\subref{subfig:optimised var allocation naive policy})~and~(\subref{subfig:optimised var allocation optimised policy}) show the allocations made by the naive and optimised policies, respectively.
+    \subref{subfig:optimised var allocation source}~is the intermediate code for which memory is being allocated, showing the set of live variables at each instruction.
+    \subref{subfig:optimised var allocation clash graph}~is the clash graph generated after running \acrlong{lva}.
+    \subref{subfig:optimised var allocation naive policy}~and~\subref{subfig:optimised var allocation optimised policy} show the allocations made by the naive and optimised policies, respectively.
     Memory addresses increase to the right; variables overlapping vertically, separated by dashed lines, are allocated to the same address.
   }
   \label{fig:optimised var allocation example} % chktex 24
@@ -1101,7 +1106,7 @@ All code was written by me.
 \arrayrulecolor{TableHlineColour}
 \specialrule{\heavyrulewidth}{0pt}{0pt}
 \Dirname{src} & Compiler source code. \\\specialrule{\lightrulewidth}{0pt}{0pt}
-\Indent{1}\Dirname{program_config} & Compiler constants and run time options data structures. \\\specialrule{\lightrulewidth}{0pt}{0pt}
+\Indent{1}\Dirname{program_config} & Compiler constants and run-time options data structures. \\\specialrule{\lightrulewidth}{0pt}{0pt}
 \Indent{1}\Dirname{front_end} & Lexer, parser grammar, \gls{ast} data structure. \\\specialrule{\lightrulewidth}{0pt}{0pt}
 \Indent{1}\Dirname{middle_end} & \gls{ir} data structures, definition of intermediate instructions. Converting \gls{ast} to \gls{ir}. \\\specialrule{\lightrulewidth}{0pt}{0pt}
 \Indent{2}\Dirname{middle_end_optimiser} & Tail-call optimisation and unreachable procedure elimination. \\\specialrule{\lightrulewidth}{0pt}{0pt}
@@ -1129,10 +1134,16 @@ All code was written by me.
 
 \section{Summary}
 
-The compiler pipeline is split into the front, middle, and back ends.
-The front end takes C source code, lexes it to a token stream, and parses it to generate an \gls{ast}.
-The middle end uses a custom \gls{ir} to represent the program, performing the Relooper algorithm as well as doing tail-call optimisation and unreachable procedure elimination.
-The back end transforms the \gls{ir} to a WebAssembly module, along with performing the stack allocation policy optimisation.
-The WebAssembly binary is executed by a Node.js runtime environment, which provides an interface to the system and to my skeleton implementation of the C standard library.
+% The compiler pipeline is split into the front, middle, and back ends.
+% The front end takes C source code, lexes it to a token stream, and parses it to generate an \gls{ast}.
+% The middle end uses a custom \gls{ir} to represent the program, performing the Relooper algorithm as well as doing tail-call optimisation and unreachable procedure elimination.
+% The back end transforms the \gls{ir} to a WebAssembly module, along with performing the stack allocation policy optimisation.
+% The WebAssembly binary is executed by a Node.js runtime environment, which provides an interface to the system and to my skeleton implementation of the C standard library.
+
+I implemented a complete compiler from C to WebAssembly.
+I created my own \gls{ir} to represent the program in the middle end, enabling optimisations.
+I successfully implemented the Relooper algorithm to transform the control flow.
+I performed tail-call optimisation to significantly reduce memory usage of recursive functions, and I created a novel and more optimal memory allocation algorithm.
+
 
 \end{document} % chktex 17

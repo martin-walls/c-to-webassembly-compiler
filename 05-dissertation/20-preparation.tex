@@ -62,7 +62,7 @@ Floating-point literals are encoded using the IEEE 754-2019 standard~\ccite{ieee
 This is the same standard used by many programming languages, including Rust, so the byte representation does not need to be converted between the compiler and the WebAssembly binary.
 
 WebAssembly also provides vector types and reference types.
-Vectors can store either integers or floats: in either case, the vector is split into a number of evenly-sized integers.
+Vectors can store either integers or floats: in either case, the vector is split into a number of evenly sized integers.
 Vector instructions exist to operate on these values.
 \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
 This project does not have a need for either of these types; the C language has no vector types, and although a compiler could create them, mine will not.
@@ -279,7 +279,7 @@ However, later stages of my compiler pipeline will optimise this away.
 I learnt the Rust programming language for this project~\ccite{rust-lang}.
 I chose Rust because it is performant and memory efficient.
 It has a rich type system with pattern matching that is well suited to writing a compiler.
-It uses the concept of a borrow checker rather than a garbage collector or similar memory management system, which eliminates runtime overhead whilst guaranteeing memory safety at compile time.
+It uses the concept of a borrow checker rather than a garbage collector or similar memory management system, which eliminates run-time overhead whilst guaranteeing memory safety at compile time.
 
 I made use of Rust's excellent online documentation to become familiar with the language~\ccite{rust-by-example, rust-book}.
 The borrow checker was the main new feature to be learnt, with the concepts of \emph{ownership} and \emph{borrowing}.
@@ -335,7 +335,7 @@ When the entire pipeline was complete, I used GCC (the GNU Compiler Collection) 
 \section{Starting Point}
 
 The \emph{Compiler Construction} course of the Tripos was the starting point for my knowledge of compilers.
-The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though not all the optimisations I implemented were included in the course.
+The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though some of the optimisations I implemented went beyond the course.
 
 I had familiarity with the C language from the \emph{Programming in C and C++} course, as well as from previous personal projects.
 Additionally, I had experience writing JavaScript and Python from personal projects.

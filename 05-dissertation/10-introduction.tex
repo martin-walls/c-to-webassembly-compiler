@@ -20,7 +20,7 @@ The representation is compact and modular, allowing it to be efficiently transmi
 This also includes being streamable and parallelisable, i.e.~it can be decoded while still being received.
 
 This project creates a compiler from C to WebAssembly.
-I chose C as a source language because it is a reasonably low-level language, which allowed me to have time to work on compiler optimisations rather than just implementing language features.
+I chose C as a source language because it is reasonably low-level, which allowed me to have time to work on compiler optimisations rather than just implementing language features.
 In particular, C has manual memory management, therefore I did not have to implement a garbage collector or similar.
 
 
@@ -32,7 +32,7 @@ This primarily targets C and C++, however can also be used for any other languag
 
 Cheerp is an alternative C/C++ to WebAssembly compiler, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating very optimised code~\ccite{cheerp}.
 
-Compilers to WebAssembly exist for other mainstream languages such as Java, C\#, Python, and even JavaScript.
+Compilers to WebAssembly exist for other mainstream languages such as Java, C\#, Python, and even JavaScript~\ccite{cheerp-java,blazor,pyodide,javy}.
 It is an area of active development; many more WebAssembly compilers are in progress for other languages~\ccite{awesome-wasm-langs}.
 
 My project covers a subset of the existing C to WebAssembly compilers; I only support a subset of the language features, and focus on correctness over optimality.

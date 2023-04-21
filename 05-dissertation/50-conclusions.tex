@@ -38,8 +38,13 @@ I only implemented a small subset of the standard library.
 If I were taking this project further, I would implement more of the standard library, such as the string manipulation functions.
 This would provide support for many more source programs.
 Notably, I would also implement \CInline{malloc()} and \CInline{free()}, to provide support for heap memory allocation.
+In my current memory layout, the heap would grow downwards from high memory.
+The runtime environment would keep a list of available memory, from which it would allocate when \CInline{malloc()} is called.
+Calling \CInline{free()} would return the memory to the available list.
 
 Furthermore, additional optimisations could be added to the compiler, increasing performance of compiled programs in terms of memory usage, execution speed, and binary code size.
 These can be as sophisticated as desired; there are many analyses that can be done at compile time, including dataflow analysis, constraint-bases analysis, effect systems, and so on.
+Pointer analysis---such as Andersen's points-to analysis---can be used to narrow down the possible targets of a pointer~\ccite{andersens-analysis}.
+This makes other analyses more precise, for example the clash graph in~\ccref{sec:impl:generating clash graph}
 
 \end{document}

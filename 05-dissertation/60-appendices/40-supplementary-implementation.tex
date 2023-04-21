@@ -10,7 +10,7 @@ Add a chapter overview text here
 
 \section{Parsing String Escape Sequences}
 
-In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
+In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character~\ccite[sec.~2.7.5]{c-reference-manual}.
 The parser needs to be convert these to the literal characters they represent.
 My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}.
 
@@ -21,10 +21,6 @@ When the current character is not a backslash, it is emitted as-is.
 
 I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string (\ccref{app:lst:interpret string function}).
 I also wrote a set of unit tests to verify the iterator was functioning correctly.
-
-\begin{mrwComment}
-TODO reference the C book for what the escape codes are
-\end{mrwComment}
 
 \begin{table}[h]
   \centering
