@@ -80,9 +80,9 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
                                 None => Err(EscapeCharAtEndOfString),
                             }
                         }
-                        Some(c) if c.is_digit(8) => {} // Octal character code similarly
+                        Some(c) if c.is_digit(8) => {/* Octal character code similarly */}
                         Some(c) => Err(InvalidEscapeChar(c)), // Invalid escape code
-                        None => Err(EscapeCharAtEndOfString),
+                        None => Err(EscapeCharAtEndOfString), // No escape code after backslash
                     },
                     c => Ok(c), // All other (non-escape) characters
                 }),
@@ -107,6 +107,10 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
 
 
 \section{Parsing Type Specifiers}\label{app:sec:parsing type specifiers}
+
+\begin{mrwComment}
+TODO rewrite this for appendix
+\end{mrwComment}
 
 Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
 For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
@@ -211,5 +215,42 @@ It also enables creating different context objects for different purposes.
 In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
 The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
 
+\section{Generating IDs}\label{app:sec:generating IDs}
+
+Many objects in the \gls{ir} and in the WebAssembly module require unique IDs, such as variables, labels, and functions.
+I created an \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct that encapsulates ID generation~(\ccref{lst:Id and IdGenerator implementation}).
+IDs are generated inductively: each ID knows how to generate the next one.
+The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
+
+\begin{listing}[t]
+  \begin{RustListing}
+    trait Id {
+        fn initial_id() -> Self;   // Base case
+        fn next_id(&self) -> Self; // Generate next ID inductively
+    }
+
+    struct IdGenerator<T: Id + Clone> {
+        max_id: Option<T>,         // Internally track the highest ID used so far
+    }
+
+    impl<T: Id + Clone> IdGenerator<T> {
+        // Static method to initialise an IdGenerator
+        fn new() -> Self {
+            IdGenerator { max_id: None }
+        }
+        // Use the IdGenerator to get a new ID
+        fn new_id(&mut self) -> T {
+            let new_id = match &self.max_id {
+                None => T::initial_id(),
+                Some(id) => id.next_id(),
+            };
+            self.max_id = Some(new_id.to_owned()); // Update the stored highest ID
+            new_id
+        }
+    }
+  \end{RustListing}
+  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator} struct, used to inductively generate IDs for objects in the \acrlong{ir} and the WebAssembly module.}
+  \label{lst:Id and IdGenerator implementation}
+\end{listing}
 
 \end{document}

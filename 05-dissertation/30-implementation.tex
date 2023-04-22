@@ -5,24 +5,19 @@
 \chapter{Implementation}
 
 This chapter describes the implementation of each stage of the compiler.
-\Ccref{sec:impl:system architecture} gives an overview of the project structure, and subsequent sections explain in more detail.
+\Ccref{fig:project flowchart} describes the high-level structure of the project, and subsequent sections explain in more detail.
 
 Code snippets and figures are presented to supplement my explanations.
 Where code is given, it is simplified to highlight the implementation details being explained.
-This includes removing boilerplate code, error handling, and other features that are necessary for implementation but unhelpful for clarity.
-
-\section{System Architecture}\label{sec:impl:system architecture}
-
-\Ccref{fig:project flowchart} describes the high-level structure of the project.
+This includes removing boilerplate code, error handling, and other features necessary for implementation but unhelpful for clarity.
 
 \begin{figure}[!t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
-  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor).}
-  \label{fig:project flowchart} % chktex 24
+  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor). \emph{AST}: \acrlong{ast}; \emph{IR}: \acrlong{ir}.}%
+  \label{fig:project flowchart}
 \end{figure}
 
-I created my own \gls{ast} representation and \gls{ir}, which are used as the main data representations in the compiler.
 
 % The optimisations I implemented in the middle end were unreachable procedure elimination, and tail-call optimisation.
 % As an extension to the project, I implemented a more optimal stack allocation policy, as part of the target code generation module.
@@ -39,46 +34,36 @@ I created my own \gls{ast} representation and \gls{ir}, which are used as the ma
 The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
 I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
 I used the LALRPOP parser generator to convert the tokens emitted by the lexer into an \gls{ast}~\ccite{lalrpop-docs}.
+I created my own \gls{ast} representation for this.
 
 \subsection{Preprocessor}
 
-I used the GNU C preprocessor (\mintinline{bash}{cpp}) to handle any preprocessor directives in the source code, for example macro definitions~\ccite{gnu-c-preprocessor}.
+I used the GNU C preprocessor (\mintinline{bash}{cpp}) to handle preprocessor directives in the source code, e.g.~macro definitions~\ccite{gnu-c-preprocessor}.
 However, since I do not support linking, I removed any \CInline{#include} directives before running the preprocessor and handled them myself.
 
 For each \CInline{#include <name.h>} directive that is removed, if it is one of the standard library headers that I support, the appropriate library code is copied into the source code from \Filename{headers/<name>.h}.
-One exception is when the name of the header file matches the name of the source program, in which case the contents of the program's header file are inserted into the source code, rather than finding a matching library.
+An exception is when the name of the header file matches the name of the source program, in which case the contents of the program's own header file are inserted into the source code.
 
-After processing \CInline{#include} directives, the compiler spawns \mintinline{bash}{cpp} as a child process, writes the source code to its stdin, and reads the processed source code back from its stdout.
+After processing \CInline{#include} directives, the compiler runs \mintinline{bash}{cpp} on the source code.
 
 \subsection{Lexer}\label{sec:impl:lexer}
 
 The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive~\ccite[sec.~5.10.3]{c-reference-manual}.
 For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
-\begin{itemize}
-\item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}; or
+\begin{itemize}[nosep]
+\item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}.
 \item As a function call, if \CInline{foo} is the name of a function.
 \end{itemize}
 
-This ambiguity is impossible to resolve with the language grammar. The solution is to preprocess the \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
-Therefore, I implemented a custom lexer that is aware of the type names already defined at the current program point.
-
-The lexer is implemented as a \gls{fsm}. \Ccref{fig:lexer fsm} highlight portions of the machine; the remaining state transition diagrams can be found in \ccref{app:lexer fsm}.
-The \gls{fsm} consumes the source code one character at a time, until the end of the token is reached (i.e.\ there is no transition for the next input character).
-Then, the token corresponding to the current state is emitted to the parser (as the next token in the token stream).
-Some states have no corresponding token to emit because they occur part-way through parsing a token; if the machine finishes in one of these states, this raises a lexing error.
-(Every state labelled with a token is an accepting state of the machine.)
-For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition and when the token is complete, the string is stored inside the emitted token.
-This gives the parser access to the necessary data about the token, for example the name of the literal.
-
-If, when starting to lex a new token, there is no initial transition corresponding to the input character, then there is no valid token for this input. This raises a lex error and the compiler will exit.
-
-\Ccref{subfig:lexer fsm numbers} shows the \gls{fsm} for lexing number literals. This handles all the different number formats that C supports: decimal, binary, octal, hexadecimal, and floating point.
+This ambiguity is impossible to resolve with the language grammar. The solution is to process \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
+Therefore, I created a custom lexer that stores the type names already defined at the current program point.
 
 \begin{figure}[p]
-  \begin{subfigure}[t]{\textwidth}
+  \hspace{2ex}
+  \begin{subfigure}[t]{\textwidth-4ex}
     \centering
     \scalebox{0.85}{\tikzfig{70-figures/10-lexer-fsm/00-numbers}}
-    \caption{\Gls{fsm} for lexing number literals.}%
+    \caption{\Gls{fsm} for lexing number literals, handling all number formats that C supports: decimal, floating point, binary, octal, and hexadecimal.}%
     \label{subfig:lexer fsm numbers}
   \end{subfigure}
   \par\vspace{2\bigskipamount}
@@ -96,50 +81,66 @@ If, when starting to lex a new token, there is no initial transition correspondi
     The token is emitted if the machine stops in a valid (named) state; otherwise a lexing error is raised.
     In a slight abuse of regular expression notation, `\texttt{.}' represents a literal full stop character.
     No input is consumed along an $\epsilon$ transition; the transition is taken if the condition is true. \\
-    Tokens: \emph{Dec}:~decimal literal; \emph{FP}:~floating point literal; \emph{Oct}:~octal literal; \emph{Bin}:~binary literal; \emph{Hex}:~hexadecimal literal; \emph{Iden}:~identifier; \emph{Keyword}:~a C keyword; \emph{Typedef}\!:~an identifier defined as a type name. \\
-    The states leading to the ellipsis token are shown for completeness since they share the starting dot state, even though the token is not a number literal.
+    Tokens: \emph{Dec}:~decimal literal; \emph{FP}:~floating point literal; \emph{Bin}:~binary literal; \emph{Oct}:~octal literal; \emph{Hex}:~hexadecimal literal; \emph{Iden}:~identifier; \emph{Keyword}:~a C keyword; \emph{Typedef}\!:~a type name identifier. \\
+    The states leading to the ellipsis token are shown for completeness since they share the starting dot state,.
   }%
   \label{fig:lexer fsm}
 \end{figure}
 
-\Ccref{subfig:lexer fsm identifiers} shows the \gls{fsm} for lexing identifiers and \CInline{typedef} names.
+
+The lexer is implemented as a \gls{fsm}. \Ccref{fig:lexer fsm} highlights portions of the machine; the remaining state transition diagrams can be found in \ccref{app:lexer fsm}.
+The \gls{fsm} consumes source code one character at a time, until the end of the current token is reached (i.e.\ there is no transition for the next input character).
+Then, the token corresponding to the current state is emitted to the parser, and the machine starts lexing the next token.
+% Some states have no corresponding token to emit because they occur part-way through parsing a token; if the machine finishes in one of these states, this raises a lexing error.
+% (Every state labelled with a token is an accepting state of the machine.)
+For tokens such as number literals and identifiers, the input characters are stored in the emitted token, giving the parser access to the necessary data about the token (e.g.~the value of a number literal).
+% For tokens such as number literals and identifiers, the lexer appends the input character to a string buffer on each transition and when the token is complete, the string is stored inside the emitted token.
+% This gives the parser access to the necessary data about the token, for example the name of the literal.
+
+If, when starting to lex a new token, there is no initial transition matching the input character, then there is no valid token for this input. This raises a lexing error and the compiler exits.
+
+% \Ccref{subfig:lexer fsm numbers} shows the transition diagram for lexing number literals, handling all the number formats that C supports: decimal, floating point, binary, octal, and hexadecimal.
+
+\Ccref{subfig:lexer fsm identifiers} describes the transitions for lexing identifiers and \CInline{typedef} names.
 This is where the ambiguity discussed above is handled.
   Every time another character of an identifier is consumed, the name is compared to language keywords and \CInline{typedef} names we have encountered so far\footnote{Keywords are matched with higher priority.}.
-  If a match is found, the machine transitions to the corresponding state, along an $\epsilon$ transition (no input is consumed).
-The lexer stores each \CInline{typedef} name that is declared so that it can emit the correct token for future names.
+  If a match is found, the machine transitions to the corresponding state, along an $\epsilon$ transition\footnote{$\epsilon$ transitions consume no input.}.
 
 
 \subsection{Parser}
 
-I used the LALRPOP parser generator to generate parsing code from the input grammar that I wrote~\ccite{lalrpop-docs}.
-It generates an \gls{ast} for which I defined the structure.
-Microsoft's C Language Syntax Summary and C: A Reference Manual were very useful references to ensure I captured the subtleties of C's syntax when writing my grammar~\ccite{c-language-grammar-microsoft,c-reference-manual}. % chktex 13
-My grammar is able to parse all core features of the C language, whilst omitting some of the recent additions. I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it does not handle. For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
+I wrote an abstract grammar for C, and used the LALRPOP parser generator to generate parsing code from it~\ccite{lalrpop-docs}.
+It generates an \gls{ast} using the representation I created.
+Microsoft's \emph{C Language Syntax Summary} and \emph{C: A Reference Manual} were useful references to ensure I captured the subtleties of C's syntax~\ccite{c-language-grammar-microsoft,c-reference-manual}. % chktex 13
+My grammar is able to parse all core features of the C language, whilst omitting some of the recent additions.
+I chose to make my parser handle a larger subset of C than the compiler as a whole supports; the middle end rejects or ignores nodes of the \gls{ast} that it does not handle, such as storage class specifiers (\CInline{static}, etc.).
+% For example, the parser handles storage class specifiers (e.g.~\CInline{static}) and type qualifiers (e.g.~\CInline{const}), and the middle end simply ignores them.
 
 \subsubsection{Dangling Else Ambiguity}
 
 A naive grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements~\ccite[sec.~8.5.2]{c-reference-manual}.
-C permits the bodies of conditional statements to be written without curly brackets if the body is a single statement.
+C permits them to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem~\ccite{dangling-else-wiki}.
 
-\begin{listing}[t]
-  \begin{GrammarListing}
-    if-stmt      ::= "if" "(" expr ")" stmt
-    if-else-stmt ::= "if" "(" expr ")" stmt "else" stmt
-  \end{GrammarListing}
-  \caption{
-    Ambigious \CInline{if}/\CInline{else} grammar.
-    Terminals are represented in double quotes, and non-terminals in bold.
-    The non-terminals \GrammarInline{stmt} and \GrammarInline{expr} represent statements and expressions respectively, for which the rules are not shown.
-  }
-  \label{lst:ambiguous if-else grammar}
-\end{listing}
+\ccref{lst:dangling else} shows an example of the dangling else problem; the \CInline{else} could either belong to the inner or the outer \CInline{if}.
+% According to the grammar in \subref{lst:ambiguous if-else grammar}, there are two possible parses of this program.
+% Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref{lst:dangling else:belonging to inner if} and \ccref{lst:dangling else:belonging to outer if}, respectively).
 
-An example of the dangling else problem is shown in \ccref{lst:dangling else}.
-According to the grammar in \ccref{lst:ambiguous if-else grammar}, there are two possible parses of this program.
-Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref{lst:dangling else:belonging to inner if} and \ccref{lst:dangling else:belonging to outer if}, respectively).
 
 \begin{listing}[t]
+  \begin{sublisting}[t]{\textwidth}
+    \begin{GrammarListing}
+      if-stmt      ::= "if" "(" expr ")" stmt
+      if-else-stmt ::= "if" "(" expr ")" stmt "else" stmt
+    \end{GrammarListing}
+    \caption{%
+      Ambigious \CInline{if}/\CInline{else} grammar.
+      Terminals are represented in double quotes, and non-terminals in bold.
+      The non-terminals \GrammarInline{stmt} and \GrammarInline{expr} represent statements and expressions respectively, for which the rules are not shown.
+    }
+    \label[listing]{lst:ambiguous if-else grammar}
+  \end{sublisting}
+  \par\vspace{\bigskipamount}
   \begin{sublisting}[b]{0.25\textwidth}
     \begin{CListing}
       if (x)
@@ -179,16 +180,16 @@ Either the \CInline{else} belongs to the inner or the outer \CInline{if} (\ccref
     \caption{Parse: \CInline{else} belongs to outer \CInline{if}.}
     \label[listing]{lst:dangling else:belonging to outer if}
   \end{sublisting}
-  \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \ccref{lst:ambiguous if-else grammar}.}
+  \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \subref{lst:ambiguous if-else grammar}.\medskip}
   \label{lst:dangling else}
 \end{listing}
 
 C resolves the ambiguity by always associating the \CInline{else} with the closest possible \CInline{if}.
-We can encode this into the grammar with the concept of `open' and `closed' statements~\ccite{final-solution-to-dangling-else}.
-\Ccref{lst:open/closed statement grammar} shows how I introduce this into my grammar for \CInline{if}/\CInline{else} statements.
+This can be encoded into the grammar using `open' and `closed' statements~\ccite{final-solution-to-dangling-else}.
+\Ccref{lst:open/closed statement grammar} shows my modified grammar for \CInline{if}/\CInline{else} statements.
 All other forms of statement must also be converted to the new structure.
-Any basic statements, i.e.\ statements that have no sub-statements, are added to \GrammarInline{closed-stmt}.
-All other statements that have sub-statements, such as \CInline{while}, \CInline{for}, and \CInline{switch} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.
+% Basic statements (i.e.~with no sub-statements) are added to \GrammarInline{closed-stmt}.
+% Statements that have sub-statements, e.g.~\CInline{while} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.
 
 
 \begin{listing}[t]
@@ -206,17 +207,17 @@ All other statements that have sub-statements, such as \CInline{while}, \CInline
   \label{lst:open/closed statement grammar}
 \end{listing}
 
-A closed statement always has the same number of \CInline{if} and \CInline{else} keywords (excluding anything between a pair of brackets, because bracket matching is unambiguous).
-Thus, in the second alternative of an \GrammarInline{open-stmt}, the \CInline{else} terminal can be found by counting the number of \CInline{if}s and \CInline{else}s we encounter since the start of the \GrammarInline{closed-stmt}; the \CInline{else} belonging to the \GrammarInline{open-stmt} is the first \CInline{else} once we have more \CInline{else}s than \CInline{if}s.
+A closed statement always has the same number of \CInline{if} and \CInline{else} keywords (ignoring anything between a pair of brackets, since bracket matching is unambiguous).
+Thus, in the second alternative of an \GrammarInline{open-stmt} in \ccref{lst:open/closed statement grammar}, the \CInline{else} terminal can be found by counting the number of \CInline{if}s and \CInline{else}s we encounter since the start of the \GrammarInline{closed-stmt}; the \CInline{else} belonging to the \GrammarInline{open-stmt} is the first \CInline{else} once we have more \CInline{else}s than \CInline{if}s.
 
-If open statements were allowed inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then \GrammarInline{open-stmt} and \GrammarInline{closed-stmt} would no longer be disjoint, and the grammar would be ambiguous. The above method for finding the matching \CInline{else} would not work.
+If open statements were allowed inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then the grammar would be ambiguous, because the above method for finding the matching \CInline{else} would not work.
 
 \subsubsection{LALRPOP Parser Generator}
 
 \Ccref{lst:AST generation code example} is an example of the LALRPOP syntax for addition expressions.
-The left-hand side of the~\RustInline{=>} describes the grammar rule, and the right-hand side is the code to generate an \RustInline{Expression} node.
-Terminals are represented in double quotes; these are defined to map to the tokens emitted by the lexer.
-Non-terminals are represented inside angle brackets, with their type and a variable name to use in the \gls{ast} generation code.
+The left-hand side of the~\RustInline{=>} describes the grammar rule, and the right-hand side generates the corresponding \gls{ast} node.
+Terminals are represented in double quotes; these map to the tokens emitted by the lexer.
+Non-terminals are represented inside angle brackets, containing their type and a variable name to bind to in \gls{ast} generation code.
 
 \begin{listing}[t]
   \begin{sublisting}[t]{\textwidth}
@@ -244,15 +245,14 @@ Non-terminals are represented inside angle brackets, with their type and a varia
   \end{sublisting}
   \caption{
     Example of the LALRPOP syntax for grammar rules.
-    \subref{sublst:addition expr grammar rule} is the rule for an addition expression, and \subref{sublst:lalrpop syntax addition rule} is the Rust code to represent it.
+    \subref{sublst:addition expr grammar rule} is the rule for an addition expression, and~\subref{sublst:lalrpop syntax addition rule} is the Rust code to represent it.
     In LALRPOP, the grammar parsing and \gls{ast} generation code are combined.
   }
   \label{lst:AST generation code example}
 \end{listing}
 
-LALRPOP allows macros to be defined, which allow the grammar to be written in a more intuitive way.
-For example, I defined a macro to represent a comma-separated list of non-terminals (\ccref{lst:parser macro for comma-separated list}).
-The macro has a generic type \RustInline{T}, and returns the list items as a \RustInline{Vec<T>}.
+LALRPOP allows macros to be defined, which allow the grammar to be written more intuitively.
+For example, I defined a macro to represent a comma-separated list of non-terminals~(\ccref{lst:parser macro for comma-separated list}).
 
 \begin{listing}[t]
   \begin{RustListing}
@@ -263,7 +263,7 @@ The macro has a generic type \RustInline{T}, and returns the list items as a \Ru
         }
     };
   \end{RustListing}
-  \caption{LALRPOP macro to parse a comma-separated list of non-terminals.}
+  \caption{LALRPOP macro to parse a comma-separated list of non-terminals. It takes a generic type \RustInline{T} for the type of the non-terminals, and returns the list items as a \RustInline{Vec<T>}.}
   \label{lst:parser macro for comma-separated list}
 \end{listing}
 
@@ -293,66 +293,33 @@ Subtleties around parsing type specifiers are discussed in~\ccref{app:sec:parsin
 
 \section{Middle End}\label{sec:impl:middle end}
 
-The middle end takes an \gls{ast} as input and transforms it to intermediate code.
+The middle end takes the \gls{ast} as input and transforms it to intermediate code, in the custom \gls{ir} I created.
 It also runs the Relooper algorithm on the \gls{ir}.
-Optimisations are run on the \gls{ir} in this stage; they are described in \ccref{sec:impl:optimisations}.
+The optimisations performed in this stage are described in \ccref{sec:impl:optimisations}.
 The middle and back ends make use of a context object design pattern, discussed in \ccref{app:sec:context object design pattern}.
 
 \subsection{Intermediate Code Generation}
 
 I defined a custom three-address code \gls{ir} (the instructions are listed in \ccref{app:intermediate code}).
-I decided to create a custom instruction set instead of using an existing one as it allowed me to tailor my compiler with exactly the features I support. For example, the \gls{ir} does not include indirect function calls.
+Creating a custom instruction set instead of using an existing one allowed me to tailor my compiler with exactly the features I support, such as not including indirect function calls.
 I also added instructions specific to the Relooper algorithm.
-The \gls{ir} contains both the program instructions and necessary metadata, such as variable type information, the mapping of variable and function names to their IDs, etc.
-The instructions and metadata are contained in separate sub-structs within the main \gls{ir} struct, which enables the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
-In the stage of converting the \gls{ast} to \gls{ir} code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
+The \gls{ir} contains both the program instructions and necessary metadata, such as type information, the mapping between variable names and their IDs in the \gls{ir},~etc.
+The instructions and metadata are contained in separate substructures within the main \gls{ir} data structure, enabling the metadata to be carried forwards through stages of the compiler pipeline while the instructions are transformed at each stage.
+% In the stage of converting the \gls{ast} to \gls{ir} code, the instructions and metadata are encapsulated in the \RustInline{Program} struct.
 
-Many objects in the \gls{ir} require unique IDs, such as variables and labels.
-I created an \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct (\ccref{lst:Id and IdGenerator implementation}).
-The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
-IDs are generated inductively: each ID knows how to generate the next one.
-
-\begin{listing}[t]
-  \begin{RustListing}
-    trait Id {
-        fn initial_id() -> Self;   // Base case
-        fn next_id(&self) -> Self; // Generate next ID inductively
-    }
-
-    struct IdGenerator<T: Id + Clone> {
-        max_id: Option<T>,         // Internally track the highest ID used so far
-    }
-
-    impl<T: Id + Clone> IdGenerator<T> {
-        // Static method to initialise an IdGenerator
-        fn new() -> Self {
-            IdGenerator { max_id: None }
-        }
-        // Use the IdGenerator to get a new ID
-        fn new_id(&mut self) -> T {
-            let new_id = match &self.max_id {
-                None => T::initial_id(),
-                Some(id) => id.next_id(),
-            };
-            self.max_id = Some(new_id.to_owned()); // Update the stored highest ID
-            new_id
-        }
-    }
-  \end{RustListing}
-  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator} struct, used to inductively generate IDs for objects in the \acrlong{ir}.}
-  \label{lst:Id and IdGenerator implementation}
-\end{listing}
-
+Many objects in the middle end require unique IDs; generating these is discussed in~\ccref{app:sec:generating IDs}.
 
 To convert the \gls{ast} to \gls{ir} code, the compiler recursively traverses the tree, generating three-address code instructions and metadata as it does so.
 At the highest level, the \gls{ast} contains a list of statements.
-For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}~\ccref{lst:convert while stmt to IR}. % chktex 36
-\RustInline{program} is the mutable intermediate representation, to which instructions and metadata are added as the \gls{ast} is traversed.
-\RustInline{context} is the context object described in \ccref{app:sec:context object design pattern}, which passes relevant contextual information through the functions recursively.
+Each statement is pattern-matched to handle it according to its structure, recursing into sub-statements and expressions.
+The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR}; labels and branch instructions are added, and the instructions to evaluate the condition and body are generated recursively.
 
-The core of converting a statement or expressions to \gls{ir} code is pattern matching the \gls{ast} node, and generating \gls{ir} instructions according to its structure, recursing into sub-statements and expressions.
-The case for a \CInline{while} statement is shown in \ccref{lst:convert while stmt to IR}; the labels and branches to execute a \CInline{while} loop are added, and the instructions to evaluate the condition and body are generated recursively.
-Other control-flow structures are similar.
+% For each of these, the compiler calls \RustInline{convert_statement_to_ir(stmt, program, context)}, where \RustInline{program} is the mutable \gls{ir}, to which instructions and metadata are added, and \RustInline{context} is the context object described in \ccref{app:sec:context object design pattern}, containing relevant contextual information~(\ccref{lst:convert while stmt to IR}).
+
+% The core of converting a statement or expressions to \gls{ir} code is pattern matching the \gls{ast} node, and generating \gls{ir} instructions according to its structure, recursing into sub-statements and expressions.
+% Other control-flow structures are similar.
+
+
 
 \begin{listing}[t]
   \begin{RustListing}
@@ -384,25 +351,34 @@ Other control-flow structures are similar.
         instrs
     }
   \end{RustListing}
-  \caption{Generating \gls{ir} code for a \CInline{while} statement. The \gls{ast} is pattern matched to handle each type of statement separately. The other cases are not shown here.}
+  \caption{\protect\glsreset{ast}%
+    Generating intermediate code for a \CInline{while} statement. The \gls{ast} is pattern matched to handle each type of statement separately. The other cases are not shown here.
+  }
   \label{lst:convert while stmt to IR}
 \end{listing}
 
 Some statements required care to ensure the semantic meaning of the program was preserved.
 For example, \CInline{switch} statements can contain \CInline{case} blocks in any order.
 Some blocks may fall-through to the next block, and there may be a \CInline{default} block.
-I handled this by first generating instructions for each \CInline{case} block, and storing them in a switch context until all blocks have been seen.
-At the start of the \CInline{switch} statement, conditional branches to each \CInline{case} block are inserted.
-After these come the blocks themselves.
-By doing this, there was no direct fall-through between any blocks; instead, such a block will end in a branch instruction to the start of the next block.
-This also allows \CInline{default} blocks to be easily handled; we just add an unconditional branch to the default block after all the conditional branches.
-If there is no \CInline{default} block, the conditional branches are followed by an unconditional branch to the end of the \CInline{switch} statement.
-\Ccref{fig:instr structure for switch statements} shows the structure of the generated instructions for \CInline{switch} statements.
+I handled this by first generating instructions for each \CInline{case} block, and storing them in a `switch context'.
+Once all \CInline{case} statements have been seen, the \gls{ir} code is generated, according to the structure in~\ccref{fig:instr structure for switch statements}.
+
+% At the start of the \CInline{switch} statement, conditional branches to each \CInline{case} block are inserted.
+% If a \CInline{default} block is present, an unconditional branch to it is added after the branches to the \CInline{case} blocks (otherwise, a branch to the end of the \CInline{switch} statement is added, for if no cases match).
+% After these come the blocks themselves.
+% This ensures there is no direct fall-through between any blocks; instead, all blocks end in a branch instruction either to the start of the next block or the end of the \CInline{switch} statement.
+% \Ccref{fig:instr structure for switch statements} shows the structure of the generated instructions for \CInline{switch} statements.
 
 \begin{figure}[t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/05-switch-case-handling}}
-  \caption{\gls{ir} instructions generated for \CInline{switch} statements.}
+  \caption{%
+    \gls{ir} instructions generated for \CInline{switch} statements.
+    Firstly, conditional branches to each \CInline{case} block are inserted.
+    This is followed by an unconditional branch to the \CInline{default} block, if present; if not, it branches to the end of the \CInline{switch} statement.
+    Following the branches are all the \CInline{case} blocks themselves. \\
+    This structure ensures there is no direct fall-through between any \CInline{case} blocks; instead, all blocks end in a branch instruction either to the start of another block or the end of the \CInline{switch} statement.
+  }
   \label{fig:instr structure for switch statements} % chktex 24
 \end{figure}
 
@@ -1104,7 +1080,7 @@ All code was written by myself.
 % The WebAssembly binary is executed by a Node.js runtime environment, which provides an interface to the system and to my skeleton implementation of the C standard library.
 
 I implemented a complete compiler from C to WebAssembly.
-I created my own \gls{ir} to represent the program in the middle end, enabling optimisations.
+I created my own \gls{ast} to represent the program in the front end, and my own \gls{ir} for the middle end, enabling optimisations.
 I successfully implemented the Relooper algorithm to transform the control flow.
 I performed tail-call optimisation to significantly reduce memory usage of recursive functions, and I created a novel and more optimal memory allocation algorithm.
 
