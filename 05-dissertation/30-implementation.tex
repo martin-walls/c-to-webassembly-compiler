@@ -360,7 +360,7 @@ The case for a \CInline{while} statement is shown in \ccref{lst:convert while st
 Some statements required care to ensure the semantic meaning of the program was preserved.
 For example, \CInline{switch} statements can contain \CInline{case} blocks in any order.
 Some blocks may fall-through to the next block, and there may be a \CInline{default} block.
-I handled this by first generating instructions for each \CInline{case} block, and storing them in a `switch context'.
+I handled this by first generating instructions for each \CInline{case} block, and storing them in a `switch context' data structure.
 Once all \CInline{case} statements have been seen, the \gls{ir} code is generated, according to the structure in~\ccref{fig:instr structure for switch statements}.
 
 % At the start of the \CInline{switch} statement, conditional branches to each \CInline{case} block are inserted.
@@ -382,15 +382,15 @@ Once all \CInline{case} statements have been seen, the \gls{ir} code is generate
   \label{fig:instr structure for switch statements} % chktex 24
 \end{figure}
 
-Declaration statements have many different formats, each of which I had to handle separately; e.g.~variables may be declared without being initialised with a value.
+Declaration statements have many different formats, each of which I had to handle separately; e.g.~variables may be declared with or without being initialised with a value.
 
 Function declarations only differ syntactically from other declarations by the type of the identifier; therefore they are handled in the same place.
-For function definitions (i.e.~declarations plus body), the body code is converted and the function is added to the \gls{ir}.
+For function definitions (i.e.~declarations plus body), the body code is converted to intermediate code and a new function object is added to the \gls{ir}.
 
-Arrays are complicated because there are multiple ways their length can be specified.
+Array declarations are complicated because their length can be specified in multiple ways.
 It can be given explicitly in the declaration, or implicitly inferred from the length of the initialiser.
-Furthermore, an explicit size can either be a static value or a variable that is only known at run-time (creating a variable-length array).
-To handle variable-length arrays, an instruction is inserted to allocate space on the stack for it at run-time.
+A \gls{vla} is when the array length is set at run-time by a variable.
+To handle \glspl{vla}, an instruction is inserted to allocate space on the stack for it at run-time.
 Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
 
 Some expressions are evaluated at compile-time, such as array length expressions.
