@@ -102,6 +102,9 @@
 % For changing the color of \hline in repository overview table
 \usepackage{colortbl}
 
+% Allow footnotes in tables
+\usepackage{footnote}{\makesavenoteenv{tabularx}}
+
 % For showing a directory tree in the repository overview
 \usepackage{dirtree}
 
@@ -139,6 +142,7 @@
 % Environment to wrap EnumerateAlgorithm with lines and a caption
 \NewDocumentEnvironment{Algorithm}{mm}
   {%
+    \begingroup
     \rule{\textwidth}{0.5pt}%
     \vspace{-14pt}%
   }
@@ -146,6 +150,7 @@
     \vspace{-20pt}%
     \rule{\textwidth}{0.5pt}%
     \captionof{algorithm}{#1\label{#2}}
+    \endgroup
     \medskip
   }
 
@@ -177,7 +182,6 @@
   \RenewDocumentCommand{\ccrefrange}{mm}{\textcolor{refcolor}{refrange x to y}}
   \RenewDocumentCommand{\Ccrefrange}{mm}{\textcolor{refcolor}{refrange x to y}}
   \RenewDocumentCommand{\ccite}{O{}m}{}
-  \RenewDocumentCommand{\footnote}{m}{}
 \fi
 
 \ifHideComments % chktex 1

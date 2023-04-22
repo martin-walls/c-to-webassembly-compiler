@@ -82,7 +82,7 @@ The plots show how the stack grows and shrinks throughout the execution of the p
 \subsection{Unreachable Procedure Elimination}\label{sec:eval:unreachable procedure elimination}
 
 In the context of this project, unreachable procedure elimination is mainly beneficial in removing unused standard library functions from the compiled binary.
-When a standard library header is included in a program, the preprocessor inserts the entire code of that library\footnote{That is, the entirety of my skeleton implementation of that library.}.
+When a standard library header is included in a program, the preprocessor inserts the entire code of that library\footnote{I.e.~the entirety of my skeleton implementation of that library.}.
 If the program only uses a few of the functions, the rest are redundant.
 Unreachable procedure elimination safely removes them, resulting in a smaller binary.
 
@@ -181,24 +181,23 @@ The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \C
 \CInline{case_upper()} and \CInline{case_lower()} each make repeated calls to \CInline{toupper()} and \CInline{tolower()}, which correspond to the many short spikes on the plot (one for each character in the string).
 Other than a \CInline{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
 
-In contrast, \CInline{case_camel()} performs many more operations iteratively in the body of the function.
-\Ccref{lst:section of casecamel body code} shows an extract of its body code.
-Even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()} (\ccref{lst:caseupper body code}).
-This results in the larger spike at the end of \ccref{fig:comparing stack usage for case.c}.
+In contrast, \CInline{case_camel()} performs many more operations in the body of the function.
+\Ccref{lst:section of casecamel body code} shows an extract of its body code; even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()} (\ccref{lst:caseupper body code}).
+This causes the larger spike at the end of \ccref{fig:comparing stack usage for case.c}.
 
 \begin{listing}[t]
   \begin{sublisting}[b]{0.49\textwidth}
     \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
     \caption{The entire body of \CInline{case_upper()}.}
-    \label{lst:caseupper body code}
+    \label[listing]{lst:caseupper body code}
   \end{sublisting}
   \hfill
   \begin{sublisting}[b]{0.49\textwidth}
     \CInputListing[firstline=39, lastline=43]{../02-test-programs/12-single-source-programs/case.c}
     \caption{A short section of the body of \CInline{case_camel()}.}
-    \label{lst:section of casecamel body code}
+    \label[listing]{lst:section of casecamel body code}
   \end{sublisting}
-  \caption{TODO write this caption: Comparing case_upper's code against case_camel's}
+  \caption{Comparing the body code of \CInline{case_upper()} code and \CInline{case_camel()}}
   \label{lst:caseupper and casecamel body code}
 \end{listing}
 
@@ -206,9 +205,9 @@ Due to the differences in temporary variables described above, the compiler is a
 This parallels the fact that \CInline{case_camel()} had the largest stack frame initially.
 
 
-Another area in which this optimisation has a large impact is recursive functions.
-Since this optimisation reduces the size of each stack frame, there is a large improvement when there are many recursive stack frames.
-\Ccref{fig:comparing stack usage for fibonacci.c} shows the size of the stack over the execution of calculating the Fibonacci numbers recursively.
+This optimisation also has a large impact on recursive functions.
+Since this optimisation reduces the size of each stack frame, the improvement is greater when there are many recursive stack frames.
+\Ccref{fig:comparing stack usage for fibonacci.c} shows the size of the stack for calculating the Fibonacci numbers recursively.
 In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
 
 
@@ -223,12 +222,12 @@ In this instance, the optimised stack allocation policy reduced the stack size o
 
 \section{Summary}
 
-The main objective of this project was to produce a compiler that generated correct WebAssembly binary code.
-Through the range of testing described above, I have shown that this objective was achieved, with the definition of correctness being that the generated program behaves in the same way as when compiled with GCC\@.
+The main objective of this project is to produce a compiler that generates correct WebAssembly binary code.
+As demonstrated by the testing described above, this objective has been achieved.
 
-The objective of adding optimisations is to improve the performance of the compiled programs, while maintaining the semantic meaning of the program.
-The correctness of my optimisations was verified with the same test suite as was used to test the unoptimised compiler's correctness.
-In the previous sections, we have seen measurable evidence that the optimisations did improve performance.
+The purpose of adding optimisations is to improve the performance of the compiled programs, whilst maintaining the program's semantics.
+The correctness of my optimisations is verified by the correct output of compiled programs.
+In the previous sections, we have seen measurable evidence that the optimisations improved performance, particularly by reducing memory usage.
 Therefore, the optimisations can be considered successful.
 
 

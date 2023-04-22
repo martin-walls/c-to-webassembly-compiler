@@ -289,7 +289,7 @@ The macro has a generic type \RustInline{T}, and returns the list items as a \Ru
 
 The parser contains other features that warrant discussion.
 The handling of escape sequences in strings is described in~\ccref{app:sec:parsing string escape sequences}.
-Subtleties around parsing type specifiers are discussed in~\ccref{appsec:parsing type specifiers}.
+Subtleties around parsing type specifiers are discussed in~\ccref{app:sec:parsing type specifiers}.
 
 \section{Middle End}\label{sec:impl:middle end}
 
@@ -1056,13 +1056,14 @@ I developed my project in a Git repository, ensuring to regularly push to the cl
 The high-level structure of the codebase is shown in \ccref{tab:repository structure}.
 All the code for the compiler is in the \Dirname{src} directory.
 The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
-All code was written by me.
+All code was written by myself.
 
 \newlength\IndentWidth\setlength\IndentWidth{1em}
 \NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
 \definecolor{TableHlineColour}{HTML}{ababab}
 
 % Use `tabularx` when table doesn't span across pages, `xltabular` when it does
+\begingroup
 \begin{xltabular}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
 \specialrule{\heavyrulewidth}{0pt}{0pt}
@@ -1091,6 +1092,7 @@ All code was written by me.
 \end{xltabular}
 \vspace{-14pt}
 \captionof{table}{Repository structure.\protect\label{tab:repository structure}}
+\endgroup
 
 
 \section{Summary}

@@ -11,17 +11,17 @@ Furthermore, I discuss the requirements of the project, and describe the softwar
 \section{WebAssembly}
 
 Initially, I extensively researched the WebAssembly specification to gain a deep understanding of the target binary code~\ccite{wasm-spec}.
-The following sections provide a high-level overview of the instruction set architecture.
+The following sections provide an overview of the instruction set architecture.
 
 \subsection{Primitive Values}
 
-The primitive values supported by WebAssembly are outlined in~\ccref{tab:wasm value types} below.
+\Ccref{tab:wasm value types} below outlines the primitive values supported by WebAssembly.
 
 \begin{table}[t]
   \centering
-  \begin{tabular}{lll}
+  \begin{tabular}{$l^l^l}
     \toprule
-    \textbf{Type} & \textbf{Constructor} & \textbf{Bit width} \\
+    \rowstyle{\bfseries}Type & Constructor & Bit width \\
     \midrule
     Integer   & \WasmType{i32}       & 32-bit \\
               & \WasmType{i64}       & 64-bit \\
@@ -36,13 +36,11 @@ The primitive values supported by WebAssembly are outlined in~\ccref{tab:wasm va
   \label{tab:wasm value types} % chktex 24
 \end{table}
 
-The same representation is used for both signed and unsigned integers; operations determine whether to interpret their operands as signed or unsigned.
+The same representation is used for both signed and unsigned integers; operations determine how to interpret their operands.
 Integers also store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
-Integer literals are encoded in the program using the LEB128 variable-length encoding scheme~\ccite{leb128-encoding}.
-\Ccref{lst:leb128 pseudocode} shows how to encode an unsigned integer.
-The algorithm is almost identical for signed integers (encoded in two's complement); the only difference is that we sign-extend rather than zero-extend.
-The decoder needs to know if the number is signed or unsigned, to know whether to interpret it as a two's complement integer or not.
-Hence some instructions have both signed and unsigned variants.
+The LEB128 variable-length encoding scheme is used; \ccref{lst:leb128 pseudocode} describes how to encode an unsigned integer~\ccite{leb128-encoding}.
+The algorithm is almost identical for signed integers; the only difference is that we sign-extend rather than zero-extend.
+Some instructions have both signed and unsigned variants, because the decoder needs to know whether to interpret each operand as a two's complement integer or not.
 
 \begin{listing}[t]
   \begin{PseudocodeListing}
@@ -61,33 +59,34 @@ Hence some instructions have both signed and unsigned variants.
 Floating-point literals are encoded using the IEEE 754-2019 standard~\ccite{ieee-754-2019}. % chktex 8
 This is the same standard used by many programming languages, including Rust, so the byte representation does not need to be converted between the compiler and the WebAssembly binary.
 
-WebAssembly also provides vector types and reference types.
-Vectors can store either integers or floats: in either case, the vector is split into a number of evenly sized integers.
-Vector instructions exist to operate on these values.
-\WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
+WebAssembly also provides vector types and reference types (mainly used for function references).
+% Vectors can store either integers or floats: in either case, the vector is split into a number of evenly sized integers.
+% Vector instructions exist to operate on these values.
+% \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
 This project does not have a need for either of these types; the C language has no vector types, and although a compiler could create them, mine will not.
 Additionally, I do not support function references in the scope of this project.
 I will only use the four main integer and float types.
 
 \subsection{Instructions}
 
-WebAssembly is a stack-based architecture; all instructions operate on the stack.
-For binary instructions that take their operands from the stack, the first operand is the one that was pushed to the stack first, and the second operand is the one pushed to the stack most recently (see \ccref{lst:wasm example sub instr}).
+WebAssembly is a stack-based architecture.
+Instructions take their operands from the stack, and push their result back to it.
+% For binary instructions that take their operands from the stack, the first operand is the one that was pushed to the stack first, and the second operand is the one pushed to the stack most recently.
 
-\begin{listing}[t]
-  \begin{WasmListing}
-    i32.const 10 ;; first operand
-    i32.const 2  ;; second operand
-    i32.sub
-  \end{WasmListing}
-  \caption{WebAssembly instructions to calculate \CInline{10 - 2}. Firstly the two operands are pushed onto the stack, then the subtraction operation is performed.}
-  \label{lst:wasm example sub instr}
-\end{listing}
+% \begin{listing}[t]
+%   \begin{WasmListing}
+%     i32.const 10 ;; first operand
+%     i32.const 2  ;; second operand
+%     i32.sub
+%   \end{WasmListing}
+%   \caption{WebAssembly instructions to calculate \CInline{10 - 2}. Firstly the two operands are pushed onto the stack, then the subtraction operation is performed.}
+%   \label{lst:wasm example sub instr}
+% \end{listing}
 
-All arithmetic instructions specify the type of value that they expect. In \ccref{lst:wasm example sub instr}, we put two \WasmType{i32} values on the stack, and use the \WasmType{i32} variant of the \WasmInstr{sub} instruction.
-The module would fail to instantiate if the types did not match.
-Some arithmetic instructions have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_u} and \WasmInstr{i32.lt_s}.
-This is the case for all instructions where the signedness of a number would make a difference to the result.
+All arithmetic instructions specify the type of value that they expect.
+% In \ccref{lst:wasm example sub instr}, we put two \WasmType{i32} values on the stack, and use the \WasmType{i32} variant of the \WasmInstr{sub} instruction.
+A module fails to instantiate if the types do not match.
+Instructions where the signedness of a number matters have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_u} and \WasmInstr{i32.lt_s}.
 
 WebAssembly only supports structured control flow, in contrast to the unstructured control flow found in most instruction sets with arbitrary jump instructions.
 There are three types of block: \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if}.
@@ -120,59 +119,92 @@ A \WasmInstr{br} instruction referring to an \WasmInline{if} block will jump to 
 
 A module is a unit of compilation and loading for a WebAssembly program.
 There is no distinction between a `library' and a `program' as in other languages; there are only modules that export functions to the instantiator (the runtime environment that instantiates the WebAssembly module).
-Modules are split up into sections.
-Each section starts with a section ID and the size of the section in bytes, followed by the body of the section.
+Modules are split up into sections, described in~\ccref{tab:wasm module sections}.
+Each section is preceded by a header containing the section ID and its size in bytes.
 
-The \emph{type section} defines the function types used in the module, including imported functions.
-Each type has a type index, allowing the same type to be used by multiple functions.
+\begingroup
+\begin{tabularx}{\textwidth}{$l^X}
+  \toprule
+  \rowstyle{\bfseries}Section & Description \\
+  \midrule
+  Type & Defines all function types used, including imported functions. \\
+  \midrule
+  Import & Defines everything imported to the module from the runtime environment: functions, memories, tables, and global variables. \\
+  \midrule
+  Function & Maps functions to their types. \\
+  \midrule
+  Table & Stores size information about tables. A table is an array of function pointers, used to call functions indirectly. A separate data structure is needed because function addresses are hidden from the program, keeping the execution sandboxed. \\
+  \midrule
+  Memory & Specifies the size limits of each linear memory of the program\footnote{In the current version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the Web\-Assembly page size (\SI{64}{\kibi\byte}) \\
+  \midrule
+  Global & Defines global variables, including an expression to initialise them. \\
+  \midrule
+  Export & Similar to the import section, defines everything exported from the module to the runtime environment. \\
+  \midrule
+  Start & Optionally specifies a function that should run automatically when the module is initialised. \\
+  \midrule
+  Element & Statically initialises tables with function addresses. This can either be done automatically when the module is loaded, or explicitly with a \WasmInstr{table.init} instruction. \\
+  \midrule
+  Data count & Optional section used for validation, that specifies how many data segments the data section contains. This allows a validator to use a single pass for static analysis, since it allows them to check the validity of instructions referencing data indexes. \\
+  \midrule
+  Code & Contains the instructions for each function body. Each function begins by declaring any local variables, followed by the body code. \\
+  \midrule
+  Data & Used to statically initialise the contents of memory, either automatically or explicitly (like the element section). \\
+  \bottomrule
+\end{tabularx}
+\captionof{table}{Sections of a WebAssembly module.\protect\label{tab:wasm module sections}}
+\endgroup
 
-The \emph{import section} defines everything that is imported to the module from the runtime environment, including imported functions as well as memories, tables, and global variables.
+% The \emph{type section} defines the function types used in the module, including imported functions.
+% Each type has a type index, allowing the same type to be used by multiple functions.
 
-The \emph{function section} is a map from function indexes to type indexes.
-This comes before the code section, so the type signature of all functions is known before any code is parsed.
-This allows all function calls to be properly typed without needing multiple passes over the module in decoding.
+% The \emph{import section} defines everything that is imported to the module from the runtime environment, including imported functions as well as memories, tables, and global variables.
 
-The \emph{table section} stores size information about tables.
-A table is an array of function pointers, used as arguments to \WasmInstr{call_indirect}.
-WebAssembly needs a separate data structure for this because functions live outside of the memory visible to the program; tables hide the function addresses from the program, keeping the execution sandboxed.
-This section stores the size limits of each table; any pointers used to initialise the tables are stored in the element section (below).
+% The \emph{function section} is a map from function indexes to type indexes.
+% This comes before the code section, so the type signature of all functions is known before any code is parsed.
+% This allows all function calls to be properly typed without needing multiple passes over the module in decoding.
 
-The \emph{memory section} specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
+% The \emph{table section} stores size information about tables.
+% A table is an array of function pointers, used as arguments to \WasmInstr{call_indirect}.
+% WebAssembly needs a separate data structure for this because functions live outside of the memory visible to the program; tables hide the function addresses from the program, keeping the execution sandboxed.
+% This section stores the size limits of each table; any pointers used to initialise the tables are stored in the element section (below).
 
-The \emph{global section} defines any global variables used in the program, including an expression to initialise them. They can be either mutable or immutable.
+% The \emph{memory section} specifies the size limits of each linear memory of the program\footnote{In the current WebAssembly version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the WebAssembly page size (defined as \SI{64}{\kibi\byte}).
 
-The \emph{export section} defines everything exported from the module to the runtime environment.
-As with imports, this can be functions, memories, tables, and global variables.
+% The \emph{global section} defines any global variables used in the program, including an expression to initialise them. They can be either mutable or immutable.
 
-The \emph{start section} optionally specifies a function that should automatically be run when the module is initialised.
+% The \emph{export section} defines everything exported from the module to the runtime environment.
+% As with imports, this can be functions, memories, tables, and global variables.
 
-The \emph{element section} contains segments that statically initialise the contents of tables with function addresses.
-Segments can be active or passive.
-An active segment will automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
+% The \emph{start section} optionally specifies a function that should automatically be run when the module is initialised.
 
-The \emph{data count section} is an optional additional section used to allow validators to use only a single pass for static analysis.
-It specifies how many data segments are in the data section.
-If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but, because this comes after the code section, it would require multiple passes over the module.
-This section has no effect on the actual execution.
+% The \emph{element section} contains segments that statically initialise the contents of tables with function addresses.
+% Segments can be active or passive.
+% An active segment will automatically initialise the table when the module is instantiated, whereas a passive segment needs to be explicitly loaded into a table with a \WasmInstr{table.init} instruction.
 
-The \emph{code section} contains the instructions for each function body.
-All code in a WebAssembly program is contained in a function.
-Each function body begins by declaring any local variables, followed by the instructions for that function.
+% The \emph{data count section} is an optional additional section used to allow validators to use only a single pass for static analysis.
+% It specifies how many data segments are in the data section.
+% If the data count section were not present, a validator would not be able to check the validity of instructions that reference data indexes until after reading the data section; but, because this comes after the code section, it would require multiple passes over the module.
+% This section has no effect on the actual execution.
 
-The \emph{data section} is used to statically initialise the contents of memory (like the element section for tables).
-This can be used, for example, to load string literals into memory.
+% The \emph{code section} contains the instructions for each function body.
+% All code in a WebAssembly program is contained in a function.
+% Each function body begins by declaring any local variables, followed by the instructions for that function.
+
+% The \emph{data section} is used to statically initialise the contents of memory (like the element section for tables).
+% This can be used, for example, to load string literals into memory.
 
 
 \section{The Relooper Algorithm}\label{sec:prep:relooper}
 
-C allows arbitrary control flow, because it has \CInline{goto} statements.
+C allows arbitrary control flow with \CInline{goto} statements.
 However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs as described above.
 Therefore, once the intermediate code has been generated, it needs to be transformed to only have structured control flow.
 
-There are several algorithms that achieve this.
-The most naive solution would be to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next. However, this is very inefficient.
+The most naive solution is to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next.
+This is very inefficient.
 
-The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, before that) was the Relooper algorithm, introduced by Emscripten in their paper on compiling LLVM to JavaScript~\ccite{emscripten}.
+The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, previously) was the Relooper algorithm, introduced by Emscripten~\ccite{emscripten}.
 In current WebAssembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
 All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, hence more complex.
 The original Relooper algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project.
@@ -181,8 +213,8 @@ The original Relooper algorithm is a greedy algorithm, is well described in the 
 
 The Relooper algorithm takes a so-called `soup of blocks' as input.
 Each block is a basic block of the flowgraph, that begins at an instruction label and ends with a branch instruction (\ccref{fig:relooper input label structure}).
-There can be no labels or branch instructions other than at the start or end of the block.
-The branch instruction may either be a conditional branch (\CInline{if (...) goto x else goto y}), or an unconditional branch.
+No labels or branch instructions are permitted in the middle of the block.
+The branch instruction may either be an unconditional or a conditional branch (\CInline{if (...) goto x else goto y}).
 
 To avoid overloading the term \emph{block}, these input blocks are referred to as \emph{labels}.
 
@@ -195,11 +227,11 @@ To avoid overloading the term \emph{block}, these input blocks are referred to a
 \end{figure}
 
 The algorithm generates a set of structured blocks, recursively nested to represent the control flow (\ccref{fig:relooper output blocks structure}).
-\emph{Simple} blocks represent linear control flow; they contain an \emph{internal} label, which contains the actual program instructions.
-\emph{Loop} blocks contain an \emph{inner} block, which contains all the labels that can possibly loop back to the start of the loop, along some execution path.
-\emph{Multiple} blocks represent conditional execution, where execution can flow along one of several paths.
+\emph{Simple} blocks represent linear control flow; they contain an \emph{internal} label, with the actual program instructions.
+\emph{Loop} blocks contain an \emph{inner} block, which contains all the labels that can reach the start of the loop again along some execution path.
+\emph{Multiple} blocks represent conditional execution, along one of several paths.
 They contain \emph{handled} blocks to which execution can pass when entering the block.
-All three blocks have a \emph{next} block, where execution will continue.
+All three blocks have a \emph{next} block, where execution continues.
 
 \begin{figure}[t]
   \centering
@@ -337,9 +369,10 @@ When the entire pipeline was complete, I used GCC (the GNU Compiler Collection) 
 The \emph{Compiler Construction} course of the Tripos was the starting point for my knowledge of compilers.
 The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though some of the optimisations I implemented went beyond the course.
 
-I had familiarity with the C language from the \emph{Programming in C and C++} course, as well as from previous personal projects.
+I had familiarity with C from the \emph{Programming in C and C++} course, and from previous personal projects.
 Additionally, I had experience writing JavaScript and Python from personal projects.
 I gained all my knowledge of WebAssembly and Rust through independent research.
+
 
 \section{Tools Used}
 
@@ -354,6 +387,12 @@ Another popular choice is \texttt{pest}, however it separates the formal grammar
 LALRPOP provides an intuitive and powerful approach, where each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
 
 I used Git for version control with GitHub as an off-site backup, and the CLion IDE as my development environment using the Intellij Rust plugin~\ccite{git,github,clion,intellij-rust-plugin}.
-CLion has excellent support for C, and the plugin enables native Rust support, including code analysis and debugging.
+Together they provides excellent support for Rust and C, including code analysis and debugging.
+
+
+\section{Licensing}
+
+LALRPOP is MIT licensed.
+I have decided to also use the MIT license for my code.
 
 \end{document}
