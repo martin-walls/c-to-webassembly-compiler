@@ -139,20 +139,24 @@
 \newlist{EnumerateAlgorithm}{enumerate}{1}
 \setlist[EnumerateAlgorithm]{label=\boxed{\arabic*}}
 
-% Environment to wrap EnumerateAlgorithm with lines and a caption
-\NewDocumentEnvironment{Algorithm}{mm}
+% Environment to wrap EnumerateAlgorithm with lines
+\NewDocumentEnvironment{Algorithm}{}
   {%
     \begingroup
-    \rule{\textwidth}{0.5pt}%
-    \vspace{-14pt}%
+    \rule[8pt]{\textwidth}{0.5pt}%
+    \vspace{-\baselineskip}%
   }
   {%
-    \vspace{-20pt}%
-    \rule{\textwidth}{0.5pt}%
-    \captionof{algorithm}{#1\label{#2}}
+    \vspace{-4pt}
+    \rule[8pt]{\textwidth}{0.5pt}%
+    \vspace{-\baselineskip}%
+    % \captionof{algorithm}{#1\label{#2}}
     \endgroup
     \medskip
   }
+
+\usepackage{newfloat}
+\DeclareFloatingEnvironment[name=Algorithm]{AlgorithmFloat}
 
 \usepackage{comment}
 \ifCompileForWordCount % chktex 1

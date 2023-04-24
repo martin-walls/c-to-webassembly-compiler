@@ -1,8 +1,8 @@
 \begin{tikzpicture}
 	\begin{pgfonlayer}{nodelayer}
-		\node [style=none, font={\ttfamily}] (0) at (-1, 0) {t0};
+		\node [style=none, font={\ttfamily}] (0) at (-1, 0) {t2};
 		\node [style=none, font={\ttfamily}] (1) at (1, 0) {t1};
-		\node [style=none, font={\ttfamily}] (2) at (-1, -1) {t2};
+		\node [style=none, font={\ttfamily}] (2) at (-1, -1) {t0};
 		\node [style=none, font={\ttfamily}] (3) at (-1, -2) {t3};
 		\node [style=none] (4) at (-2, 0.5) {};
 		\node [style=none] (5) at (-2, -0.5) {};
