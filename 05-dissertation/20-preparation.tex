@@ -87,7 +87,7 @@ Instructions take their operands from the stack, and push their result back to i
 All arithmetic instructions specify the type of value that they expect.
 % In \ccref{lst:wasm example sub instr}, we put two \WasmType{i32} values on the stack, and use the \WasmType{i32} variant of the \WasmInstr{sub} instruction.
 A module fails to instantiate if the types do not match.
-Instructions where the signedness of a number matters have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_u} and \WasmInstr{i32.lt_s}.
+Instructions where the signedness of a number matters have signed and unsigned variants, such as the less-than instructions \WasmInstr{i32.lt_s} and \WasmInstr{i32.lt_u}.
 
 WebAssembly only supports structured control flow, in contrast to the unstructured control flow found in most instruction sets with arbitrary jump instructions.
 There are three types of block: \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if}.
