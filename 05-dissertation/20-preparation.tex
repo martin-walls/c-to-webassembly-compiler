@@ -18,6 +18,7 @@ The following sections provide an overview of the instruction set architecture.
 \Ccref{tab:wasm value types} below outlines the primitive values supported by WebAssembly.
 
 \begin{table}[t]
+  \addtolength{\belowcaptionskip}{\medskipamount}
   \centering
   \begin{tabular}{$l^l^l}
     \toprule
@@ -123,9 +124,9 @@ Modules are split up into sections, described in~\ccref{tab:wasm module sections
 Each section is preceded by a header containing the section ID and its size in bytes.
 
 \begingroup
-\begin{tabularx}{\textwidth}{$l^X}
+\begin{tabularx}{\textwidth}{$>{\itshape}l^X} % chktex 6
   \toprule
-  \rowstyle{\bfseries}Section & Description \\
+  \rowstyle{\normalfont\bfseries}Section & Description \\
   \midrule
   Type & Defines all function types used, including imported functions. \\
   \midrule
@@ -220,6 +221,7 @@ To avoid overloading the term \emph{block}, these input blocks are referred to a
 
 
 \begin{figure}[t]
+  \addtolength{\belowcaptionskip}{\smallskipamount}
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/03-relooper-input-block}}
   \caption{Structure of labels (Relooper algorithm input blocks).}
@@ -334,7 +336,7 @@ A C to WebAssembly compiler takes C source code as input, and generates WebAssem
 
 The compiler consists of a pipeline of stages: a front end, middle end, and back end.
 The front end takes C source code, and outputs an \gls{ast}.
-The middle end takes the \gls{ast} and transforms it to an \gls{ir}, in this case three-address code.
+The middle end takes the \gls{ast} and transforms it to an \gls{ir}, in my case three-address code.
 The back end takes the \gls{ir} and generates WebAssembly instructions, writing them to a binary file.
 Each stage of the compiler pipeline is distinct, with defined data models connecting them.
 

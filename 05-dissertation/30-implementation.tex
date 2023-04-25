@@ -3,6 +3,7 @@
 \begin{document}
 
 \chapter{Implementation}
+\glsresetall % chktex 1
 
 This chapter describes the implementation of each stage of the compiler.
 \Ccref{fig:project flowchart} describes the high-level structure of the project, and subsequent sections explain in more detail.
@@ -14,7 +15,7 @@ This includes removing boilerplate code, error handling, and other features nece
 \begin{figure}[!t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
-  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor). \emph{AST}: \acrlong{ast}; \emph{IR}: \acrlong{ir}.}%
+  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor). \emph{AST}: \acrlong{ast}; \emph{IR}: \acrlong{ir}; \emph{Wasm}: WebAssembly.}%
   \label{fig:project flowchart}
 \end{figure}
 
@@ -31,8 +32,8 @@ This includes removing boilerplate code, error handling, and other features nece
 %   \label{fig:front end flowchart}
 % \end{figure}
 
-The front end of the compiler consists of the lexer and the parser; it takes C source code as input and outputs an abstract syntax tree.
-I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions in C\@.
+The front end of the compiler consists of the preprocessor, the lexer, and the parser; it takes C source code as input and outputs an \gls{ast}.
+I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions.
 I used the LALRPOP parser generator to convert the tokens emitted by the lexer into an \gls{ast}~\ccite{lalrpop-docs}.
 I created my own \gls{ast} representation for this.
 
@@ -44,7 +45,7 @@ However, since I do not support linking, I removed any \CInline{#include} direct
 For each \CInline{#include <name.h>} directive that is removed, if it is one of the standard library headers that I support, the appropriate library code is copied into the source code from \Filename{headers/<name>.h}.
 An exception is when the name of the header file matches the name of the source program, in which case the contents of the program's own header file are inserted into the source code.
 
-After processing \CInline{#include} directives, the compiler runs \mintinline{bash}{cpp} on the source code.
+After processing \CInline{#include} directives, the compiler uses \mintinline{bash}{cpp} to handle remaining directives.
 
 \subsection{Lexer}\label{sec:impl:lexer}
 
@@ -70,7 +71,7 @@ Therefore, I created a custom lexer that stores the type names already defined a
   \begin{subfigure}[t]{\textwidth}
     \centering
     \scalebox{0.85}{\tikzfig{70-figures/10-lexer-fsm/01-identifiers}}
-    \caption{\Gls{fsm} for lexing identifiers.}%
+    \caption{\Gls{fsm} for lexing identifiers, handling language keywords and user-defined type names.}%
     \label{subfig:lexer fsm identifiers}
   \end{subfigure}
   \caption{
@@ -80,9 +81,9 @@ Therefore, I created a custom lexer that stores the type names already defined a
     Transitions without a prior state are the initial transitions for the first input character.
     The token is emitted if the machine stops in a valid (named) state; otherwise a lexing error is raised.
     In a slight abuse of regular expression notation, `\texttt{.}' represents a literal full stop character.
-    No input is consumed along an $\epsilon$ transition; the transition is taken if the condition is true. \\
+    No input is consumed along an $\epsilon$~transition; the transition is taken if the condition is true. \\
     Tokens: \emph{Dec}:~decimal literal; \emph{FP}:~floating point literal; \emph{Bin}:~binary literal; \emph{Oct}:~octal literal; \emph{Hex}:~hexadecimal literal; \emph{Iden}:~identifier; \emph{Keyword}:~a C keyword; \emph{Typedef}\!:~a type name identifier. \\
-    The states leading to the ellipsis token are shown for completeness since they share the starting dot state,.
+    The states leading to the ellipsis token are shown for completeness since they share the starting dot state.
   }%
   \label{fig:lexer fsm}
 \end{figure}
@@ -180,7 +181,7 @@ If we have nested \CInline{if}/\CInline{else} statements that do not use curly b
     \caption{Parse: \CInline{else} belongs to outer \CInline{if}.}
     \label[listing]{lst:dangling else:belonging to outer if}
   \end{sublisting}
-  \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \subref{lst:ambiguous if-else grammar}.\medskip}
+  \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \subref{lst:ambiguous if-else grammar}.\bigskip}
   \label{lst:dangling else}
 \end{listing}
 
@@ -243,10 +244,10 @@ Non-terminals are represented inside angle brackets, containing their type and a
     \caption{The LALRPOP syntax for the addition grammar rule.}
     \label{sublst:lalrpop syntax addition rule}
   \end{sublisting}
-  \caption{
+  \caption{%
     Example of the LALRPOP syntax for grammar rules.
     \subref{sublst:addition expr grammar rule} is the rule for an addition expression, and~\subref{sublst:lalrpop syntax addition rule} is the Rust code to represent it.
-    In LALRPOP, the grammar parsing and \gls{ast} generation code are combined.
+    In LALRPOP, the grammar parsing and \gls{ast} generation code are combined.\bigskip
   }
   \label{lst:AST generation code example}
 \end{listing}
@@ -287,9 +288,8 @@ For example, I defined a macro to represent a comma-separated list of non-termin
 
 \subsubsection{Additional Parser Details}
 
-The parser contains other features that warrant discussion.
-The handling of escape sequences in strings is described in~\ccref{app:sec:parsing string escape sequences}.
-Subtleties around parsing type specifiers are discussed in~\ccref{app:sec:parsing type specifiers}.
+The parser contains other features that warrant discussion and more code snippets.
+The handling of escape sequences in strings is described in~\ccref{app:sec:parsing string escape sequences}, and subtleties around parsing type specifiers are discussed in~\ccref{app:sec:parsing type specifiers}.
 
 \section{Middle End}\label{sec:impl:middle end}
 
@@ -440,6 +440,7 @@ Each label starts with a \IrCode{label} instruction and ends in a \IrCode{branch
 All control flow between labels is made explicit.
 
 \begin{AlgorithmFloat}[t]
+  \addtolength{\belowcaptionskip}{\medskipamount}
   \begin{Algorithm}
     \begin{EnumerateAlgorithm}
     \item\label[algstep]{alg:soupify:remove label fall-through}
@@ -546,7 +547,7 @@ This means the address of the destination variable needs to be pushed onto the s
     \end{WasmListing}
     \caption{Generated WebAssembly code.}
   \end{sublisting}
-  \caption{\Gls{ir} code and generated target code for transforming an add instruction, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{I64}.}
+  \caption{\Gls{ir} code and generated target code for transforming an add instruction, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{I64}.\bigskip}
   \label{lst:converting add instr to wasm code}
 \end{listing}
 
@@ -979,7 +980,7 @@ There is also (effectively) no limit to the amount of memory available, compared
 The goal of my optimisation is to use as little memory as possible, whereas the goal of register allocation is to most efficiently use the constrained set of registers.
 
 I modified the register allocation method to the following heuristic for variable allocation:
-
+\nopagebreak
 \begin{AlgorithmFloat}[H]
   \begin{Algorithm}
     \begin{EnumerateAlgorithm}
@@ -1065,6 +1066,7 @@ All code was written by myself.
 
 % Use `tabularx` when table doesn't span across pages, `xltabular` when it does
 \begingroup
+\medskip
 \begin{tabularx}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
 \specialrule{\heavyrulewidth}{0pt}{0pt}
@@ -1095,7 +1097,7 @@ All code was written by myself.
 \captionof{table}{Repository structure.\protect\label{tab:repository structure}}
 \endgroup
 
-
+\vspace{-2ex} % Make the summary fit on the bottom of the page below the table
 \section{Summary}
 
 % The compiler pipeline is split into the front, middle, and back ends.

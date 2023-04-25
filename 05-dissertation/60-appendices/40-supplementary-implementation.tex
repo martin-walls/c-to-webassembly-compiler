@@ -4,15 +4,13 @@
 
 \chapter{Supplementary Implementation Details}
 
-\begin{mrwComment}
-Add a chapter overview text here
-\end{mrwComment}
+This appendix contains implementation details that are not the most important features of the compiler, yet are interesting to highlight.
 
 \section{Parsing String Escape Sequences}\label{app:sec:parsing string escape sequences}
 
-In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character~\ccite[sec.~2.7.5]{c-reference-manual}.
+In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
 The parser needs to be convert these to the literal characters they represent.
-My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}.
+My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}~\ccite[sec.~2.7.5]{c-reference-manual}.
 
 I implemented this by creating an iterator over the characters of the string, that replaces escape sequences as it emits characters (\ccref{app:lst:string escape iterator}).
 When the current character is a backslash (`\texttt{\char`\\}'), the next one or more characters form an escape sequence.
@@ -30,7 +28,6 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
     \midrule
     \texttt{\char`\\'} & Single quote \\
     \texttt{\char`\\"} & Double quote \\ % chktex 18
-    \texttt{\char`\\?} & Question mark \\ % chktex 18
     \texttt{\char`\\\char`\\} & Backslash \\ % chktex 18
     \texttt{\char`\\n} & New line (line feed) \\ % chktex 18
     \texttt{\char`\\r} & Carriage return \\ % chktex 18
@@ -42,6 +39,16 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
   \caption{Supported string escape sequences.}%
   \label{app:tab:supported string escape codes}
 \end{table}
+
+\begin{listing}[H]
+  \begin{RustListing}
+    pub fn interpret_string(s: &str) -> Result<String, Error> {
+        InterpretString::new(s).collect()
+    }
+  \end{RustListing}
+  \caption{Function wrapper around the \RustInline{InterpretString} iterator (see \ccref{app:lst:string escape iterator}).}
+  \label{app:lst:interpret string function}
+\end{listing}
 
 \begin{listing}[!t]
   \begin{RustListing}
@@ -95,36 +102,134 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
   \label{app:lst:string escape iterator}
 \end{listing}
 
-\begin{listing}[!t]
-  \begin{RustListing}
-    pub fn interpret_string(s: &str) -> Result<String, Error> {
-        InterpretString::new(s).collect()
-    }
-  \end{RustListing}
-  \caption{Function wrapper around the \RustInline{InterpretString} iterator (see \ccref{app:lst:string escape iterator}).}
-  \label{app:lst:interpret string function}
-\end{listing}
-
-
 \section{Parsing Type Specifiers}\label{app:sec:parsing type specifiers}
 
-\begin{mrwComment}
-TODO rewrite this for appendix
-\end{mrwComment}
-
-Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a declaration.
-For example, \CInline{signed int x} and \CInline{int signed x} are equivalent declarations.
+Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a variable declaration.
+For example, the declarations \CInline{signed int x} and \CInline{int signed x} are equivalent.
 To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
 It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
 The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
 The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
 For each type specifier, the corresponding bit is set.
 Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
+\Ccref{app:lst:arithmetic type bitfield} shows my implementation.
+
+\begin{listing}[!t]
+  \begin{RustListing}
+    impl ArithmeticType {
+        fn create_from_type_specifiers(types: Vec<TypeSpecifierToken>) -> Result<Self, Error> {
+            // bitfield: [double] [float] [unsigned] [signed] [long] [int] [short] [char]
+            let mut bitfield = 0;
+            for t in types {
+                match t {
+                    ArithmeticType(at) => match at {
+                        Char => bitfield |= 0b1,
+                        Short => bitfield |= 0b10,
+                        Int => bitfield |= 0b100,
+                        Long => bitfield |= 0b1000,
+                        Signed => bitfield |= 0b1_0000,
+                        Unsigned => bitfield |= 0b10_0000,
+                        Float => bitfield |= 0b100_0000,
+                        Double => bitfield |= 0b1000_0000,
+                    },
+                    Void | Struct(_) | Union(_) | Enum(_) | CustomType(_) => {
+                        return Err(InvalidTypeDeclaration("Conflicting types declared"));
+                    }
+                }
+            }
+            match bitfield {
+                0b00_00_0001 | 0b00_01_0001 => Ok(ArithmeticType::I8),  // signed char
+                0b00_10_0001 => Ok(ArithmeticType::U8),                 // unsigned char
+                0b00_00_0010 | 0b00_01_0010 => Ok(ArithmeticType::I16), // signed short
+                0b00_10_0010 => Ok(ArithmeticType::U16),                // unsigned short
+                0b00_00_0100 | 0b00_01_0100 => Ok(ArithmeticType::I32), // signed int
+                0b00_10_0100 => Ok(ArithmeticType::U32),                // unsigned int
+                0b00_00_1000 | 0b00_01_1000 => Ok(ArithmeticType::I64), // signed long
+                0b00_10_1000 => Ok(ArithmeticType::U64),                // unsigned long
+                0b01_00_0000 => Ok(ArithmeticType::F32),                // float
+                0b10_00_0000 => Ok(ArithmeticType::F64),                // double
+                _ => Err(InvalidTypeDeclaration("Invalid arithmetic type")),
+            }
+        }
+    }
+  \end{RustListing}
+  \caption{Using a bitfield to parse arithmetic type specifiers.}
+  \label{app:lst:arithmetic type bitfield}
+\end{listing}
+
+
+
+\section{Context Object Design Pattern}\label{app:sec:context object design pattern}
+
+Throughout the middle and back ends, I used a design pattern of passing a context object through all function calls.
+For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} was used to track information about the current context with respect to the source program.
+It tracks the stack of nested loops and switch statements, so that when a \CInline{break} or \CInline{continue} statement is converted, the branch target is known.
+
+\begin{listing}[t]
+  \begin{RustListing}
+    struct Context {
+        loop_stack: Vec<LoopOrSwitchContext>,
+        scope_stack: Vec<Scope>,
+        in_function_name_expr: bool,
+        function_names: HashMap<String, FunId>,
+        directly_on_lhs_of_assignment: bool,
+    }
+  \end{RustListing}
+  \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
+  \label{lst:AST to IR context struct}
+\end{listing}
+
+In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
+Rust, however, is not object-oriented, and I found this approach offered more modularity and flexibility.
+Firstly, the context information is encapsulated inside a separate data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
+It also enables creating different context objects for different purposes.
+In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
+The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
+
+\section{Generating IDs}\label{app:sec:generating IDs}
+
+Many objects in the \gls{ir} and in the WebAssembly module require unique IDs, such as variables, labels, and functions.
+I created an \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct that encapsulates ID generation~(\ccref{lst:Id and IdGenerator implementation}).
+IDs are generated inductively: each ID knows how to generate the next one.
+The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
+
+\FloatBarrier
+
+\begin{listing}[!t]
+  \begin{RustListing}
+    trait Id {
+        fn initial_id() -> Self;   // Base case
+        fn next_id(&self) -> Self; // Generate next ID inductively
+    }
+
+    struct IdGenerator<T: Id + Clone> {
+        max_id: Option<T>,         // Internally track the highest ID used so far
+    }
+
+    impl<T: Id + Clone> IdGenerator<T> {
+        // Static method to initialise an IdGenerator
+        fn new() -> Self {
+            IdGenerator { max_id: None }
+        }
+        // Use the IdGenerator to get a new ID
+        fn new_id(&mut self) -> T {
+            let new_id = match &self.max_id {
+                None => T::initial_id(),
+                Some(id) => id.next_id(),
+            };
+            self.max_id = Some(new_id.to_owned()); // Update the stored highest ID
+            new_id
+        }
+    }
+  \end{RustListing}
+  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator} struct, used to inductively generate IDs for objects in the \acrlong{ir} and the WebAssembly module.}
+  \label{lst:Id and IdGenerator implementation}
+\end{listing}
 
 
 \section{Compile-time Expression Evaluation}\label{app:sec:compile time expression evaluation}
 
-Some expressions are evaluated at compile-time, such as array length expressions.
+Some expressions can be evaluated at compile-time, such as array length expressions.
 The expressions much be constant expressions, which means they are not permitted to contain assignments, function calls, and increments or decrements~\ccite[sec.~7.11]{c-reference-manual}.
 I implemented a compile-time expression evaluator that supports arithmetic expressions and ternaries (conditional expressions of the form \texttt{condition~?~expr_if_true~:~expr_if_false}).
 
@@ -137,7 +242,7 @@ Errors will short-circuit the evaluation.
 I do not support variables in compile-time evaluated expressions.
 A more sophisticated compile-time evaluator could look further up the \gls{ast} to determine if a variable's value is a constant expression, and if so, use it.
 
-\begin{listing}[!t]
+\begin{listing}[!p]
   \begin{RustListing}
     // Types that can be evaluated at compile-time
     enum ConstantExpressionType {
@@ -187,70 +292,5 @@ A more sophisticated compile-time evaluator could look further up the \gls{ast} 
   \label{app:lst:compile time expression evaluator}
 \end{listing}
 
-
-\section{Context Object Design Pattern}\label{app:sec:context object design pattern}
-
-Throughout the middle and back ends, I used a design pattern of passing a context object through all function calls.
-For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} was used to track information about the current context with respect to the source program.
-It tracks the stack of nested loops and switch statements, so that when a \CInline{break} or \CInline{continue} statement is converted, the branch target is known.
-
-\begin{listing}[t]
-  \begin{RustListing}
-    struct Context {
-        loop_stack: Vec<LoopOrSwitchContext>,
-        scope_stack: Vec<Scope>,
-        in_function_name_expr: bool,
-        function_names: HashMap<String, FunId>,
-        directly_on_lhs_of_assignment: bool,
-    }
-  \end{RustListing}
-  \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
-  \label{lst:AST to IR context struct}
-\end{listing}
-
-In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
-Rust, however, is not object-oriented, and I found this approach offered more modularity and flexibility.
-Firstly, the context information is encapsulated inside a separate data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
-It also enables creating different context objects for different purposes.
-In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
-The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
-
-\section{Generating IDs}\label{app:sec:generating IDs}
-
-Many objects in the \gls{ir} and in the WebAssembly module require unique IDs, such as variables, labels, and functions.
-I created an \RustInline{Id} trait to abstract this concept, together with a generic \RustInline{IdGenerator} struct that encapsulates ID generation~(\ccref{lst:Id and IdGenerator implementation}).
-IDs are generated inductively: each ID knows how to generate the next one.
-The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
-
-\begin{listing}[t]
-  \begin{RustListing}
-    trait Id {
-        fn initial_id() -> Self;   // Base case
-        fn next_id(&self) -> Self; // Generate next ID inductively
-    }
-
-    struct IdGenerator<T: Id + Clone> {
-        max_id: Option<T>,         // Internally track the highest ID used so far
-    }
-
-    impl<T: Id + Clone> IdGenerator<T> {
-        // Static method to initialise an IdGenerator
-        fn new() -> Self {
-            IdGenerator { max_id: None }
-        }
-        // Use the IdGenerator to get a new ID
-        fn new_id(&mut self) -> T {
-            let new_id = match &self.max_id {
-                None => T::initial_id(),
-                Some(id) => id.next_id(),
-            };
-            self.max_id = Some(new_id.to_owned()); // Update the stored highest ID
-            new_id
-        }
-    }
-  \end{RustListing}
-  \caption{Implementation of the \RustInline{Id} trait and \RustInline{IdGenerator} struct, used to inductively generate IDs for objects in the \acrlong{ir} and the WebAssembly module.}
-  \label{lst:Id and IdGenerator implementation}
-\end{listing}
 
 \end{document}

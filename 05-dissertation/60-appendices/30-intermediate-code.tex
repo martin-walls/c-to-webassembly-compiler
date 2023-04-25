@@ -4,15 +4,20 @@
 
 \chapter{Intermediate Code}\label{app:intermediate code}
 
+This appendix summarises the instructions I created for the \acrlong{ir}.
 \IrCode{x} and \IrCode{y} can either be variables or constants, used as operands to instructions.
 \IrCode{t} is a destination variable.
 
-\begin{xltabular}{\textwidth}{lX}
+\begin{xltabular}{\textwidth}{$l^X}
 \caption{\gls{ir} code instructions.} \\
 \toprule
+\rowstyle{\bfseries}Instruction & Description \\
+\midrule
 \endfirsthead % chktex 1
 \caption[]{\gls{ir} code instructions (continued).} \\
 \toprule
+\rowstyle{\bfseries}Instruction & Description \\
+\midrule
 \endhead % chktex 1
 % \bottomrule
 \endfoot % chktex 1
@@ -47,7 +52,7 @@
 \IrCode{t = x <= y} & Less-than or equal comparison. \\
 \IrCode{t = x >= y} & Greater-than or equal comparison. \\
 \IrCode{t = x == y} & Equality comparison. \\
-\IrCode{t = x != y} & Not equal comparison. \\
+\IrCode{t = x != y} & Inequality comparison. \\
 \midrule
 \IrCode{t = call f(p\textsubscript{1}, p\textsubscript{2}, ...)} & Call function \IrCode{f} with parameters \IrCode{p\textsubscript{i}} (either variables or constants). \\
 \IrCode{tail-call f(p\textsubscript{1}, p\textsubscript{2}, ...)} & Call function \IrCode{f} and return the result from the current function. \\
