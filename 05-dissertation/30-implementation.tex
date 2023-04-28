@@ -485,7 +485,7 @@ All control flow between labels is made explicit.
   \label[algorithm]{alg:soupify}
 \end{AlgorithmFloat}
 
-After soupifying, \ccref{alg:relooper} (\ccref{sec:prep:relooper algorithm}) is used to create a Relooper block.
+After soupifying, \ccref{alg:relooper} (\ccref{sec:prep:relooper}) is used to create a Relooper block.
 In the algorithm, the \emph{reachability} set of a label is used to determine which type of block to generate.
 The reachability of each label is calculated as the transitive closure of its possible branch targets (\ccref{alg:reachability}).
 Subsequent steps of the algorithm are implemented as described earlier.
@@ -929,7 +929,8 @@ The algorithm is guaranteed to find the smallest set of live variables (it does 
 One complication of \gls{lva} I had to solve was that if a variable is assigned to but is never subsequently referenced, it will never be marked as live by the analysis.
 The next stage of the optimisation then marks it as having no clashes with any other variables.
 However, the write to the variable may occur while other variables are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
-To solve this, I added an optimisation to remove dead variables before running \gls{lva}.
+To solve this, I added an optimisation to remove writes to dead variables before running \gls{lva}.
+This optimisation also removes the redundancy introduced earlier by the Relooper algorithm, which inserted unnecessary writes to the label variable~(\ccref{sec:prep:relooper}).
 
 I handled side-effecting instruction (e.g.~function calls) that write to an unused variable by creating a `null destination' variable.
 The instruction in the \gls{ir} writes to the null variable.

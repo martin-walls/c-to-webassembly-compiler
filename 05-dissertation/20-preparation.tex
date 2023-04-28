@@ -16,6 +16,7 @@ The following sections provide an overview of the instruction set architecture.
 \subsection{Primitive Values}
 
 \Ccref{tab:wasm value types} below outlines the primitive values supported by WebAssembly.
+Booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.} are stored as integers.
 
 \begin{table}[t]
   \addtolength{\belowcaptionskip}{\medskipamount}
@@ -37,11 +38,14 @@ The following sections provide an overview of the instruction set architecture.
   \label{tab:wasm value types} % chktex 24
 \end{table}
 
-The same representation is used for both signed and unsigned integers; operations determine how to interpret their operands.
-Integers also store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
-The LEB128 variable-length encoding scheme is used; \ccref{lst:leb128 pseudocode} describes how to encode an unsigned integer~\ccite{leb128-encoding}.
-The algorithm is almost identical for signed integers; the only difference is that we sign-extend rather than zero-extend.
-Some instructions have both signed and unsigned variants, because the decoder needs to know whether to interpret each operand as a two's complement integer or not.
+Integers are encoded using the LEB128 variable-length encoding scheme, described in~\ccref{lst:leb128 pseudocode}~\ccite{leb128-encoding}.
+Encoded integers have no inherent signedness; some instructions have both signed and unsigned variants, because the decoder needs to know whether to interpret each operand as a two's complement integer or not.
+
+% The same representation is used for both signed and unsigned integers; operations determine how to interpret their operands.
+% Integers also store booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.}.
+% The LEB128 variable-length encoding scheme is used; \ccref{lst:leb128 pseudocode} describes how to encode an unsigned integer~\ccite{leb128-encoding}.
+% The algorithm is almost identical for signed integers; the only difference is that we sign-extend rather than zero-extend.
+% Some instructions have both signed and unsigned variants, because the decoder needs to know whether to interpret each operand as a two's complement integer or not.
 
 \begin{listing}[t]
   \begin{PseudocodeListing}
@@ -53,7 +57,7 @@ Some instructions have both signed and unsigned variants, because the decoder ne
       \State \Return bytes in little-endian order
     \EndFunction
   \end{PseudocodeListing}
-  \caption{Pseudocode for the LEB128 encoding scheme for unsigned integers~\ccite{leb128-encoding}. The function takes an integer $n$ and returns the byte sequence to represent it in the compiled program.}
+  \caption{Pseudocode for the LEB128 encoding scheme for unsigned integers~\ccite{leb128-encoding}. The function takes an integer $n$ and returns the byte sequence to represent it in the compiled program. The only difference for signed integers is that we sign-extend rather than zero-extend.}
   \label{lst:leb128 pseudocode}
 \end{listing}
 
@@ -120,41 +124,44 @@ A \WasmInstr{br} instruction referring to an \WasmInline{if} block will jump to 
 
 A module is a unit of compilation and loading for a WebAssembly program.
 There is no distinction between a `library' and a `program' as in other languages; there are only modules that export functions to the instantiator (the runtime environment that instantiates the WebAssembly module).
-Modules are split up into sections, described in~\ccref{tab:wasm module sections}.
-Each section is preceded by a header containing the section ID and its size in bytes.
+Modules are split up into sections; each section is preceded by a header containing the section ID and its size in bytes, followed by the actual contents.
 
-\begingroup
-\begin{tabularx}{\textwidth}{$>{\itshape}l^X} % chktex 6
-  \toprule
-  \rowstyle{\normalfont\bfseries}Section & Description \\
-  \midrule
-  Type & Defines all function types used, including imported functions. \\
-  \midrule
-  Import & Defines everything imported to the module from the runtime environment: functions, memories, tables, and global variables. \\
-  \midrule
-  Function & Maps functions to their types. \\
-  \midrule
-  Table & Stores size information about tables. A table is an array of function pointers, used to call functions indirectly. A separate data structure is needed because function addresses are hidden from the program, keeping the execution sandboxed. \\
-  \midrule
-  Memory & Specifies the size limits of each linear memory of the program\footnote{In the current version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the Web\-Assembly page size (\SI{64}{\kibi\byte}) \\
-  \midrule
-  Global & Defines global variables, including an expression to initialise them. \\
-  \midrule
-  Export & Similar to the import section, defines everything exported from the module to the runtime environment. \\
-  \midrule
-  Start & Optionally specifies a function that should run automatically when the module is initialised. \\
-  \midrule
-  Element & Statically initialises tables with function addresses. This can either be done automatically when the module is loaded, or explicitly with a \WasmInstr{table.init} instruction. \\
-  \midrule
-  Data count & Optional section used for validation, that specifies how many data segments the data section contains. This allows a validator to use a single pass for static analysis, since it allows them to check the validity of instructions referencing data indexes. \\
-  \midrule
-  Code & Contains the instructions for each function body. Each function begins by declaring any local variables, followed by the body code. \\
-  \midrule
-  Data & Used to statically initialise the contents of memory, either automatically or explicitly (like the element section). \\
-  \bottomrule
-\end{tabularx}
-\captionof{table}{Sections of a WebAssembly module.\protect\label{tab:wasm module sections}}
-\endgroup
+Modules are structured to allow for parallel and streaming decoding, as well as single-pass validation.
+For example, the type section comes before the code section, so the type of all functions is known before any instructions are decoded.
+In other sections, imports and exports are declared, and data can be provided to statically initialise memory.
+
+% \begingroup
+% \begin{tabularx}{\textwidth}{$>{\itshape}l^X} % chktex 6
+%   \toprule
+%   \rowstyle{\normalfont\bfseries}Section & Description \\
+%   \midrule
+%   Type & Defines all function types used, including imported functions. \\
+%   \midrule
+%   Import & Defines everything imported to the module from the runtime environment: functions, memories, tables, and global variables. \\
+%   \midrule
+%   Function & Maps functions to their types. \\
+%   \midrule
+%   Table & Stores size information about tables. A table is an array of function pointers, used to call functions indirectly. A separate data structure is needed because function addresses are hidden from the program, keeping the execution sandboxed. \\
+%   \midrule
+%   Memory & Specifies the size limits of each linear memory of the program\footnote{In the current version, only one memory is supported, and is implicitly referenced by memory instructions.} in units of the Web\-Assembly page size (\SI{64}{\kibi\byte}) \\
+%   \midrule
+%   Global & Defines global variables, including an expression to initialise them. \\
+%   \midrule
+%   Export & Similar to the import section, defines everything exported from the module to the runtime environment. \\
+%   \midrule
+%   Start & Optionally specifies a function that should run automatically when the module is initialised. \\
+%   \midrule
+%   Element & Statically initialises tables with function addresses. This can either be done automatically when the module is loaded, or explicitly with a \WasmInstr{table.init} instruction. \\
+%   \midrule
+%   Data count & Optional section used for validation, that specifies how many data segments the data section contains. This allows a validator to use a single pass for static analysis, since it allows them to check the validity of instructions referencing data indexes. \\
+%   \midrule
+%   Code & Contains the instructions for each function body. Each function begins by declaring any local variables, followed by the body code. \\
+%   \midrule
+%   Data & Used to statically initialise the contents of memory, either automatically or explicitly (like the element section). \\
+%   \bottomrule
+% \end{tabularx}
+% \captionof{table}{Sections of a WebAssembly module.\protect\label{tab:wasm module sections}}
+% \endgroup
 
 % The \emph{type section} defines the function types used in the module, including imported functions.
 % Each type has a type index, allowing the same type to be used by multiple functions.
@@ -206,11 +213,11 @@ The most naive solution is to use a label variable and one big \CInline{switch} 
 This is very inefficient.
 
 The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, previously) was the Relooper algorithm, introduced by Emscripten~\ccite{emscripten}.
-In current WebAssembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
-All of these implementations, including the modern implementation of Relooper, are more optimised than the original Relooper algorithm, hence more complex.
-The original Relooper algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project.
+In current Web\-Assembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
+All of these implementations, including the modern implementation of Relooper, have further optimisations on top of the original Relooper algorithm, hence are more complex.
+The original algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project.
 
-\subsection{Input and Output}
+% \subsection{Input and Output}
 
 The Relooper algorithm takes a so-called `soup of blocks' as input.
 Each block is a basic block of the flowgraph, that begins at an instruction label and ends with a branch instruction (\ccref{fig:relooper input label structure}).
@@ -219,12 +226,10 @@ The branch instruction may either be an unconditional or a conditional branch (\
 
 To avoid overloading the term \emph{block}, these input blocks are referred to as \emph{labels}.
 
-
-\begin{figure}[t]
-  \addtolength{\belowcaptionskip}{\smallskipamount}
+\begin{figure}[b]
   \centering
   \scalebox{0.9}{\tikzfig{70-figures/03-relooper-input-block}}
-  \caption{Structure of labels (Relooper algorithm input blocks).}
+  \caption{Structure of labels (Relooper algorithm input blocks).\vspace{-\baselineskip}}
   \label{fig:relooper input label structure} % chktex 24
 \end{figure}
 
@@ -242,7 +247,7 @@ All three blocks have a \emph{next} block, where execution continues.
   \label{fig:relooper output blocks structure} % chktex 24
 \end{figure}
 
-\subsection{Algorithm}\label{sec:prep:relooper algorithm}
+% \subsection{Algorithm}\label{sec:prep:relooper algorithm}
 
 Before describing the algorithm, I define the terms used.
 \emph{Entries} are the subset of labels that can be immediately reached when a block is entered.
@@ -334,7 +339,7 @@ The Rust compiler enforces these constraints at compile time.
 The requirements for this project were clear from the project description.
 A C to WebAssembly compiler takes C source code as input, and generates WebAssembly binary code that can be instantiated and executed from JavaScript.
 
-The compiler consists of a pipeline of stages: a front end, middle end, and back end.
+My compiler consists of a pipeline of stages: a front end, middle end, and back end.
 The front end takes C source code, and outputs an \gls{ast}.
 The middle end takes the \gls{ast} and transforms it to an \gls{ir}, in my case three-address code.
 The back end takes the \gls{ir} and generates WebAssembly instructions, writing them to a binary file.
