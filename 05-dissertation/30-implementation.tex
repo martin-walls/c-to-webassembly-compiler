@@ -605,7 +605,7 @@ Whenever a function is called, a new stack frame is constructed at the top of th
 \Ccref{fig:stack frame layout} shows the frame structure.
 
 In a WebAssembly module, the code is split up into functions.
-Since there is no \CInline{goto} instruction, function calls must be implemented using the WebAssembly \WasmInstr{call} instruction.
+Since there is no arbitrary jump instruction~(c.f.~\ccref{sec:prep:relooper}), function calls must be implemented using the WebAssembly \WasmInstr{call} instruction.
 This contrasts to other instruction sets, where function calls are implemented as jumps within a single linear instruction sequence.
 At run-time, WebAssembly has its own call stack, as well as the call stack maintained by the compiler.
 Arguments and return values are passed via the compiler's call stack.

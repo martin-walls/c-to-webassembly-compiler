@@ -15,7 +15,7 @@ I provided a Node.js runtime environment that runs the WebAssembly binary and in
 
 Furthermore, I implemented several optimisations to the program in the middle and back ends of the compiler.
 Unreachable procedure elimination reduced the size of generated binaries by pruning unused functions from the call graph~(\ccref{sec:impl:unreachable procedure elimination,sec:eval:unreachable procedure elimination}).
-I used tail-call optimisation to drastically reduce the amount of memory used by recursive functions, to the extent of being able to run programs not possible with GCC~(\ccref{sec:impl:tail-call optimisation,sec:eval:tail-call optimisation}).
+I used tail-call optimisation to drastically reduce the amount of memory used by recursive functions, allowing programs to run that would otherwise crash~(\ccref{sec:impl:tail-call optimisation,sec:eval:tail-call optimisation}).
 I created a more optimal stack allocation policy, experimentally tweaking my heuristic to produce significant improvements to programs' memory use~(\ccref{sec:impl:optimised stack allocation,sec:eval:optimised stack allocation}).
 
 My compiler produced correct binaries that maintained the semantics of the source program, when comparing my test programs against GCC\@.
