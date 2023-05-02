@@ -299,7 +299,7 @@ Given a set of labels and entries, \ccref{alg:relooper} creates a block:
   \label[algorithm]{alg:relooper}
 \end{AlgorithmFloat}
 
-The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite[10]{emscripten}.
+The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite[p.~10]{emscripten}.
 The core idea is that we can show that: (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
 Point (3) lies in the observation that if we reach \ccref{alg:relooper:create loop block after multiple block failed}, we must be able to create a loop block.
 This holds because if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
