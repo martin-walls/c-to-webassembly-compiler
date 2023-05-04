@@ -25,15 +25,15 @@ In particular, C has manual memory management, therefore I did not have to imple
 
 \section{Survey of Related Work}
 
-Many other compilers to WebAssembly exist, covering a large number of source languages~\ccite{awesome-wasm-langs}.
+Many other compilers to WebAssembly exist, from a large number of source languages~\ccite{awesome-wasm-langs}.
 Notably, Emscripten is a compiler to WebAssembly and JavaScript using LLVM~\ccite{emscripten-homepage,llvm}.
 This primarily targets C and C++, however can also be used for any other language using LLVM\@.
 
-Cheerp is an alternative C/C++ to WebAssembly compiler, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating high-performance code~\ccite{cheerp}.
+Cheerp is an alternative compiler from C/C++ to WebAssembly, which can produce a combination of WebAssembly and JavaScript, and prides itself on generating high-performance code~\ccite{cheerp}.
 Compilers to WebAssembly exist for other mainstream languages such as Java, C\#, Python, and even JavaScript~\ccite{cheerp-java,blazor,pyodide,javy}.
 It is an area of active development; many more WebAssembly compilers are in progress for other languages~\ccite{awesome-wasm-langs}.
 
-My project covers a subset of what the existing C to WebAssembly compilers cover; I only support a subset of the language features, and focus on correctness over optimality.
-I have implemented some optimisations of common cases that significantly improve the performance of many programs, but do not optimise to the extent that many industry compilers do.
+My project covers a subset of what the existing C to WebAssembly compilers do; I only support a subset of the language features, and focus on correctness over optimality.
+I have implemented some optimisations of common cases that significantly improve the performance of many programs, but have not optimised to the extent that many industry compilers do.
 
 \end{document}

@@ -6,16 +6,17 @@
   url = "https://raw.githubusercontent.com/emscripten-core/emscripten/main/docs/paper.pdf"
 }
 
-@article{solving-structured-control-flow-problem,
+@online{solving-structured-control-flow-problem,
   author = "Yuri Iozzelli",
   title = "Solving the structured control flow problem once and for all",
   year = "2019",
   month = "4",
-  url = "https://medium.com/leaningtech/solving-the-structured-control-flow-problem-once-and-for-all-5123117b1ee2"
+  url = "https://medium.com/leaningtech/solving-the-structured-control-flow-problem-once-and-for-all-5123117b1ee2",
+  urldate = "2023-03-02"
 }
 
 @online{wasm-control-flow-restructuring-thread,
-  author = "Alon Zakai (@kripken)",
+  author = "Alon {Zakai (@kripken)}",
   title = "A thread on history and terminology of control flow restructuring in the wasm space",
   year = "2021",
   month = "3",
@@ -198,18 +199,58 @@
 
 @online{awesome-wasm-langs,
   title = "Awesome WebAssembly Languages",
-  author = "Stephen Akinyemi (appcypher)",
+  author = "Stephen {Akinyemi (appcypher)}",
   url = "https://github.com/appcypher/awesome-wasm-langs",
   urldate = "2023-04-11",
   note = "GitHub repository"
 }
 
-@book{c-reference-manual,
+@set{c-reference-manual,
+  entryset = "c-reference-manual-main,c-reference-manual-escape-chars,c-reference-manual-types,c-reference-manual-typedef-ambiguity,c-reference-manual-usual-conversions,c-reference-manual-constant-expressions,c-reference-manual-dangling-else"
+}
+
+@book{c-reference-manual-main,
   author = "Samuel P. Harbison and Guy L. Steele Jr.",
   title = "C: A Reference Manual",
   edition = "4",
   year = "1995",
   isbn = "0-13-326224-3"
+}
+
+@inbook{c-reference-manual-escape-chars,
+  booktitle = "C: A Reference Manual",
+  title = "Escape Characters",
+  chapter = "2.7.5"
+}
+
+@inbook{c-reference-manual-typedef-ambiguity,
+  booktitle = "C: A Reference Manual",
+  title = "Typedef Names: Implementation Note",
+  chapter = "5.10.3"
+}
+
+@inbook{c-reference-manual-constant-expressions,
+  booktitle = "C: A Reference Manual",
+  title = "Constant Expressions",
+  chapter = "7.11"
+}
+
+@inbook{c-reference-manual-dangling-else,
+  booktitle = "C: A Reference Manual",
+  title = "The Dangling-Else Problem",
+  chapter = "8.5.2"
+}
+
+@inbook{c-reference-manual-types,
+  booktitle = "C: A Reference Manual",
+  title = "Types",
+  chapter = "5"
+}
+
+@inbook{c-reference-manual-usual-conversions,
+  booktitle = "C: A Reference Manual",
+  title = "The Usual Conversions",
+  chapter = "6.3"
 }
 
 @online{gnu-c-preprocessor,
@@ -241,7 +282,7 @@
   note = "Licensed under the MIT License"
 }
 
-@online{nom-parser,
+@software{nom-parser,
   title = "Crate nom",
   url = "https://docs.rs/nom/latest/nom/",
   urldate = "2023-04-17"

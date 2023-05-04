@@ -4,7 +4,7 @@
 
 \chapter{Preparation}
 
-In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm, highlight the main features of Rust, the programming language I learnt for this project, and my rationale for using it.
+In this chapter I describe my research into the WebAssembly architecture and the Relooper algorithm, and highlight the main features of Rust, the programming language I learnt for this project, and my rationale for using it.
 
 Furthermore, I discuss the requirements of the project, and describe the software engineering approach I employed, before outlining my starting point and previous experience.
 
@@ -38,7 +38,8 @@ Booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sand
   \label{tab:wasm value types} % chktex 24
 \end{table}
 
-Integers are encoded using the LEB128 variable-length encoding scheme, described in~\ccref{lst:leb128 pseudocode}~\ccite{leb128-encoding}.
+Integers are encoded using the LEB128 encoding scheme, which uses a variable number of bytes to be efficient~\ccite{leb128-encoding}.
+The algorithm is described in~\ccref{lst:leb128 pseudocode}.
 Encoded integers have no inherent signedness; some instructions have both signed and unsigned variants, because the decoder needs to know whether to interpret each operand as a two's complement integer or not.
 
 % The same representation is used for both signed and unsigned integers; operations determine how to interpret their operands.
@@ -57,7 +58,7 @@ Encoded integers have no inherent signedness; some instructions have both signed
       \State \Return bytes in little-endian order
     \EndFunction
   \end{PseudocodeListing}
-  \caption{Pseudocode for the LEB128 encoding scheme for unsigned integers~\ccite{leb128-encoding}. The function takes an integer $n$ and returns the byte sequence to represent it in the compiled program. The only difference for signed integers is that we sign-extend rather than zero-extend.}
+  \caption{Pseudocode for the LEB128 encoding scheme for unsigned integers~\ccite{leb128-encoding}. The function takes an integer $n$ and returns the byte sequence to represent it in the compiled program. The only difference for signed integers is that we sign-extend rather than zero-extend in the first line.}
   \label{lst:leb128 pseudocode}
 \end{listing}
 
@@ -209,7 +210,7 @@ C allows arbitrary control flow with \CInline{goto} statements.
 However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs as described above.
 Therefore, once the intermediate code has been generated, it needs to be transformed to only have structured control flow.
 
-The most naive solution is to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next.
+The most na\"{\i}ve solution is to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next.
 This is very inefficient.
 
 The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, previously) was the Relooper algorithm, introduced by Emscripten~\ccite{emscripten}.
@@ -224,7 +225,7 @@ Each block is a basic block of the flowgraph, that begins at an instruction labe
 No labels or branch instructions are permitted in the middle of the block.
 The branch instruction may either be an unconditional or a conditional branch (\CInline{if (...) goto x else goto y}).
 
-To avoid overloading the term \emph{block}, these input blocks are referred to as \emph{labels}.
+To avoid overloading the term \emph{block}, these input blocks are referred to as \emph{labels}\footnote{Following the convention of the Emscripten paper.}.
 
 \begin{figure}[b]
   \centering
@@ -233,7 +234,7 @@ To avoid overloading the term \emph{block}, these input blocks are referred to a
   \label{fig:relooper input label structure} % chktex 24
 \end{figure}
 
-The algorithm generates a set of structured blocks, recursively nested to represent the control flow (\ccref{fig:relooper output blocks structure}).
+The algorithm generates a set of structured blocks, recursively nested to represent the control flow~(\ccref{fig:relooper output blocks structure}).
 \emph{Simple} blocks represent linear control flow; they contain an \emph{internal} label, with the actual program instructions.
 \emph{Loop} blocks contain an \emph{inner} block, which contains all the labels that can reach the start of the loop again along some execution path.
 \emph{Multiple} blocks represent conditional execution, along one of several paths.
@@ -322,7 +323,7 @@ However, later stages of my compiler pipeline will optimise this away.
 I learnt the Rust programming language for this project~\ccite{rust-lang}.
 I chose Rust because it is performant and memory efficient.
 It has a rich type system with pattern matching that is well suited to writing a compiler.
-It uses the concept of a borrow checker rather than a garbage collector or similar memory management system, which eliminates run-time overhead whilst guaranteeing memory safety at compile time.
+It uses the concept of a borrow checker rather than a garbage collector or similar memory management system, which eliminates run-time overhead by guaranteeing memory safety at compile-time.
 
 I made use of Rust's excellent online documentation to become familiar with the language~\ccite{rust-by-example, rust-book}.
 The borrow checker was the main new feature to be learnt, with the concepts of \emph{ownership} and \emph{borrowing}.
@@ -332,7 +333,7 @@ When using a value, it can either be \emph{moved} or \emph{borrowed}.
 Moving a value to another variable makes the new variable the owner of the value, and invalidates the old variable.
 Borrowing, on the other hand, allows a value to be used without taking ownership; it creates a reference that points to the owned value.
 There can either be many immutable borrows of a value, or a single mutable borrow.
-The Rust compiler enforces these constraints at compile time.
+The Rust compiler enforces these constraints at compile-time.
 
 \section{Requirements Analysis}
 
@@ -378,7 +379,7 @@ When the entire pipeline was complete, I used GCC (the GNU Compiler Collection) 
 \section{Starting Point}
 
 The \emph{Compiler Construction} course of the Tripos was the starting point for my knowledge of compilers.
-The Part II course \emph{Optimising Compilers} was useful in extending my project with optimisations, though some of the optimisations I implemented went beyond the course.
+The Part II \emph{Optimising Compilers} course was useful in extending my project with optimisations, though some of the optimisations I implemented went beyond the course.
 
 I had familiarity with C from the \emph{Programming in C and C++} course, and from previous personal projects.
 Additionally, I had experience writing JavaScript and Python from personal projects.
@@ -387,7 +388,7 @@ I gained all my knowledge of WebAssembly and Rust through independent research.
 
 \section{Tools Used}
 
-The code for the body of the compiler was written in Rust (see~\ccref{sec:prep:rust}).
+The main code for the compiler was written in Rust~\ccite{rust-lang}.
 I wrote the runtime environment in JavaScript, using Node.js, which is necessary to interface with the Web\-Assembly binary~\ccite{javascript,nodejs}.
 Additional development scripts, for automated testing and profiling, were written in Python, because of ease of use and my familiarity with libraries such as Matplotlib~\ccite{python,matplotlib}.
 
@@ -398,7 +399,7 @@ Another popular choice is \texttt{pest}, however it separates the formal grammar
 LALRPOP provides an intuitive and powerful approach, where each grammar rule contains both the grammar specification and code to generate the corresponding \gls{ast} node.
 
 I used Git for version control with GitHub as an off-site backup, and the CLion IDE as my development environment using the Intellij Rust plugin~\ccite{git,github,clion,intellij-rust-plugin}.
-Together they provides excellent support for Rust and C, including code analysis and debugging.
+Together they provide excellent support for Rust and C, including code analysis and debugging.
 
 
 \section{Licensing}

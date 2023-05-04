@@ -34,11 +34,13 @@
 \usepackage{changepage}
 
 % For the bibliography
-\usepackage[sorting=none,sortcites=true,language=UKenglish]{biblatex}
+\usepackage[sortcites=true,language=UKenglish,subentry=true]{biblatex}
 % Allow line breaks after lowercase and uppercase letters in URLs
 % in bibliography
 \setcounter{biburllcpenalty}{7000}
 \setcounter{biburlucpenalty}{8000}
+% Separator between items of an entryset
+\renewcommand*{\entrysetpunct}{.\par}
 \addbibresource{90-references.bib}
 % Use \mbox so a multiple citation doesn't break over two lines
 \NewDocumentCommand{\ccite}{O{}m}{\mbox{\textcolor{citecolor}{\cite[#1]{#2}}}}

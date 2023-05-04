@@ -10,7 +10,7 @@ This appendix contains implementation details that are not the most important fe
 
 In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
 The parser needs to be convert these to the literal characters they represent.
-My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}~\ccite[sec.~2.7.5]{c-reference-manual}.
+My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}~\ccite{c-reference-manual-escape-chars}.
 
 I implemented this by creating an iterator over the characters of the string, that replaces escape sequences as it emits characters (\ccref{app:lst:string escape iterator}).
 When the current character is a backslash (`\texttt{\char`\\}'), the next one or more characters form an escape sequence.
@@ -230,13 +230,13 @@ The ID generator internally tracks the highest ID that has been generated so far
 \section{Compile-time Expression Evaluation}\label{app:sec:compile time expression evaluation}
 
 Some expressions can be evaluated at compile-time, such as array length expressions.
-The expressions much be constant expressions, which means they are not permitted to contain assignments, function calls, and increments or decrements~\ccite[sec.~7.11]{c-reference-manual}.
+The expressions much be constant expressions, which means they are not permitted to contain assignments, function calls, and increments or decrements~\ccite{c-reference-manual-constant-expressions}.
 I implemented a compile-time expression evaluator that supports arithmetic expressions and ternaries (conditional expressions of the form \texttt{condition~?~expr_if_true~:~expr_if_false}).
 
 \Ccref{app:lst:compile time expression evaluator} shows the function that evaluates expressions.
 An expression at compile-time can either evaluate to an integer or a float, however only integers are supported as array lengths etc.
 The \RustInline{eval} function recurses into the structure of an \gls{ast} expression, evaluating subtrees before combining their results.
-An expression either returns a result or an error, that it cannot be evaluated as a constant expression at compile time.
+An expression either returns a result or an error, that it cannot be evaluated as a constant expression at compile-time.
 Errors will short-circuit the evaluation.
 
 I do not support variables in compile-time evaluated expressions.

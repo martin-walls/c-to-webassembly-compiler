@@ -49,14 +49,14 @@ After processing \CInline{#include} directives, the compiler uses \mintinline{ba
 
 \subsection{Lexer}\label{sec:impl:lexer}
 
-The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive~\ccite[sec.~5.10.3]{c-reference-manual}.
+The grammar of the C language is mostly context-free, however the presence of \CInline{typedef} definitions makes it context-sensitive~\ccite{c-reference-manual-typedef-ambiguity}.
 For example, the statement \CInline{foo (bar);} can be interpreted in two ways:
 \begin{itemize}[nosep]
 \item As a variable declaration, if \CInline{foo} has previously been defined as a type name\footnote{The brackets will be ignored.}.
 \item As a function call, if \CInline{foo} is the name of a function.
 \end{itemize}
 
-This ambiguity is impossible to resolve with a context-free language grammar. The solution is to process \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
+This ambiguity is impossible to resolve with a context-free grammar. The solution is to process \CInline{typedef} names during the lexing stage, and emit distinct type name and identifier tokens to the parser.
 Therefore, I created a custom lexer that stores the type names already defined at the current program point.
 
 \begin{figure}[p]
@@ -80,7 +80,7 @@ Therefore, I created a custom lexer that stores the type names already defined a
     Only valid transitions are shown, using regular expressions; if no transition exists for an input character, the end of the current token has been reached.
     Transitions without a prior state are the initial transitions for the first input character.
     The token is emitted if the machine stops in a valid (named) state; otherwise a lexing error is raised.
-    In a slight abuse of regular expression notation, `\texttt{.}' represents a literal full stop character.
+    In a slight abuse of regular expression notation, `\texttt{.}' represents a literal dot character.
     No input is consumed along an $\epsilon$~transition; the transition is taken if the condition is true. \\
     Tokens: \emph{Dec}:~decimal literal; \emph{FP}:~floating point literal; \emph{Bin}:~binary literal; \emph{Oct}:~octal literal; \emph{Hex}:~hexadecimal literal; \emph{Iden}:~identifier; \emph{Keyword}:~a C keyword; \emph{Typedef}\!:~a type name identifier. \\
     The states leading to the ellipsis token are shown for completeness since they share the starting dot state.
@@ -119,7 +119,7 @@ I chose to make my parser handle a larger subset of C than the compiler as a who
 
 \subsubsection{Dangling Else Ambiguity}
 
-A na\"{\i}ve grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements~\ccite[sec.~8.5.2]{c-reference-manual}.
+A na\"{\i}ve grammar for C (\ccref{lst:ambiguous if-else grammar}) contains ambiguity around \CInline{if}/\CInline{else} statements~\ccite{c-reference-manual-dangling-else}.
 C permits them to be written without curly brackets if the body is a single statement.
 If we have nested \CInline{if}/\CInline{else} statements that do not use curly brackets, it can be ambiguous which \CInline{if} an \CInline{else} belongs to. This is known as the dangling else problem~\ccite{dangling-else-wiki}.
 
@@ -181,6 +181,7 @@ If we have nested \CInline{if}/\CInline{else} statements that do not use curly b
     \caption{Parse: \CInline{else} belongs to outer \CInline{if}.}
     \label[listing]{lst:dangling else:belonging to outer if}
   \end{sublisting}
+  \par\smallskip
   \caption{Example of the dangling else problem in C. The C source code \subref{lst:dangling else:ambiguous source} could have two potential parse trees (\subref{lst:dangling else:belonging to inner if} and \subref{lst:dangling else:belonging to outer if}) when using the grammar in \subref{lst:ambiguous if-else grammar}.\bigskip}
   \label{lst:dangling else}
 \end{listing}
@@ -252,7 +253,7 @@ Non-terminals are represented inside angle brackets, containing their type and a
   \label{lst:AST generation code example}
 \end{listing}
 
-LALRPOP allows macros to be defined, which allow the grammar to be written more intuitively.
+LALRPOP allows macros to be defined, which allow the grammar to be written more intuitively and concisely.
 For example, I defined a macro to represent a comma-separated list of non-terminals~(\ccref{lst:parser macro for comma-separated list}).
 
 \begin{listing}[t]
@@ -383,7 +384,7 @@ Once all \CInline{case} statements have been seen, the \gls{ir} code is generate
 \end{figure}
 
 Declaration statements have many different formats, each of which I had to handle separately; e.g.~variables may be declared with or without being initialised with a value.
-Function declarations are also a type of declaration handled here, unlike in some other languages where they differ syntactically.
+Function declarations are also a type of declaration handled here, unlike in some languages where they differ syntactically.
 
 % Syntactically speaking, function declarations (without a body) are identical to variable declarations; the only difference being that they declare the identifier as a function type.
 % Therefore they are handled in the same place.
@@ -394,13 +395,13 @@ It can be explicitly specified in the declaration, or implicitly inferred from t
 A variable-length array is when the array length is set at run-time by a variable; to handle these, an instruction is inserted to allocate memory for it at run-time.
 Array and struct initialisers are handled by first allocating memory for the variable, then storing the value of each of the inner members.
 
-Some expressions are evaluated at compile-time, such as array length expressions.
+Some expressions are evaluated at compile-time, including array length expressions.
 My implementation of this is described in~\ccref{app:sec:compile time expression evaluation}.
 
 
 \subsection{Types}
 
-\Ccref{fig:ir supported types} outlines the types supported by the \gls{ir}, mirroring the types supported by the C language~\ccite[ch.~5]{c-reference-manual}.
+\Ccref{fig:ir supported types} outlines the types supported by the \gls{ir}, mirroring the types supported by the C language~\ccite{c-reference-manual-types}.
 % \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
 I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification does not define the exact bit widths, only the minimum size.}.
@@ -418,7 +419,7 @@ I followed the standard implementation convention for the bit size of \CInline{c
   \label{fig:ir supported types}
 \end{figure}
 
-I implemented the standard C unary and binary conversions for types~\ccite[pp.~174--176]{c-reference-manual}.
+I implemented the standard C unary and binary conversions for types~\ccite{c-reference-manual-usual-conversions}.
 They are applied before unary and binary operations, respectively.
 Unary conversion constrains the possible types an operand can have. Smaller integer types are widened to 32 bits, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
 After applying the unary conversions to each operand individually, binary conversions ensure that both operands have the same type.
@@ -555,7 +556,7 @@ This means the address of the destination variable needs to be pushed onto the s
     \end{WasmListing}
     \caption{Generated WebAssembly code.}
   \end{sublisting}
-  \caption{\Gls{ir} code and generated target code for transforming an add instruction, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{I64}.\bigskip}
+  \caption{\Gls{ir} code and generated target code for transforming an add instruction, assuming \IrCode{a} and \IrCode{b} are variables of type \IrType{I64}.}
   \label{lst:converting add instr to wasm code}
 \end{listing}
 
@@ -565,20 +566,11 @@ This significantly reduces the amount of code repetition in the back end.
 
 % I used the same ID generator pattern as in the middle end, to generate unique indexes for items in the WebAssembly module, such as functions and types.
 
+\vspace{-6pt}
 \subsection{Memory Layout}
 
 The back end generates code that manages the memory layout, including the function call stack: pushing new stack frames when functions are called, and popping them when functions return.
 \Ccref{fig:memory structure} shows the memory layout I defined.
-
-\begin{figure}[t]
-  \centering
-  \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
-  \caption{\protect\glsreset{fp}\protect\glsreset{sp}%
-    Memory structure, containing the \gls{fp}, temporary \acrlong{fp}, and \gls{sp}, followed by other sections of memory.
-    Addresses increase to the right; compile-time known memory addresses are labelled above.
-  }%
-  \label{fig:memory structure}
-\end{figure}
 
 \glsreset{fp}\glsreset{sp}
 
@@ -594,10 +586,21 @@ All string literals are allocated at compile-time.
 
 Global variables and program arguments are stored in the next region of memory, before the call stack.
 Global variables are allocated in the same way as local variables (\ccref{sec:impl:local variable allocation}).
-Program arguments are stored by the runtime environment~\ccref{sec:impl:runtime}.
+Program arguments are stored by the runtime environment~(\ccref{sec:impl:runtime}).
 
 The function call stack grows upwards dynamically from this point.
 I did not implement heap storage, so memory only increases from one end, unlike in standard C compilers such as GCC~\ccite{gcc}.
+
+\begin{figure}[t]
+  \centering
+  \scalebox{0.9}{\tikzfig{70-figures/06-memory-layout}}
+  \caption{\protect\glsreset{fp}\protect\glsreset{sp}%
+    Memory structure, containing the \gls{fp}, temporary \acrlong{fp}, and \gls{sp}, followed by other sections of memory.
+    Addresses increase to the right; compile-time known memory addresses are labelled above.
+    \bigskip
+  }%
+  \label{fig:memory structure}
+\end{figure}
 
 \subsection{Stack Frame Operations}
 
@@ -671,7 +674,7 @@ I defined caller/callee conventions for managing the stack.
 The caller is responsible for constructing the new frame, and deallocating it once the function returns.
 % with the previous \gls{fp} value, space for the return address, and any function parameters.
 % The caller also deallocates the stack frame once the function returns.
-The callee is responsible for allocating space for its local variables on the stack (see \ccref{sec:impl:local variable allocation}).
+The callee is responsible for allocating space for its local variables on the stack.
 
 
 \subsection{Local Variable Allocation}\label{sec:impl:local variable allocation}
@@ -683,7 +686,7 @@ Local variables are stored as part of the function stack frame, the address of w
 Therefore, variables are accessed as offsets from the \gls{fp}, since we know their position within the stack frame.
 % At run-time, a variable is accessed by first loading the \gls{fp}, then adding the variable offset to get the variable's memory address.
 
-Variable allocation is performed at compile time so that variable accesses can be static \gls{fp} offsets rather than requiring a run-time address table.
+Variable allocation is performed at compile-time so that variable accesses can be static \gls{fp} offsets rather than requiring a run-time address table.
 Only in specific cases---variable-length arrays, for example---are variables allocated at run-time.
 My \gls{ir} has a dedicated \IrCode{AllocateVariable} instruction that takes the number of bytes to allocate as an operand, and returns a pointer to the allocated memory.
 This is allocated at the top of the stack, above all compile-time allocated variables.
@@ -725,7 +728,7 @@ Finally, the runtime calls the exported \JSInline{main} function, with the value
 \section{Optimisations}\label{sec:impl:optimisations}
 
 After completing the main compiler pipeline, I implemented optimisations in the middle and back ends.
-I performed unreachable procedure elimination~(\ccref{sec:impl:unreachable procedure elimination}) and tail-call optimisation~(\ccref{sec:impl:tail-call optimisation}) in the middle end, and in the back end I created a more optimal variable allocation policy~(\ccref{sec:impl:optimised stack allocation}).
+I performed unreachable procedure elimination and tail-call optimisation in the middle end, and in the back end I created a more optimal variable allocation policy.
 
 \subsection{Unreachable Procedure Elimination}\label{sec:impl:unreachable procedure elimination}
 
@@ -737,7 +740,7 @@ Firstly, the call graph is generated.
 This is a directed graph where nodes are functions in the program and edges represent \IrCode{call} instructions.
 It also stores a set of \emph{entry} nodes, which are functions that are called from the global scope of the program (e.g.~\CInline{main()}). % chktex 36
 To maintain correctness, the constructed graph is a superset of the \emph{semantic} call graph, which contains all function calls that can happen along a real execution path.
-The semantic graph is undecidable at compile time\footnote{Due to the Halting Problem, it is not possible to decide which control flow paths will be taken for every program. However, more sophisticated analyses can be done to improve the approximation.}, so we calculate the syntactic call graph.
+The semantic graph is undecidable at compile-time\footnote{Due to the Halting Problem, it is not possible to decide which control flow paths will be taken for every program. However, more sophisticated analyses can be done to improve the approximation.}, so we calculate the syntactic call graph.
 
 % I used an adjacency list to store the call graph, since it is likely to be sparse.
 % (An adjacency matrix would be more suitable for densely connected graphs.)
@@ -808,9 +811,7 @@ For each actual parameter to the recursive call, we copy it to corresponding for
 Once done for each parameter, a branch instruction is added to the start of the function.
 \Ccref{lst:tail-call optimisation example} shows an example of this transformation.
 
-This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
-
-\begin{listing}[t]
+\begin{listing}[!b]
   \begin{sublisting}[b]{0.49\textwidth}
     \begin{CListing}
       long sum(long n, long acc) {
@@ -827,9 +828,7 @@ This approach solves the problem of the WebAssembly virtual machine's call stack
     \begin{CListing}
       long sum(long n, long acc) {
       start:
-          if (n == 0) {
-              return acc;
-          }
+          if (n == 0) return acc;
           // Copy recursive arguments to param vars
           long t0 = n - 1;
           long t1 = acc + n;
@@ -845,6 +844,9 @@ This approach solves the problem of the WebAssembly virtual machine's call stack
   \label{lst:tail-call optimisation example}
 \end{listing}
 
+This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
+
+\FloatBarrier
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
@@ -882,7 +884,7 @@ For example, branch instructions will have multiple successors.
 % The flowgraph is generated by recursing through the program blocks (the output of the Relooper algorithm, \ccref{sec:impl:relooper algorithm}), creating a node for each instruction, and creating edges along all possible control flow paths.
 
 \Gls{lva} is run on the flowgraph to find where each variable is \emph{live}.
-A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{semantic} liveness, which refers to actual possible execution behaviour, but is undecidable at compile time. Syntactic liveness is a safe overapproximation of semantic liveness.}) at an instruction if the value of the variable is used along any path in the flowgraph before it is redefined.
+A variable is said to be \emph{live} (syntactically\footnote{Compared to \emph{semantic} liveness, which refers to actual possible execution behaviour, but is undecidable at compile-time. Syntactic liveness is a safe overapproximation of semantic liveness.}) at an instruction if the value of the variable is used along any path in the flowgraph before it is redefined.
 
 \Gls{lva} is a backwards analysis, which means that liveness information is propagated backwards through the flowgraph.
 Firstly, we define \lvadef\ and \lvaref\ sets for each instruction: $\lvadef\,(i)$ is the set of all variables defined by instruction $n$, and $\lvaref\,(n)$ is the set of all variables referenced by $n$.
@@ -947,7 +949,7 @@ However, the write to the variable may occur while other variables are live; and
 To solve this, I added an optimisation to remove writes to dead variables before running \gls{lva}.
 This optimisation also removes the redundancy introduced earlier by the Relooper algorithm, which inserted unnecessary writes to the label variable~(\ccref{sec:prep:relooper}).
 
-I handled side-effecting instruction (e.g.~function calls) that write to an unused variable by creating a `null destination' variable.
+I handled side-effecting instructions (e.g.~function calls) that write to an unused variable by creating a `null destination' variable.
 The instruction in the \gls{ir} writes to the null variable.
 When transforming to target code, no write instruction is generated if the destination variable is the null variable.
 
@@ -1013,13 +1015,9 @@ I modified the register allocation method to the following heuristic for variabl
 In \ccref{alg:allocate vars:allocate}, variables are always allocated to the lowest possible position on the stack (whilst satisfying clash constraints).
 This prioritises overlapping non-clashing variables at lower addresses; only variables that clash often will be pushed to higher addresses.
 This keeps the stack size as small as possible.
+\Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
 
-I tested allocating variables in both orders: least clashes or most clashes first.
-I found that contrary to register allocation, allocating variables with least clashes first resulted in more efficient memory use.
-This is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
-In my heuristic, it is beneficial to have variables with fewer clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
-
-\begin{figure}[!t]
+\begin{figure}[!b]
   \hspace{2ex}
   \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
@@ -1059,7 +1057,11 @@ In my heuristic, it is beneficial to have variables with fewer clashes at lower 
   \label{fig:optimised var allocation example} % chktex 24
 \end{figure}
 
-\Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
+I tested allocating variables in both orders: least clashes or most clashes first.
+I found that contrary to register allocation, allocating variables with least clashes first resulted in more efficient memory use.
+This is because of the preference to always allocate to lower addresses; this priority does not exist in the register allocation algorithm, since registers are all equal.
+In my heuristic, it is beneficial to have variables with fewer clashes at lower addresses, because this allows more variables to overlap there, and fewer variables will be pushed to higher addresses.
+
 
 % In the top left is the intermediate code for which memory is being allocated.
 % The live variables at each instruction---calculated by \gls{lva}---are shown to the right of each line.
@@ -1071,6 +1073,7 @@ In my heuristic, it is beneficial to have variables with fewer clashes at lower 
 
 \FloatBarrier % chktex 1
 
+\vspace{-1ex} % Make the summary fit on the bottom of the page below the table
 \section{Repository Overview}
 
 I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
@@ -1085,7 +1088,7 @@ All code was written by myself.
 
 % Use `tabularx` when table doesn't span across pages, `xltabular` when it does
 \begingroup
-\medskip
+\smallskip
 \begin{xltabular}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
 \specialrule{\heavyrulewidth}{0pt}{0pt}
@@ -1112,7 +1115,7 @@ All code was written by myself.
 % Reset the rule colour
 \arrayrulecolor{black}
 \end{xltabular}
-% \vspace{-14pt}
+\vspace{-5pt}
 \captionof{table}{Repository structure.\protect\label{tab:repository structure}}
 \endgroup
 
