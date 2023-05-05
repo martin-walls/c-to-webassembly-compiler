@@ -6,9 +6,9 @@
 
 \newcommand{\IncludeStackPlot}[1]{\resizebox{0.98\textwidth}{!}{\input{71-plots/#1}}}
 
-In this chapter, I evaluate my project against my success criteria (\ccref{sec:eval:success criteria}), showing that all the success criteria were achieved.
-\ccref{sec:eval:correctness testing} demonstrates that the compiler is correct using a variety of test programs.
-\ccref{sec:eval:optimisations} evaluates the impact of the optimisations I implemented, particularly showing significant improvements in memory usage.
+In this chapter, I evaluate my project against my success criteria, showing that all the success criteria were achieved.
+I demonstrate that the compiler is correct using a variety of test programs.
+I also evaluate the impact of the optimisations I implemented, particularly showing significant improvements in memory usage.
 
 
 \section{Success Criteria}\label{sec:eval:success criteria}
@@ -24,7 +24,7 @@ flow.
 \end{itemize}
 
 All the success criteria have been met.
-The first four correspond to the main compiler pipeline.
+The first four criteria correspond to the main compiler pipeline.
 The correctness of these stages is verified by the fifth criterion.
 \ccref{sec:eval:correctness testing} describes the variety of test programs used to verify the compiler's correctness.
 
@@ -46,10 +46,12 @@ Instead, they test a single behaviour of the C source code that is being compile
 This allowed me to find and fix bugs more easily.
 
 Examples of `full programs' include Conway's Game of Life, calculating the Fibonacci numbers, and finding substring occurrences in a string~\ccite{conways-game-of-life,fibonacci-numbers}.
-Six of the programs were sourced from Clib, which contains many utility packages for C. Those that I used had no external dependencies, and were useful in verifying that my compiler worked for other people's code as well as my own. Clib is licensed under the MIT license, permitting use ``without restriction''~\ccite{clib}.
+Six of the programs were sourced from Clib, which contains many utility packages for C~\ccite{clib}.
+Those that I used had no external dependencies, and were useful in verifying that my compiler worked for other people's code as well as my own.
+Clib is licensed under the MIT license, permitting use ``without restriction''.
 The remaining five full programs and all 18 unit test programs were written by myself.
 
-For all my tests, I used GCC\footnote{GCC version 11.3.1.} as the reference for correctness~\ccite{gcc}.
+For all my tests, I used GCC\footnote{GCC version 11.3.1, with the default options.} as the reference for correctness~\ccite{gcc}.
 I deemed a program to be compiled correctly if it produced the same output as when compiled with GCC\@.
 To facilitate this, I made liberal use of \texttt{printf}, to output the results of computations.
 
@@ -97,46 +99,47 @@ Programs that used the \CInline{ctype} library saw an average file-size reductio
 The other libraries I implemented contained only a few functions, so the impact of this optimisation was much more limited.
 If I implemented more of the standard library, I would see much more improvement.
 
-Due to this difference in the standard library files, and also that source programs can contain arbitrary functions that are never used, it is not meaningful to calculate aggregate metrics across my test programs.
-However, testing programs individually verifies that any unused functions are removed from the compiled binary.
+Due to this difference in the standard library files, and also the fact that source programs can contain arbitrary functions that are never used, it is not meaningful to calculate aggregate metrics across my test programs.
+However, testing programs individually verifies that all unused functions are removed from the compiled binary.
 
 \subsection{Tail-Call Optimisation}\label{sec:eval:tail-call optimisation}
 
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls.
 Recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
-Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls (\ccref{fig:tail-call optimisation stack use}).
+Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
 
-One of the functions I used to evaluate this optimisation uses tail-recursion to compute the sum of the first $n$ integers~(\ccref{lst:tail-recursive sum}).
-
-\begin{listing}[t]
-  \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
-  \caption{Tail-recursive function to sum the integers 1 to $n$.\medskip}
-  \label{lst:tail-recursive sum}
-\end{listing}
-
-
-\Ccref{fig:tail-call optimisation stack use} compares the stack memory usage of this function with and without tail-call optimisation.
-Without the optimisation, the stack size grows with \bigo{n}, whereas with the optimisation it is \bigo{1}.
-When running the program with $n=500$, a stack size of \SI{46.3}{\kilo\byte} is reached.
-When compiled with tail-call optimisation enabled, only 298 bytes of stack space are used; a \SI{99.36}{\percent} reduction in memory usage.
-Of course, the reduction depends on how large $n$ is.
-
-\begin{figure}[t]
+\begin{figure}[!b]
   \centering
   \IncludeStackPlot{22-tailcall-sum-compare-tailcallopt-without-stackopt.pgf}
-  \caption{Stack usage for calling \CInline{sum(500, 0)} (see \ccref{lst:tail-recursive sum})}
+  \caption{
+    Stack usage plot for calling \CInline{sum(500, 0)}, showing how tail-call optimisation transforms the stack size from~\bigo{n} to~\bigo{1}.
+    % The effect of tail-call optimisation on the stack size of the tail-recursive sum program in \ccref{lst:tail-recursive sum}.
+  % Stack usage for calling \CInline{sum(500, 0)} (see \ccref{lst:tail-recursive sum}), showing the effect of tail-call optimisation.
+  }
   \label{fig:tail-call optimisation stack use} % chktex 24
 \end{figure}
 
+One of the functions I used to evaluate this optimisation uses tail-recursion to compute the sum of the first $n$ integers~(see \ccref{lst:tail-recursive sum}).
+\Ccref{fig:tail-call optimisation stack use} compares the stack memory usage of this function with and without tail-call optimisation.
+Without the optimisation, the stack size grows with~\bigo{n}, whereas with the optimisation it is~\bigo{1}.
+When running the program with~$n=500$, a stack size of~\SI{46.3}{\kilo\byte} is reached.
+When compiled with tail-call optimisation enabled, only 298 bytes of stack space are used; a \SI{99.36}{\percent} reduction in memory usage.
+Of course, the reduction depends on how large $n$ is.
+
 When testing with large $n$, the non-optimised version quickly runs out of memory, and throws an exception.
 In contrast, the optimised version has no memory constraint on the number of iterations.
-It successfully runs with $n = \num{1000000}$, at which point it fails with GCC (using the default options).
+It successfully runs with $n > \num{1000000}$, at which point it fails with GCC (using the default options).
+
+\begin{listing}[t]
+\CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
+\caption{Tail-recursive function to sum the integers 1 to $n$.\medskip}
+\label{lst:tail-recursive sum}
+\end{listing}
 
 
 \subsection{Optimised Stack Allocation Policy}\label{sec:eval:optimised stack allocation}
 
 My stack allocation policy was successful in reducing the amount of stack memory used.
-
 From the test programs, the largest reduction in memory use was \SI{69.73}{\percent} compared to the unoptimised program.
 The average improvement was \SI{50.28}{\percent}.
 % with a \SI{95}{\percent}~confidence interval of $[41.37\%, 59.19\%]$.
@@ -147,12 +150,12 @@ The darker bars show the stack usage of the optimised program as a percentage of
 Shorter bars represent a greater improvement (less memory is being used).
 
 For programs that benefit from tail-call optimisation, I measured the effect of the optimisation on both the optimised and unoptimised versions.
-I did this because tail-call optimisation also affects memory usage, so it may have an impact on the effectiveness of this optimisation.
+I did this because tail-call optimisation also affects memory usage, therefore it could impact the effectiveness of this optimisation.
 
-\begin{figure}[t]
+\begin{figure}[p]
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0.3cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
-  \caption{Comparing optimised against unoptimised stack memory usage to usage. The shorter the optimised bar, the greater the improvement (less memory is used). \emph{TC opt}: tail-call optimised. \emph{Blinker} and \emph{pulsar} are specific instances of the Game of Life program.}%
+  \caption{Comparing optimised against unoptimised stack memory usage. The shorter the optimised bar, the greater the improvement (less memory is used). \emph{TC opt}: tail-call optimised. \emph{Blinker} and \emph{pulsar} are specific instances of the Game of Life program.}%
   \label{fig:comparing stack usage optimisation across programs}
 \end{figure}
 
@@ -172,20 +175,23 @@ Hence we can interpret which parts of the plot correspond to which parts of the 
 \begin{figure}[p]
   \centering
   \IncludeStackPlot{01-case-compare.pgf}
-  \caption{Comparing stack usage for \Filename{case.c}.}
+  \caption{Comparing stack usage for \Filename{case.c}, showing the effect of my optimised stack allocation policy.}
   \label{fig:comparing stack usage for case.c} % chktex 24
 \end{figure}
 
 The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \CInline{case_camel()}, corresponding to the three distinct sections of the plot.
 
-\CInline{case_upper()} and \CInline{case_lower()} each make repeated calls to \CInline{toupper()} and \CInline{tolower()}, which correspond to the many short spikes on the plot (one for each character in the string).
+The functions \CInline{case_upper()} and \CInline{case_lower()} each make repeated calls to the library functions \CInline{toupper()} and \CInline{tolower()}, which correspond to the many short spikes on the plot (one for each character in the string).
 Other than a \CInline{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
 
 In contrast, \CInline{case_camel()} performs many more operations in the body of the function.
-\Ccref{lst:section of casecamel body code} shows an extract of its body code; even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()} (\ccref{lst:caseupper body code}).
-This causes the larger spike at the end of \ccref{fig:comparing stack usage for case.c}.
+\Ccref{lst:caseupper and casecamel body code} compares the body of \CInline{case_upper()} with a section of the code for \CInline{case_camel()}.
+Even in the short section shown, more temporary variables are created than in the entire body of \CInline{case_upper()}.
+This causes the larger spike at the end of the stack size plot (\ccref{fig:comparing stack usage for case.c}).
 
-\begin{listing}[p]
+% \Ccref{lst:section of casecamel body code} shows an extract of its body code; even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()} (\ccref{lst:caseupper body code}).
+
+\begin{listing}[b]
   \begin{sublisting}[b]{0.49\textwidth}
     \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
     \caption{The entire body of \CInline{case_upper()}.}
@@ -197,7 +203,8 @@ This causes the larger spike at the end of \ccref{fig:comparing stack usage for 
     \caption{A short section of the body of \CInline{case_camel()}.}
     \label[listing]{lst:section of casecamel body code}
   \end{sublisting}
-  \caption{Comparing the body code of \CInline{case_upper()} code and \CInline{case_camel()}.}
+  \par\smallskip
+  \caption{Comparing the body code of \CInline{case_upper()} and \CInline{case_camel()}.\bigskip}
   \label{lst:caseupper and casecamel body code}
 \end{listing}
 
@@ -211,10 +218,10 @@ Since this optimisation reduces the size of each stack frame, the improvement is
 In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
 
 
-\begin{figure}[p]
+\begin{figure}[!b]
   \centering
   \IncludeStackPlot{02-fibonacci-compare.pgf}
-  \caption{Comparing stack usage for \Filename{fibonacci.c}.}
+  \caption{Comparing stack usage for \Filename{fibonacci.c}, showing the effect of my optimised stack allocation policy.}
   \label{fig:comparing stack usage for fibonacci.c} % chktex 24
 \end{figure}
 

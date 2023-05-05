@@ -4,20 +4,21 @@
 
 \chapter{Supplementary Implementation Details}
 
-This appendix contains implementation details that are not the most important features of the compiler, yet are interesting to highlight.
+This appendix contains implementation details that are not the most important features of the compiler, yet are interesting to highlight with code snippets.
 
 \section{Parsing String Escape Sequences}\label{app:sec:parsing string escape sequences}
 
 In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
 The parser needs to be convert these to the literal characters they represent.
-My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}~\ccite{c-reference-manual-escape-chars}.
+My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}.
 
 I implemented this by creating an iterator over the characters of the string, that replaces escape sequences as it emits characters (\ccref{app:lst:string escape iterator}).
 When the current character is a backslash (`\texttt{\char`\\}'), the next one or more characters form an escape sequence.
-The iterator consumes the characters of the escape sequence, and matches it against the valid escape sequences to perform the appropriate character substitution, which is emitted as the next character from the iterator.
-When the current character is not a backslash, it is emitted as-is.
+The iterator consumes the characters of the escape sequence, and matches them against the valid escape sequences.
+The corresponding character is emitted as the next character from the iterator.
+When the current character is not a backslash, it is emitted unchanged.
 
-I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string (\ccref{app:lst:interpret string function}).
+I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
 I also wrote a set of unit tests to verify the iterator was functioning correctly.
 
 \begin{table}[h]
@@ -36,19 +37,19 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
     \texttt{\char`\\nnn} & The byte given by \texttt{nnn} interpreted as an octal number \\ % chktex 18
     \bottomrule
   \end{tabular}
-  \caption{Supported string escape sequences.}%
+  \caption{Supported string escape sequences~\ccite{c-reference-manual-escape-chars}.}%
   \label{app:tab:supported string escape codes}
 \end{table}
 
-\begin{listing}[H]
-  \begin{RustListing}
-    pub fn interpret_string(s: &str) -> Result<String, Error> {
-        InterpretString::new(s).collect()
-    }
-  \end{RustListing}
-  \caption{Function wrapper around the \RustInline{InterpretString} iterator (see \ccref{app:lst:string escape iterator}).}
-  \label{app:lst:interpret string function}
-\end{listing}
+% \begin{listing}[H]
+%   \begin{RustListing}
+%     pub fn interpret_string(s: &str) -> Result<String, Error> {
+%         InterpretString::new(s).collect()
+%     }
+%   \end{RustListing}
+%   \caption{Function wrapper around the \RustInline{InterpretString} iterator (see \ccref{app:lst:string escape iterator}).}
+%   \label{app:lst:interpret string function}
+% \end{listing}
 
 \begin{listing}[!t]
   \begin{RustListing}
@@ -102,23 +103,25 @@ I also wrote a set of unit tests to verify the iterator was functioning correctl
   \label{app:lst:string escape iterator}
 \end{listing}
 
+\FloatBarrier % chktex 1
+
 \section{Parsing Type Specifiers}\label{app:sec:parsing type specifiers}
 
 Another feature of the C language is that type specifiers (\CInline{int}, \CInline{signed}, etc.) can appear in any order before a variable declaration.
 For example, the declarations \CInline{signed int x} and \CInline{int signed x} are equivalent.
 To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
-It uses a bitfield where each bit represents the presence of one of the type specifiers in the type.
-The bitfield is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bitfield.
-The declarations above would construct the bitfield \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
+It uses a bit field where each bit represents the presence of one of the type specifiers in the type.
+The bit field is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bit field.
+The declarations above would both construct the bit field \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
 For each type specifier, the corresponding bit is set.
-Then, the bitfield is matched against the possible valid types, to assign the type to the \gls{ast} node.
+Then, the bit field is matched against the possible valid types, to assign the type to the \gls{ast} node.
 \Ccref{app:lst:arithmetic type bitfield} shows my implementation.
 
 \begin{listing}[!t]
   \begin{RustListing}
     impl ArithmeticType {
         fn create_from_type_specifiers(types: Vec<TypeSpecifierToken>) -> Result<Self, Error> {
-            // bitfield: [double] [float] [unsigned] [signed] [long] [int] [short] [char]
+            // bit field: [double] [float] [unsigned] [signed] [long] [int] [short] [char]
             let mut bitfield = 0;
             for t in types {
                 match t {
@@ -153,7 +156,7 @@ Then, the bitfield is matched against the possible valid types, to assign the ty
         }
     }
   \end{RustListing}
-  \caption{Using a bitfield to parse arithmetic type specifiers.}
+  \caption{Using a bit field to parse arithmetic type specifiers.}
   \label{app:lst:arithmetic type bitfield}
 \end{listing}
 
@@ -236,7 +239,7 @@ I implemented a compile-time expression evaluator that supports arithmetic expre
 \Ccref{app:lst:compile time expression evaluator} shows the function that evaluates expressions.
 An expression at compile-time can either evaluate to an integer or a float, however only integers are supported as array lengths etc.
 The \RustInline{eval} function recurses into the structure of an \gls{ast} expression, evaluating subtrees before combining their results.
-An expression either returns a result or an error, that it cannot be evaluated as a constant expression at compile-time.
+An expression either returns a result or an error that it cannot be evaluated at compile-time.
 Errors will short-circuit the evaluation.
 
 I do not support variables in compile-time evaluated expressions.

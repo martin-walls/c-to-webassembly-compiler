@@ -398,6 +398,32 @@ Array and struct initialisers are handled by first allocating memory for the var
 Some expressions are evaluated at compile-time, including array length expressions.
 My implementation of this is described in~\ccref{app:sec:compile time expression evaluation}.
 
+% \subsection{Context Object Design Pattern}
+%
+% Throughout the middle and back ends, I used a design pattern of passing a context object through all function calls.
+% For example, when traversing the \gls{ast} to generate \gls{ir} code, the \RustInline{Context} struct in \ccref{lst:AST to IR context struct} was used to track information about the current context with respect to the source program.
+% It tracks the stack of nested loops and switch statements, so that when a \CInline{break} or \CInline{continue} statement is converted, the branch target is known.
+%
+% \begin{listing}[t]
+%   \begin{RustListing}
+%     struct Context {
+%         loop_stack: Vec<LoopOrSwitchContext>,
+%         scope_stack: Vec<Scope>,
+%         in_function_name_expr: bool,
+%         function_names: HashMap<String, FunId>,
+%         directly_on_lhs_of_assignment: bool,
+%     }
+%   \end{RustListing}
+%   \caption{The context data structure used when converting the \gls{ast} to \gls{ir} code.}
+%   \label{lst:AST to IR context struct}
+% \end{listing}
+%
+% In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
+% Rust, however, is not object-oriented, and I found this approach offered more modularity and flexibility.
+% Firstly, the context information is encapsulated inside a separate data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
+% It also enables creating different context objects for different purposes.
+% In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
+% The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
 
 \subsection{Types}
 
