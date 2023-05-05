@@ -358,12 +358,36 @@ I structured my project using the incremental model, which builds upon the water
 The project is broken down into `increments', which are individual sections of functionality.
 Each increment is developed consecutively, using the waterfall model to design, implement, and test each section before moving on to the next one.
 
-Each stage of the compiler pipeline is a separate increment.
-Subsequent stages of the project each depend on the deliverable from the previous one, making this model a natural fit, because it ensures each stage works correctly before continuing.
+I split the project into increments based on the stages of the compiler pipeline, and listed the sub-tasks required for each of them.
+I made a Gantt chart to model the dependencies between tasks, shown in~\ccref{fig:gantt chart}.
+Each task is individually listed, and increments are shown in different colours.
+Subsequent stages of the project depend on deliverables from the previous stages, making the incremental model a natural fit.
+The model ensured each stage worked correctly before I started developing the next stage.
+I tracked my progress throughout the project and made adjustments to the schedule as necessary, though these were mainly minor.
+
+
+\begin{figure}[b]
+  \centering
+  \includegraphics[width=0.95\textwidth]{20-gantt-chart/00-gantt-chart}
+  \caption{Gantt chart showing dependencies between each task of the project. High-level sections are distinguished by colour: preparatory research, front end, middle end, back end, testing, and optimisations.}%
+  \label{fig:gantt chart}
+\end{figure}
 
 I used Git as my version control system~\ccite{git}.
 I regularly committed my code in small, revertible chunks, and pushed the repository to GitHub to maintain an up-to-date off-site backup~\ccite{github}.
+\Ccref{fig:github contribution graph} shows a graph of my commits over time.
 In the later stages of the project, I used pre-commit hooks to run automated tests on the project every time I committed, ensuring no inadvertent bugs were introduced.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\textwidth]{12-github-commit-graph.png}
+  \caption{My GitHub contribution graph, showing number of commits per week. Taken from my GitHub repository's ``Insights'' page.}%
+  \label{fig:github contribution graph}
+\end{figure}
+
+Rather than use separate software for bug tracking, I decided to use tactile methods such as a physical notebook to record to-do lists and areas that needed work.
+I was able to always have quick access to note down new bugs as well as staying on track with the current task.
+I found this to be very helpful for staying focused and not getting distracted by other software.
 
 \subsection{Testing}
 
