@@ -34,15 +34,15 @@ The correctness of these stages is verified by the fifth criterion.
 I wrote a suite of test programs in C to evaluate the correctness and performance of my compiler.
 There were two types of program:
 \begin{itemize}[nosep, itemsep=2pt]
-\item 18 `unit test' programs, each testing a specific construct in the C language.
-\item 11 `full programs', representing real workloads.
+\item 18 `unit test' programs, each testing a specific construct in the C language
+\item 11 `full programs', representing real workloads
 \end{itemize}
 
 Programs of the first type are not strictly unit tests by the standard definition.
 Unit tests verify the functionality of individual units of source code, in isolation from the rest of the application.
 Each test should test one specific behaviour, and should be independent from the rest of the program's functionality~\ccite{unit-testing}.
-My test programs do not test an isolated behaviour of the compiler.
-Instead, they test a single behaviour of the C source code that is being compiled (e.g.~pointer dereferencing), verifying that the compiler pipeline maintains the correct behaviour.
+My `unit test' programs did not test an isolated behaviour of the compiler.
+Instead, they tested a single behaviour of the C source code being compiled (e.g.~pointer dereferencing), verifying that the compiler pipeline maintained the correct behaviour.
 This allowed me to find and fix bugs more easily.
 
 Examples of `full programs' include Conway's Game of Life, calculating the Fibonacci numbers, and finding substring occurrences in a string~\ccite{conways-game-of-life,fibonacci-numbers}.
@@ -72,8 +72,8 @@ This ensured the version of my project in source control was always functioning 
 \section{Impacts of Optimisations}\label{sec:eval:optimisations}
 
 In the following sections, I evaluate the impacts of my optimisations.
-For unreachable procedure elimination, I evaluate the reduction in code size.
-For tail-call optimisation and stack allocation optimisation, I evaluate the effectiveness at reducing memory usage.
+For unreachable procedure elimination, I measure the reduction in code size.
+For tail-call optimisation and stack allocation optimisation, I assess the effectiveness at reducing memory usage.
 
 To evaluate the memory usage optimisations, the compiler inserts profiling code to the programs, which measures the size of the stack throughout program execution.
 When generating instructions that move the \acrlong{sp}, the compiler inserts a call to \JSInline{log_stack_ptr}, a function imported from the runtime that appends the current \acrlong{sp} value to a log file.
@@ -99,7 +99,7 @@ Programs that used the \CInline{ctype} library saw an average file-size reductio
 The other libraries I implemented contained only a few functions, so the impact of this optimisation was much more limited.
 If I implemented more of the standard library, I would see much more improvement.
 
-Due to this difference in the standard library files, and also the fact that source programs can contain arbitrary functions that are never used, it is not meaningful to calculate aggregate metrics across my test programs.
+Due to this difference in the standard library files, and also because source programs can contain arbitrary functions that are never used, it is not meaningful to calculate aggregate metrics across my test programs.
 However, testing programs individually verifies that all unused functions are removed from the compiled binary.
 
 \subsection{Tail-Call Optimisation}\label{sec:eval:tail-call optimisation}
@@ -107,6 +107,7 @@ However, testing programs individually verifies that all unused functions are re
 My implementation of tail-call optimisation\index{Tail-call optimisation} was successful in reusing the existing function stack frame for tail-recursive calls.
 Recursion is converted into iteration within the function, eliminating the need for new stack frame allocations.
 Therefore, the stack memory usage remains constant rather than growing linearly with the number of recursive calls.
+The optimisation has no impact on programs without tail calls.
 
 \begin{figure}[!b]
   \centering
@@ -128,7 +129,8 @@ Of course, the reduction depends on how large $n$ is.
 
 When testing with large $n$, the non-optimised version quickly runs out of memory, and throws an exception.
 In contrast, the optimised version has no memory constraint on the number of iterations.
-It successfully runs with $n > \num{1000000}$, at which point it fails with GCC (using the default options).
+It successfully runs with $n > \num{1000000}$.
+Using the default options, GCC fails to run the same program, though enabling all optimisations with \texttt{-O3} does produce a working program.
 
 \begin{listing}[t]
 \CInputListing[firstline=4, lastline=9]{../02-test-programs/15-tail-call-optimisation/02-tail-call-sum.c}
@@ -149,10 +151,10 @@ The full-height bars represent the stack usage of the unoptimised program, again
 The darker bars show the stack usage of the optimised program as a percentage of the original stack usage.
 Shorter bars represent a greater improvement (less memory is being used).
 
-For programs that benefit from tail-call optimisation, I measured the effect of the optimisation on both the optimised and unoptimised versions.
-I did this because tail-call optimisation also affects memory usage, therefore it could impact the effectiveness of this optimisation.
+For programs that benefit from tail-call optimisation, I measured the effect of the stack allocation optimisation both with tail-call optimisation enabled and disabled.
+I did this because tail-call optimisation also affects memory usage, therefore it could impact the effectiveness of the stack allocation optimisation.
 
-\begin{figure}[p]
+\begin{figure}[t]
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0.3cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
   \caption{Comparing optimised against unoptimised stack memory usage. The shorter the optimised bar, the greater the improvement (less memory is used). \emph{TC opt}: tail-call optimised. \emph{Blinker} and \emph{pulsar} are specific instances of the Game of Life program.}%
@@ -162,24 +164,17 @@ I did this because tail-call optimisation also affects memory usage, therefore i
 One of the main factors influencing the degree of improvement is the number of temporary variables generated.
 The more temporary variables generated, the more scope for the compiler to find non-clashing variables to overlap.
 Since temporary variables are generated locally for each instruction, they only have short-range dependencies.
-Only variables that correspond to user variables have longer-range dependencies.
+Only variables that correspond to user variables\footnote{I.e.~variables in the original source code.} have longer-range dependencies.
 Therefore, the temporary variables offer the compiler more options of independent variables.
 
-The result of this is that as a function increases its number of operations and hence the number of temporary variables increases, so too does the scope for optimisation that the compiler is able to exploit.
+As a result, as a function increases its number of operations and hence the number of temporary variables increases, so too does the scope for optimisation that the compiler is able to exploit.
 
 We can see the effect of this directly when we compare the stack usage of the unoptimised and optimised versions of the same program.
-\Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a program that converts strings to upper, lower, or camel case.
+\Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a program that converts a string to upper, lower, and camel case in turn.
 Since the main stack allocations and deallocations occur on function calls and returns respectively, each spike on the plot corresponds to a function call.
 Hence we can interpret which parts of the plot correspond to which parts of the source program.
 
-\begin{figure}[p]
-  \centering
-  \IncludeStackPlot{01-case-compare.pgf}
-  \caption{Comparing stack usage for \Filename{case.c}, showing the effect of my optimised stack allocation policy.}
-  \label{fig:comparing stack usage for case.c} % chktex 24
-\end{figure}
-
-The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \CInline{case_camel()}, corresponding to the three distinct sections of the plot.
+The program in turn calls \CInline{case_upper()}, \CInline{case_lower()}, and \CInline{case_camel()} on a string, corresponding to the three distinct sections of the plot.
 
 The functions \CInline{case_upper()} and \CInline{case_lower()} each make repeated calls to the library functions \CInline{toupper()} and \CInline{tolower()}, which correspond to the many short spikes on the plot (one for each character in the string).
 Other than a \CInline{for} loop, they do not contain many operations, and therefore not many temporary variables are generated.
@@ -191,7 +186,21 @@ This causes the larger spike at the end of the stack size plot (\ccref{fig:compa
 
 % \Ccref{lst:section of casecamel body code} shows an extract of its body code; even in this short section, more temporary variables are created than in the entire body of \CInline{case_upper()} (\ccref{lst:caseupper body code}).
 
-\begin{listing}[b]
+% \begin{listing}[t]
+%   \begin{CListing}
+%     int main(int argc, char *argv[]) {
+%         char str1[] = "hEllOWoRlD";
+%         char *upper = case_upper(str1);
+%         char str2[] = "hEllO WoRlD";
+%         char *lower = case_lower(str2);
+%         char str3[] = "hello world";
+%         char *camel = case_camel(str3);
+%         return 0;
+%     }
+%   \end{CListing}
+% \end{listing}
+
+\begin{listing}[p]
   \begin{sublisting}[b]{0.49\textwidth}
     \CInputListing[firstline=18, lastline=21]{../02-test-programs/12-single-source-programs/case.c}
     \caption{The entire body of \CInline{case_upper()}.}
@@ -208,6 +217,13 @@ This causes the larger spike at the end of the stack size plot (\ccref{fig:compa
   \label{lst:caseupper and casecamel body code}
 \end{listing}
 
+\begin{figure}[p]
+  \centering
+  \IncludeStackPlot{01-case-compare.pgf}
+  \caption{Comparing stack usage for \Filename{case.c}, showing the effect of my optimised stack allocation policy.}
+  \label{fig:comparing stack usage for case.c} % chktex 24
+\end{figure}
+
 Due to the differences in temporary variables described above, the compiler is able to optimise \CInline{case_camel()} much more than the other functions.
 This parallels the fact that \CInline{case_camel()} had the largest stack frame initially.
 
@@ -218,7 +234,7 @@ Since this optimisation reduces the size of each stack frame, the improvement is
 In this instance, the optimised stack allocation policy reduced the stack size of the program by \SI{67.20}{\percent}.
 
 
-\begin{figure}[!b]
+\begin{figure}[p]
   \centering
   \IncludeStackPlot{02-fibonacci-compare.pgf}
   \caption{Comparing stack usage for \Filename{fibonacci.c}, showing the effect of my optimised stack allocation policy.}
@@ -229,13 +245,13 @@ In this instance, the optimised stack allocation policy reduced the stack size o
 
 \section{Summary}
 
-The main objective of this project is to produce a compiler that generates correct WebAssembly binary code.
+The main objective of this project was to produce a compiler that generates correct WebAssembly binary code.
 As demonstrated by the testing described above, this objective has been achieved.
 
-The purpose of adding optimisations is to improve the performance of the compiled programs, whilst maintaining the program's semantics.
+The optimisations I implemented can also be considered successful.
+The purpose of adding optimisations was to improve the performance of the compiled programs, whilst maintaining the program's semantics.
 The correctness of my optimisations is verified by the correct output of compiled programs.
-In the previous sections, we have seen measurable evidence that the optimisations improved performance, particularly by reducing memory usage.
-Therefore, the optimisations can be considered successful.
+We have also seen measurable evidence that the optimisations improved performance, particularly by reducing memory usage.
 
 
 \end{document}

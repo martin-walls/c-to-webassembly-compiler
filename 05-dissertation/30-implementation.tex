@@ -34,8 +34,7 @@ This includes removing boilerplate code, error handling, and other features nece
 
 The front end of the compiler consists of the preprocessor, the lexer, and the parser; it takes C source code as input and outputs an \gls{ast}.
 I wrote a custom lexer, because this is necessary to support \CInline{typedef} definitions.
-I used the LALRPOP parser generator to convert the tokens emitted by the lexer into an \gls{ast}~\ccite{lalrpop-docs}.
-I created my own \gls{ast} representation for this.
+I used the LALRPOP parser generator to convert the tokens emitted by the lexer into an \gls{ast}, using an \gls{ast} representation I created~\ccite{lalrpop-docs}.
 
 \subsection{Preprocessor}
 
@@ -193,6 +192,10 @@ All other forms of statement must also be converted to the new structure.
 % Basic statements (i.e.~with no sub-statements) are added to \GrammarInline{closed-stmt}.
 % Statements that have sub-statements, e.g.~\CInline{while} statements, must be duplicated to both \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}.
 
+A closed statement always has the same number of \CInline{if} and \CInline{else} keywords (ignoring anything between a pair of brackets, since bracket matching is unambiguous).
+Thus, in the second alternative of an \GrammarInline{open-stmt} in \ccref{lst:open/closed statement grammar}, the \CInline{else} terminal can be found by counting the number of \CInline{if}s and \CInline{else}s we encounter since the start of the \GrammarInline{closed-stmt}; the \CInline{else} belonging to the \GrammarInline{open-stmt} is the first \CInline{else} once we have more \CInline{else}s than \CInline{if}s.
+If open statements were allowed inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then the grammar would be ambiguous, because this method for finding the matching \CInline{else} would not work.
+
 
 \begin{listing}[t]
   \begin{GrammarListing}
@@ -208,11 +211,6 @@ All other forms of statement must also be converted to the new structure.
   \caption{Using open and closed statements to solve the dangling else problem. Other statement rules with no sub-statements are added to \GrammarInline{closed-stmt}. Rules with sub-statements, e.g.~rules for \CInline{for} and \CInline{while}, are duplicated across \GrammarInline{open-stmt} and \GrammarInline{closed-stmt}, having open and closed sub-statements, respectively.\medskip}
   \label{lst:open/closed statement grammar}
 \end{listing}
-
-A closed statement always has the same number of \CInline{if} and \CInline{else} keywords (ignoring anything between a pair of brackets, since bracket matching is unambiguous).
-Thus, in the second alternative of an \GrammarInline{open-stmt} in \ccref{lst:open/closed statement grammar}, the \CInline{else} terminal can be found by counting the number of \CInline{if}s and \CInline{else}s we encounter since the start of the \GrammarInline{closed-stmt}; the \CInline{else} belonging to the \GrammarInline{open-stmt} is the first \CInline{else} once we have more \CInline{else}s than \CInline{if}s.
-
-If open statements were allowed inside the \CInline{if} clause of an \GrammarInline{open-stmt}, then the grammar would be ambiguous, because the above method for finding the matching \CInline{else} would not work.
 
 \subsubsection{LALRPOP Parser Generator}
 
@@ -360,7 +358,7 @@ The case for a \CInline{while} statement is shown in \ccref{lst:convert while st
 
 Some statements required care to ensure the semantic meaning of the program was preserved.
 For example, \CInline{switch} statements can contain \CInline{case} blocks in any order.
-Some blocks may fall-through to the next block, and there may be a \CInline{default} block.
+Some blocks may ``fall through'' to the next block implicitly, and there may be a \CInline{default} block.
 I handled this by first generating instructions for each \CInline{case} block, and storing them in a `switch context' data structure.
 Once all \CInline{case} statements have been seen, the \gls{ir} code is generated, according to the structure in~\ccref{fig:instr structure for switch statements}.
 
@@ -458,7 +456,7 @@ This guarantees that the \gls{ir} passed to the back end is type safe.
 
 \subsection{The Relooper Algorithm}\label{sec:impl:relooper algorithm}
 
-I now describe implementation details of the Relooper algorithm, described in \ccref{sec:prep:relooper}.
+I now explain implementation-specific details of the Relooper algorithm, described in \ccref{sec:prep:relooper}.
 It takes the \gls{ir} as input, and transforms the instructions into Relooper blocks whilst preserving program metadata.
 
 Firstly, the intermediate code is `soupified': splitting it up into a `soup of blocks'.
@@ -606,7 +604,7 @@ In a register architecture, these pointers would be stored in registers, however
 
 The next section of memory contains any string literals used in the program.
 In C, a string literal is a null-terminated character array.
-My \gls{ir} has a \RustInline{PointerToStringLiteral} instruction which returns a pointer to the given string literal.
+My \gls{ir} has an instruction that returns a pointer to the given string literal (\IrCode{t = \&<str_id>}).
 % , in the back end, is converted to an instruction that pushes the address of the corresponding string onto the stack.
 All string literals are allocated at compile-time.
 
@@ -706,7 +704,7 @@ The callee is responsible for allocating space for its local variables on the st
 \subsection{Local Variable Allocation}\label{sec:impl:local variable allocation}
 
 Initially, I implemented a naive variable allocation strategy.
-As an extension, I implemented a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
+As an extension, I created a more optimal allocation strategy, described in \ccref{sec:impl:optimised stack allocation}.
 
 Local variables are stored as part of the function stack frame, the address of which is run-time dependent.
 Therefore, variables are accessed as offsets from the \gls{fp}, since we know their position within the stack frame.
@@ -969,9 +967,9 @@ The algorithm is guaranteed to find the smallest set of live variables (it does 
   \label{lst:lva implementation}
 \end{listing}
 
-One complication of \gls{lva} I had to solve was that if a variable is assigned to but is never subsequently referenced, it will never be marked as live by the analysis.
+One complication of \gls{lva} which had to be solved was that if a variable is assigned to but is never subsequently referenced, it will never be marked as live by the analysis.
 The next stage of the optimisation then marks it as having no clashes with any other variables.
-However, the write to the variable may occur while other variables are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
+However, writing to the variable may occur while other variables are live; and the compiler would happily allocate this variable in an overlapping location, producing incorrect results.
 To solve this, I added an optimisation to remove writes to dead variables before running \gls{lva}.
 This optimisation also removes the redundancy introduced earlier by the Relooper algorithm, which inserted unnecessary writes to the label variable~(\ccref{sec:prep:relooper}).
 
@@ -1015,7 +1013,7 @@ I implemented this by storing a set of `universal clashes' in the clash graph; w
 \subsubsection{Allocating Variables from the Clash Graph}
 
 In the Part II \emph{Optimising Compilers} course, a register allocation heuristic was described which allocates variables in order of most to least clashes.
-When each variable is allocated, it is allocated a register that maximally overlaps with already allocated variables, while avoiding registers containing variables it clashes with.
+When each variable is allocated, it is allocated a register that maximally overlaps with already allocated variables, while avoiding those containing variables it clashes with.
 
 My variable allocation problem is similar in many regards, however it has some key differences.
 I am allocating variables in memory rather than to registers, so each variable occupies a byte \emph{range} rather than a single location.
@@ -1043,7 +1041,7 @@ This prioritises overlapping non-clashing variables at lower addresses; only var
 This keeps the stack size as small as possible.
 \Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
 
-\begin{figure}[!b]
+\begin{figure}[t]
   \hspace{2ex}
   \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
@@ -1107,6 +1105,7 @@ The high-level structure of the codebase is shown in \ccref{tab:repository struc
 All the code for the compiler is in the \Dirname{src} directory.
 The other directories contain the runtime environment code, skeleton standard library implementation, and tests and other tools.
 All code was written by myself.
+Throughout the project I learnt idiomatic ways of writing and structuring Rust code, to produce an organised and maintainable codebase.
 
 \newlength\IndentWidth\setlength\IndentWidth{1em}
 \NewDocumentCommand{\Indent}{m}{\hspace{#1\IndentWidth}}
