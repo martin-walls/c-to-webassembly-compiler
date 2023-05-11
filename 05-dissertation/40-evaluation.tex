@@ -14,14 +14,14 @@ I also evaluate the impact of the optimisations I implemented, particularly show
 \section{Success Criteria}\label{sec:eval:success criteria}
 
 The success criteria for my project, as defined in my project proposal, are:
-\begin{itemize}[nosep, itemsep=2pt]
+\begin{enumerate}[nosep, itemsep=2pt]
 \item The program generates an abstract syntax tree from C source code.
 \item The program transforms the abstract syntax tree into an intermediate representation.
 \item The program uses the Relooper algorithm to transform unstructured to structured control
 flow.
 \item The program generates WebAssembly binary code from the intermediate representation.
 \item The compiler generates binary code that produces the same output as the source program.
-\end{itemize}
+\end{enumerate}
 
 All the success criteria have been met.
 The first four criteria correspond to the main compiler pipeline.
@@ -85,7 +85,7 @@ Note that because a data point is generated every time the stack size changes, r
 \subsection{Unreachable Procedure Elimination}\label{sec:eval:unreachable procedure elimination}
 
 In the context of this project, unreachable procedure elimination is mainly beneficial in removing unused standard library functions from the compiled binary.
-When a standard library header is included in a program, the preprocessor inserts the entire code of that library\footnote{I.e.~the entirety of my skeleton implementation of that library.}.
+When a standard library header is included in a program, the preprocessor inserts the entire code of that library\footnote{That is, the entirety of my skeleton implementation of that library.}.
 If the program only uses a few of the functions, the rest are redundant.
 Unreachable procedure elimination safely removes them, resulting in a smaller binary.
 
@@ -177,20 +177,20 @@ I did this because tail-call optimisation also affects memory usage, therefore i
 \begin{figure}[t]
   \centering
   \adjustbox{clip, trim=0cm 1.2cm 0cm 0.3cm}{\IncludeStackPlot{40-stack-use-across-programs.pgf}}
-  \caption{Comparing optimised against unoptimised stack memory usage. The shorter the optimised bar, the greater the improvement (less memory is used). \emph{TC opt}: tail-call optimised. \emph{Blinker} and \emph{pulsar} are specific instances of the Game of Life program.}%
+  \caption{Comparing optimised against unoptimised stack memory usage. The shorter the optimised bar (dark blue), the greater the improvement (less memory is used). \emph{TC opt}: tail-call optimised. \emph{Blinker} and \emph{pulsar} are specific instances of the Game of Life program.}%
   \label{fig:comparing stack usage optimisation across programs}
 \end{figure}
 
 One of the main factors influencing the degree of improvement is the number of temporary variables generated.
 The more temporary variables generated, the more scope for the compiler to find non-clashing variables to overlap.
 Since temporary variables are generated locally for each instruction, they only have short-range dependencies.
-Only variables that correspond to user variables\footnote{I.e.~variables in the original source code.} have longer-range dependencies.
+Only variables that correspond to user variables\footnote{User variables are variables that appear in the original source code.} have longer-range dependencies.
 Therefore, the temporary variables offer the compiler more options of independent variables.
 
 As a result, as a function increases its number of operations and hence the number of temporary variables increases, so too does the scope for optimisation that the compiler is able to exploit.
 
 We can see the effect of this directly when we compare the stack usage of the unoptimised and optimised versions of the same program.
-\Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of a program that converts a string to upper, lower, and camel case in turn.
+\Ccref{fig:comparing stack usage for case.c} shows the size of the stack over the execution of the \Filename{case.c} program that converts a string to upper, lower, and camel case in turn.
 Since the main stack allocations and deallocations occur on function calls and returns respectively, each spike on the plot corresponds to a function call.
 Hence we can interpret which parts of the plot correspond to which parts of the source program.
 

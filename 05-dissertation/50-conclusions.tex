@@ -10,7 +10,7 @@ I also offer suggestions of how the work may be taken forwards, if I were to con
 \section{Project Summary}
 
 The project was a success; I met all my success criteria and additionally completed an extension.
-I implemented an entire compiler pipeline that transforms a subset of the C language into a WebAssembly binary: the front end, which parses the source code into an \gls{ast}~(\ccref{sec:impl:front end}); the middle end, which transforms the \gls{ast} into my custom \gls{ir}~(\ccref{sec:impl:middle end}); and the back end, which generates a WebAssembly module from the \gls{ir}~(\ccref{sec:impl:back end}).
+I implemented an entire compiler pipeline that transforms a subset of the C language into a Web\-Assembly binary: the front end, which parses the source code into an \gls{ast}~(\ccref{sec:impl:front end}); the middle end, which transforms the \gls{ast} into my custom \gls{ir}~(\ccref{sec:impl:middle end}); and the back end, which generates a WebAssembly module from the \gls{ir}~(\ccref{sec:impl:back end}).
 I provided a Node.js runtime environment that runs the WebAssembly binary and interfaces to the system and standard library~(\ccref{sec:impl:runtime}).
 
 Furthermore, I implemented several optimisations to the program in the middle and back ends of the compiler.
@@ -48,5 +48,8 @@ Furthermore, additional optimisations could be added to the compiler, increasing
 These can be as sophisticated as desired; there are many analyses that can be done at compile-time, including dataflow analysis, constraint-bases analysis, effect systems, and so on.
 Pointer analysis---such as Andersen's points-to analysis---can be used to narrow down the possible targets of a pointer~\ccite{andersens-analysis}.
 This makes other analyses more precise, for example the clash graph in~\ccref{sec:impl:generating clash graph}.
+
+
+Overall, this dissertation demonstrates my successful research, implementation, and evaluation of a complete C to Web\-Assembly compiler, including multiple optimisations that significantly improve performance.
 
 \end{document}

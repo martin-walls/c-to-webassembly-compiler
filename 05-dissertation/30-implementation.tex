@@ -3,7 +3,7 @@
 \begin{document}
 
 \chapter{Implementation}
-\glsresetall % chktex 1
+%\glsresetall % chktex 1
 
 This chapter describes the implementation of each stage of the compiler.
 \Ccref{fig:project flowchart} describes the high-level structure of the project, and subsequent sections explain in more detail.
@@ -15,7 +15,7 @@ This includes removing boilerplate code, error handling, and other features nece
 \begin{figure}[!t]
   \centering
   \scalebox{0.8}{\tikzfig{70-figures/01-overview-flowchart}}
-  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor). \emph{AST}: \acrlong{ast}; \emph{IR}: \acrlong{ir}; \emph{Wasm}: WebAssembly.}%
+  \caption{Project structure, highlighting the preprocessor, front end, middle end, and back end. Each solid box represents a module of the project, transforming the input data representation into the output representation. The data representations are shown as dashed boxes. Where no new data representation is shown after a module, the output format is the same as the input format (i.e.~in the preprocessor). \emph{AST}: \acrlong{ast}; \emph{IR}: \acrlong{ir}; \emph{Wasm}: WebAssembly; \textit{\texttt{cpp}}: the GNU C Preprocessor.}%
   \label{fig:project flowchart}
 \end{figure}
 
@@ -136,7 +136,7 @@ If we have nested \CInline{if}/\CInline{else} statements that do not use curly b
     \caption{%
       Ambigious \CInline{if}/\CInline{else} grammar.
       Terminals are represented in double quotes, and non-terminals in bold.
-      The non-terminals \GrammarInline{stmt} and \GrammarInline{expr} represent statements and expressions respectively, for which the rules are not shown.
+      The non-terminals \GrammarInline{stmt} and \GrammarInline{expr} represent statements and expressions, respectively, for which the rules are not shown.
     }
     \label[listing]{lst:ambiguous if-else grammar}
   \end{sublisting}
@@ -428,7 +428,7 @@ My implementation of this is described in~\ccref{app:sec:compile time expression
 \Ccref{fig:ir supported types} outlines the types supported by the \gls{ir}, mirroring the types supported by the C language~\ccite{c-reference-manual-types}.
 % \IrType{Ux} and \IrType{Ix} types represent unsigned and signed $x$-bit integers, respectively.
 Enumeration types (enums) are supported; their values are encoded as \IrType{U64}s.
-I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits respectively\footnote{The C specification does not define the exact bit widths, only the minimum size.}.
+I followed the standard implementation convention for the bit size of \CInline{char}s, \CInline{short}s, \CInline{int}s, and \CInline{long}s; 8, 16, 32, and 64 bits, respectively\footnote{The C specification does not define the exact bit widths, only the minimum size.}.
 
 \begin{figure}[t]
   \setlength{\abovedisplayskip}{-6pt}
@@ -439,13 +439,13 @@ I followed the standard implementation convention for the bit size of \CInline{c
     \vertpad &\IrType{Pointer}(T) \vertpad \IrType{Array}(T, size) \\
     \vertpad &\IrType{Function}(T, T[], is\_variadic) \\
   \end{align*}
-  \caption{Supported types in the \gls{ir}. \IrType{Ix} and \IrType{Ux} types represent signed and unsigned integers respectively, of bit-width $x$.}%
+  \caption{Supported types in the \gls{ir}. \IrType{Ix} and \IrType{Ux} types represent signed and unsigned integers, respectively, of bit-width $x$. \IrType{Fx} types represent floating point types of bit-width $x$.}%
   \label{fig:ir supported types}
 \end{figure}
 
 I implemented the standard C unary and binary conversions for types~\ccite{c-reference-manual-usual-conversions}.
 They are applied before unary and binary operations, respectively.
-Unary conversion constrains the possible types an operand can have. Smaller integer types are widened to 32 bits, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
+Unary conversion constrains the possible types that an operand can have. Smaller integer types are widened to 32 bits, and $\IrType{Array}(T, \_)$ types are converted to $\IrType{Pointer}(T)$.
 After applying the unary conversions to each operand individually, binary conversions ensure that both operands have the same type.
 If both operands are arithmetic, and one operand has a smaller type than the other, the smaller is converted to the larger type.
 This includes promoting integers to float types.
@@ -558,7 +558,7 @@ Since WebAssembly is a stack-based architecture, the general pattern for convert
 Most instructions are a variation of this pattern.
 \Ccref{lst:converting add instr to wasm code} shows the code generated for an add instruction.
 One subtlety is that \WasmInstr{store} instructions take the memory address as their first operand, and the value to store as their second operand.
-This means the address of the destination variable needs to be pushed onto the stack \emph{before} the source operands are loaded and the operation is performed.
+This means that the address of the destination variable needs to be pushed onto the stack \emph{before} the source operands are loaded and the operation is performed.
 
 \begin{listing}[t]
   \begin{sublisting}[b]{0.28\textwidth}
@@ -609,8 +609,8 @@ My \gls{ir} has an instruction that returns a pointer to the given string litera
 All string literals are allocated at compile-time.
 
 Global variables and program arguments are stored in the next region of memory, before the call stack.
-Global variables are allocated in the same way as local variables (\ccref{sec:impl:local variable allocation}).
-Program arguments are stored by the runtime environment~(\ccref{sec:impl:runtime}).
+Global variables are allocated in the same way as local variables (see \ccref{sec:impl:local variable allocation}).
+Program arguments are stored by the runtime environment~(see \ccref{sec:impl:runtime}).
 
 The function call stack grows upwards dynamically from this point.
 I did not implement heap storage, so memory only increases from one end, unlike in standard C compilers such as GCC~\ccite{gcc}.
@@ -670,9 +670,9 @@ The procedure for pushing a new stack frame is \ccref{alg:pushing new stack fram
 \end{AlgorithmFloat}
 
 Using the temporary \gls{fp} here is necessary since overwriting the \gls{fp} directly would prevent copying local variables in as parameters.
-(Local variables have \gls{fp}-relative addresses.)
+(Local variables have \gls{fp}-relative addresses).
 We also cannot wait to save the new \gls{fp} address until after we have copied the variables, because by then the \gls{sp} has been moved and no longer points to the start of the stack frame.
-(The \gls{sp} is updated every time a value is stored on top of the stack.)
+(The \gls{sp} is updated every time a value is stored on top of the stack).
 
 Popping a stack frame is simpler:
 
@@ -792,10 +792,10 @@ In these cases, the caller's stack frame is unneeded as soon as the recursive ca
 Therefore, tail-call optimisation removes unnecessary stack frames, reducing the amount of stack memory used.
 The new stack frame replaces the caller's stack frame, instead of being pushed on top of it.
 
-This optimisation can have a dramatic impact on memory usage; it turns a function's memory usage from $\bigo{n}$ to~$\bigo{1}$ (where $n$ is the recursion depth).
+This optimisation has a dramatic impact on memory usage; it turns a function's memory usage from $\bigo{n}$ to~$\bigo{1}$ (where $n$ is the recursion depth).
 Not only does this make a program much more efficient, but with deep enough recursion, it allows programs to run that would otherwise crash due to lack of memory.
 
-There is a distinction between general tail-calls and recursive tail-calls. In general, a tail-call is any function call that is the last action of a function\footnote{A tail-call necessarily has the same return type as the calling function, because otherwise an explicit type conversion instruction would already have been inserted before the \IrCode{return} instruction.}, whereas a recursive tail-call is specifically a call to the same function.
+There is a distinction between general tail-calls and recursive tail-calls. In general, a tail-call is any function call that is the last action of a function\footnote{A tail-call necessarily has the same return type as the calling function, because there would otherwise be an explicit type conversion instruction before the \IrCode{return} instruction.}, whereas a recursive tail-call is specifically a call to the same function.
 Recursive tail-calls are easier to optimise because the function signature is the same, and they also have the greatest performance impact because many recursive calls may be made.
 
 Initially, I implemented this optimisation by replacing the stack frame in the target code generation stage, however this did not work properly.
@@ -830,7 +830,7 @@ Therefore, no new stack frame will be allocated.
 
 Similarly to the previous approach, first all \IrCode{call} instructions are found that are both recursive and tail-calls.
 In the current function, there is a variable for each formal parameter.
-For each actual parameter to the recursive call, we copy it to corresponding formal parameter in the current function.
+Each actual parameter to the recursive call is copied to corresponding formal parameter in the current function.
 (A temporary variable is used for each parameter, to avoid overwriting variables that might still be used for other parameters.)
 Once done for each parameter, a branch instruction is added to the start of the function.
 \Ccref{lst:tail-call optimisation example} shows an example of this transformation.
@@ -870,7 +870,7 @@ Once done for each parameter, a branch instruction is added to the start of the 
 
 This approach solves the problem of the WebAssembly virtual machine's call stack running out of memory, because the function calls have been entirely removed.
 
-\FloatBarrier
+\FloatBarrier%
 
 \subsection{Stack Allocation Policy}\label{sec:impl:optimised stack allocation}
 
@@ -986,7 +986,7 @@ Any variables that are simultaneously live \emph{clash}; i.e.\ they cannot be al
 
 The clash graph is an approximation whenever variable pointers are present.
 When a variable has its address taken, the pointer may be passed around the program as a value, so it is no longer possible to track exactly where the variable is accessed.
-Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable\footnote{Pointer analysis may be able to improve upon this to reduce the set of clashes for address-taken variables, but cannot solve the problem entirely.}.
+Therefore, to ensure safety of the optimisation, we make each address-taken variable clash with every other variable\footnote{Pointer analysis is able to reduce the set of clashes for address-taken variables, but cannot solve the problem entirely.}.
 I implemented this by storing a set of `universal clashes' in the clash graph; when checking if two variables clash, if one of them is a `universal clash', they clash even if they would otherwise not.
 
 \begin{listing}[t]
@@ -1013,7 +1013,7 @@ I implemented this by storing a set of `universal clashes' in the clash graph; w
 \subsubsection{Allocating Variables from the Clash Graph}
 
 In the Part II \emph{Optimising Compilers} course, a register allocation heuristic was described which allocates variables in order of most to least clashes.
-When each variable is allocated, it is allocated a register that maximally overlaps with already allocated variables, while avoiding those containing variables it clashes with.
+When each variable is allocated, it is allocated to a register that maximally overlaps with already allocated variables, while avoiding those containing variables that it clashes with.
 
 My variable allocation problem is similar in many regards, however it has some key differences.
 I am allocating variables in memory rather than to registers, so each variable occupies a byte \emph{range} rather than a single location.
@@ -1041,7 +1041,7 @@ This prioritises overlapping non-clashing variables at lower addresses; only var
 This keeps the stack size as small as possible.
 \Ccref{fig:optimised var allocation example} shows an example of the impact this optimisation has.
 
-\begin{figure}[t]
+\begin{figure}[!b]
   \hspace{2ex}
   \begin{sublisting}[b]{0.5\textwidth}
     \begin{TextListing}
@@ -1097,8 +1097,9 @@ In my heuristic, it is beneficial to have variables with fewer clashes at lower 
 
 \FloatBarrier % chktex 1
 
-\vspace{-1ex} % Make the summary fit on the bottom of the page below the table
+\vspace{-2ex} % Make the summary fit on the bottom of the page below the table
 \section{Repository Overview}
+\vspace{-1ex}
 
 I developed my project in a Git repository, ensuring to regularly push to the cloud for backup purposes.
 The high-level structure of the codebase is shown in \ccref{tab:repository structure}.
@@ -1113,7 +1114,7 @@ Throughout the project I learnt idiomatic ways of writing and structuring Rust c
 
 % Use `tabularx` when table doesn't span across pages, `xltabular` when it does
 \begingroup
-\smallskip
+% \smallskip
 \begin{xltabular}{\textwidth}{lX}
 \arrayrulecolor{TableHlineColour}
 \specialrule{\heavyrulewidth}{0pt}{0pt}
@@ -1144,8 +1145,9 @@ Throughout the project I learnt idiomatic ways of writing and structuring Rust c
 \captionof{table}{Repository structure.\protect\label{tab:repository structure}}
 \endgroup
 
-\vspace{-2ex} % Make the summary fit on the bottom of the page below the table
+\vspace{-5ex} % Make the summary fit on the bottom of the page below the table
 \section{Summary}
+\vspace{-1ex}
 
 % The compiler pipeline is split into the front, middle, and back ends.
 % The front end takes C source code, lexes it to a token stream, and parses it to generate an \gls{ast}.

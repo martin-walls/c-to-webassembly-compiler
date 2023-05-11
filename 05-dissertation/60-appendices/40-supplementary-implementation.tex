@@ -9,7 +9,7 @@ This appendix contains implementation details that are not the most important fe
 \section{Parsing String Escape Sequences}\label{app:sec:parsing string escape sequences}
 
 In C, string literals can contain escape sequences, such as \texttt{\char`\\n} to insert a new line character.
-The parser needs to be convert these to the literal characters they represent.
+The parser needs to convert these to the literal characters they represent.
 My compiler supports the escape codes described in \ccref{app:tab:supported string escape codes}.
 
 I implemented this by creating an iterator over the characters of the string, that replaces escape sequences as it emits characters (\ccref{app:lst:string escape iterator}).
@@ -19,7 +19,7 @@ The corresponding character is emitted as the next character from the iterator.
 When the current character is not a backslash, it is emitted unchanged.
 
 I wrapped this in an \RustInline{interpret_string} function that internally creates an instance of the iterator and collects the emitted characters back to a string.
-I also wrote a set of unit tests to verify the iterator was functioning correctly.
+I also wrote a set of unit tests to verify that the iterator was functioning correctly.
 
 \begin{table}[h]
   \centering
@@ -112,7 +112,7 @@ For example, the declarations \CInline{signed int x} and \CInline{int signed x} 
 To handle this, my parser first consumes all type specifier tokens of a declaration, then constructs an \RustInline{ArithmeticType} \gls{ast} node from them.
 It uses a bit field where each bit represents the presence of one of the type specifiers in the type.
 The bit field is the normalised representation of a type; every possible declaration that is equivalent to a type will have the same bit field.
-The declarations above would both construct the bit field \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int} respectively.
+The declarations above would both construct the bit field \RustInline{0b00010100}, where the two bits set represent \CInline{signed} and \CInline{int}, respectively.
 For each type specifier, the corresponding bit is set.
 Then, the bit field is matched against the possible valid types, to assign the type to the \gls{ast} node.
 \Ccref{app:lst:arithmetic type bitfield} shows my implementation.
@@ -185,7 +185,7 @@ It tracks the stack of nested loops and switch statements, so that when a \CInli
 In an object-oriented language, this would often be achieved by encapsulating the methods in an object and using private state inside the object.
 Rust, however, is not object-oriented, and I found this approach offered more modularity and flexibility.
 Firstly, the context information is encapsulated inside a separate data structure, allowing methods to be implemented on it that give calling functions access to the exact context information needed.
-It also enables creating different context objects for different purposes.
+It also enables different context objects to be created for different purposes.
 In the target code generation stage, the \RustInline{ModuleContext} stores information about the entire module being generated, whereas the \RustInline{FunctionContext} is used for each individual function being converted.
 The \RustInline{FunctionContext} has a shorter lifetime than the \RustInline{ModuleContext}, hence separating the data structures is ideal.
 
@@ -196,7 +196,7 @@ I created an \RustInline{Id} trait to abstract this concept, together with a gen
 IDs are generated inductively: each ID knows how to generate the next one.
 The ID generator internally tracks the highest ID that has been generated so far, so that the \gls{ir} can create as many IDs as necessary without needing to know anything about their implementation.
 
-\FloatBarrier
+\FloatBarrier % chktex 1
 
 \begin{listing}[!t]
   \begin{RustListing}

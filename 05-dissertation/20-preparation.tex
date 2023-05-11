@@ -16,7 +16,7 @@ The following sections provide an overview of the instruction set architecture.
 \subsection{Primitive Values}
 
 \Ccref{tab:wasm value types} below outlines the primitive values supported by WebAssembly.
-Booleans and memory addresses\footnote{I.e.\ addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.} are stored as integers.
+Booleans and memory addresses\footnote{That is, addresses within WebAssembly's sandboxed linear memory space, rather than function addresses etc.} are stored as integers.
 
 \begin{table}[t]
   \addtolength{\belowcaptionskip}{\medskipamount}
@@ -70,7 +70,7 @@ WebAssembly also provides vector types and reference types (mainly used for func
 % Vector instructions exist to operate on these values.
 % \WasmType{funcref} values are pointers to WebAssembly functions, and \WasmType{externref} values are pointers to other types of object that can be passed into WebAssembly. These would be used for indirect function calls, for example.
 This project does not have a need for either of these types; the C language has no vector types, and although a compiler could create them, mine will not.
-Additionally, I do not support function references in the scope of this project.
+Additionally, function references are not supported in the scope of this project.
 I will only use the four main integer and float types.
 
 \subsection{Instructions}
@@ -207,16 +207,16 @@ In other sections, imports and exports are declared, and data can be provided to
 \section{The Relooper Algorithm}\label{sec:prep:relooper}
 
 C allows arbitrary control flow with \CInline{goto} statements.
-However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs as described above.
+However, WebAssembly only has structured control flow, using \WasmInline{block}, \WasmInline{loop}, and \WasmInline{if} constructs, as described above.
 Therefore, once the intermediate code has been generated, it needs to be transformed to only have structured control flow.
 
 The most na\"{\i}ve solution is to use a label variable and one big \CInline{switch} statement containing all the basic blocks of the program; the label variable is set at the end of each block, and determines which block to switch to next.
-This is very inefficient.
+However, this is very inefficient.
 
 The first algorithm that solved this problem in the context of compiling to WebAssembly (and JavaScript, previously) was the Relooper algorithm, introduced by Emscripten~\ccite{emscripten}.
 In current Web\-Assembly compilers, there are three general methods used to convert to structured control flow: Emscripten's Relooper algorithm, LLVM's CFGStackify, and Cheerp's Stackifier~\ccite{wasm-control-flow-restructuring-thread,solving-structured-control-flow-problem}.
 All of these implementations, including the modern implementation of Relooper, have further optimisations on top of the original Relooper algorithm, hence are more complex.
-The original algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project.
+The original algorithm is a greedy algorithm, is well described in the paper, and is most suitable to implement in the scope of this project~\ccite{emscripten}.
 
 % \subsection{Input and Output}
 
@@ -289,7 +289,7 @@ Given a set of labels and entries, \ccref{alg:relooper} creates a block:
         \item
           Create a handled block for each entry that uniquely reaches labels, containing all those labels.
         \item
-          Construct the next block from the remaining labels. The entries are the remaining entries we did not create handled blocks from, plus any other possible branch targets out of the handled blocks.
+          Construct the next block from the remaining labels. The entries are the remaining entries that were not used for creating handled blocks, plus any other possible branch targets out of the handled blocks.
       \end{itemize}
 
     \item\label[algstep]{alg:relooper:create loop block after multiple block failed}
@@ -303,13 +303,13 @@ Given a set of labels and entries, \ccref{alg:relooper} creates a block:
 The Emscripten paper outlines a proof that this greedy approach will always succeed~\ccite[p.~10]{emscripten}.
 The core idea is that we can show that: (1) whenever the algorithm terminates, the block it outputs is correct with respect to the original program semantics; (2) the problem is strictly simplified every time a block is created, therefore the algorithm must terminate; and (3) the algorithm is always able to create a block from the input labels.
 Point (3) lies in the observation that if we reach \ccref{alg:relooper:create loop block after multiple block failed}, we must be able to create a loop block.
-This holds because if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
+This holds since, if we could not create a loop block, we would not be able to return to any of the entries; however, in that case it would be possible to create a multiple block in \ccref{alg:relooper:attempt to create multiple block}, because the entries would uniquely reach themselves.
 
 The algorithm replaces the branch instructions in the labels as it processes them.
 When creating a loop block, branch instructions to the start of the loop are replaced with a \CInline{continue}, and any branches to outside the loop are replaced with a \CInline{break} (all the branch targets outside the loop will be in the next block).
 When creating a handled block, branch instructions into the next block are replaced with an \CKeyword{endHandled} instruction.
 Each of these instructions is annotated with the unique identifier~(ID) of the block they act on, because blocks may be nested.
-Functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep the two distinct because they store IDs of different block types.
+Functionally, an \CKeyword{endHandled} instruction is equivalent to a \CInline{break}, but I chose to keep them distinct because they store IDs of different block types.
 
 In order to direct control flow when execution enters a multiple block, Relooper makes use of a label variable.
 Whenever a branch instruction is replaced, an instruction is inserted to set the label variable to the label ID of the branch target.
