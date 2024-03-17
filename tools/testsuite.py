@@ -8,7 +8,7 @@ from typing import Generator
 
 import yaml
 
-TEST_PROGRAMS_DIR = Path(__file__).parent.parent.parent.resolve() / "02-test-programs"
+TEST_PROGRAMS_DIR = Path(__file__).parent.parent.resolve() / "02-test-programs"
 TESTS_DIR = Path(__file__).parent.parent.resolve() / "tests"
 
 PROJECT_BUILD_PATH = Path(__file__).parent.parent.resolve() / "target" / "debug" / "c_to_wasm_compiler"

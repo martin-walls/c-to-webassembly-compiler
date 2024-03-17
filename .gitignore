@@ -1,4 +1,2 @@
-test/
-
-# ignore compiled output
-*.wasm
+target/
+tests/build/

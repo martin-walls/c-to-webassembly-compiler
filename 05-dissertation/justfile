@@ -1,5 +1,0 @@
-default:
-  just --list
-
-wc PDF:
-  pdftotext {{PDF}} - | wc --words

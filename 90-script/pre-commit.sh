@@ -6,7 +6,6 @@ then
   echo "Running pre-commit tests"
 
   # run tests
-  cd 03-code || exit
   # this makes sure the commit hook works when committing through CLion
   # without it, it can't find the path to `cargo`
   PATH=$PATH:/home/martin/.cargo/bin
